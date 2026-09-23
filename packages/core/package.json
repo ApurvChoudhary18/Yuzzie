@@ -23,7 +23,7 @@
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
-    "lint": "biome check .",
+    "lint": "biome check --error-on-warnings .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:coverage": "vitest run --coverage"
   },

@@ -24,3 +24,6 @@ pnpm-debug.log*
 # os
 .DS_Store
 Thumbs.db
+
+# transient bundle used by the store durability test
+.crash-test/

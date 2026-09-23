@@ -37,7 +37,7 @@ job, or an AI agent can all drive the same board.
 
 | Milestone | Sessions | State |
 | --- | --- | --- |
-| M0 — Foundation | 0–2 | Sessions 0–1 complete |
+| M0 — Foundation | 0–2 | Complete |
 | M1 — Server alive | 3–4 | Not started |
 | M2 — CLI usable | 5–7 | Not started |
 | M3 — TUI usable | 8–10 | Not started |
