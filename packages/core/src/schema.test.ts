@@ -360,6 +360,17 @@ describe('request bodies', () => {
     expect(CardUpdateRequestSchema.safeParse({ description: null }).success).toBe(true)
   })
 
+  it('accepts a column reference as the user typed it, but stores a canonical key', () => {
+    // §7.2 matches columns case-insensitively by prefix, so a request body has
+    // to carry `REV` even though the entity's key is `review`.
+    expect(CardMoveRequestSchema.safeParse({ column: 'REV' }).success).toBe(true)
+    expect(CardCreateRequestSchema.safeParse({ title: 'x', column: 'Doing' }).success).toBe(true)
+    expect(CardListQuerySchema.safeParse({ column: 'Done' }).success).toBe(true)
+
+    // The entity itself is still strict: a stored key is lowercase.
+    expect(CardSchema.safeParse({ ...makeCard(), column: 'Doing' }).success).toBe(false)
+  })
+
   it('CardMoveRequest requires a target column', () => {
     expect(CardMoveRequestSchema.safeParse({ column: 'review' }).success).toBe(true)
     expect(CardMoveRequestSchema.safeParse({ beforeCard: 3 }).success).toBe(false)

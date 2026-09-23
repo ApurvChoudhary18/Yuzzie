@@ -35,6 +35,12 @@ export const JSON_API_VERSION = 'yuzie/v1'
 const HANDLE_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*$/
 const COLUMN_KEY_PATTERN = /^[a-z0-9][a-z0-9_-]*$/
+/**
+ * What a *user* typed for a column: §7.2 matches it case-insensitively and by
+ * prefix, so a request body must accept `REV` even though the stored key is
+ * `review`. Entities keep the strict key pattern.
+ */
+const COLUMN_REF_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
 const SHA_PATTERN = /^[0-9a-f]{7,40}$/
 
 const uuid = () => z.uuid()
@@ -42,6 +48,7 @@ const isoDateTime = () => z.iso.datetime({ offset: true })
 const handle = () => z.string().min(1).max(39).regex(HANDLE_PATTERN)
 const slug = () => z.string().min(1).max(64).regex(SLUG_PATTERN)
 const columnKey = () => z.string().min(1).max(64).regex(COLUMN_KEY_PATTERN)
+const columnRef = () => z.string().min(1).max(64).regex(COLUMN_REF_PATTERN)
 const cardNumber = () => z.number().int().positive()
 const rank = () => z.string().refine(isValidRank, { message: 'Not a valid fractional index' })
 
@@ -345,8 +352,8 @@ export const BoardArchiveResponseSchema = z.object({
 export const ColumnCreateRequestSchema = z.object({
   name: z.string().min(1),
   key: columnKey().optional(),
-  /** Insert after this column key; omitted means append. */
-  after: columnKey().optional(),
+  /** Insert after this column; omitted means append. */
+  after: columnRef().optional(),
   semantics: ColumnSemanticsSchema.optional(),
   wipLimit: z.number().int().positive().optional(),
 })
@@ -364,7 +371,7 @@ export const AnchorInputSchema = z.object({
 })
 
 export const CardListQuerySchema = z.object({
-  column: columnKey().optional(),
+  column: columnRef().optional(),
   assignee: handle().optional(),
   label: z.string().min(1).optional(),
   mine: z.boolean().optional(),
@@ -385,7 +392,7 @@ export const CardListResponseSchema = z.object({
 export const CardCreateRequestSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
-  column: columnKey().optional(),
+  column: columnRef().optional(),
   assignees: z.array(handle()).optional(),
   labels: z.array(z.string().min(1)).optional(),
   dueAt: isoDateTime().optional(),
@@ -408,7 +415,7 @@ export const CardUpdateRequestSchema = z
   .refine((body) => Object.keys(body).length > 0, { message: 'No fields to update' })
 
 export const CardMoveRequestSchema = z.object({
-  column: columnKey(),
+  column: columnRef(),
   beforeCard: cardNumber().optional(),
   afterCard: cardNumber().optional(),
 })
@@ -506,6 +513,7 @@ export const IsoDateTimeSchema = isoDateTime()
 export const HandleSchema = handle()
 export const SlugSchema = slug()
 export const ColumnKeySchema = columnKey()
+export const ColumnRefSchema = columnRef()
 export const CardNumberSchema = cardNumber()
 export const RankSchema = rank()
 

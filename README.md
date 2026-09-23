@@ -38,7 +38,7 @@ job, or an AI agent can all drive the same board.
 | Milestone | Sessions | State |
 | --- | --- | --- |
 | M0 — Foundation | 0–2 | Complete |
-| M1 — Server alive | 3–4 | Not started |
+| M1 — Server alive | 3–4 | Session 3 complete |
 | M2 — CLI usable | 5–7 | Not started |
 | M3 — TUI usable | 8–10 | Not started |
 | M4 — Git-aware | 11–12 | Not started |
@@ -75,6 +75,11 @@ Local service dependencies for the server (from Session 3 onwards):
 ```sh
 docker compose up -d                    # postgres 16 + redis 7
 ```
+
+`@yuzie/server`'s tests run against a real Postgres through
+[testcontainers](https://node.testcontainers.org/), so they need a Docker runtime. Docker
+Desktop, colima and Rancher all work — the suite reads your active `docker context`, so no
+environment variables are required.
 
 Every user-visible change needs a changeset:
 
