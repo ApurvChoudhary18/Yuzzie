@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# task + test caches
+.turbo/
+coverage/
+.vitest/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# local yuzie state
+.yuzie/cache/
+.env
+.env.*
+!.env.example
+
+# os
+.DS_Store
+Thumbs.db

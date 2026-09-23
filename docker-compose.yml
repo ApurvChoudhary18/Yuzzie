@@ -1,0 +1,48 @@
+# Local development dependencies for @yuzie/server.
+#
+# Postgres is the authoritative store (SPEC.md §11.2). Redis is optional: it is
+# only required for multi-node fan-out, and single-node self-hosting falls back
+# to in-process pub/sub (SPEC.md §10.1).
+#
+#   docker compose up -d
+#
+# Not a production deployment. The published server image and a hardened compose
+# file land in Session 17.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: yuzie-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: yuzie
+      POSTGRES_PASSWORD: yuzie
+      POSTGRES_DB: yuzie
+    ports:
+      - "5432:5432"
+    volumes:
+      - yuzie-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yuzie -d yuzie"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: yuzie-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - yuzie-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  yuzie-pgdata:
+  yuzie-redisdata:

@@ -1,0 +1,38 @@
+{
+  "name": "@yuzie/cli",
+  "version": "0.1.0",
+  "description": "The yuzie command-line interface and interactive TUI.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "yuzie": "./dist/index.js",
+    "yz": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup && node -e \"require('fs').chmodSync('dist/index.js', 0o755)\"",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
