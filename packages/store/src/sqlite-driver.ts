@@ -187,6 +187,64 @@ function parseJsonArray<T>(raw: string): T[] {
  * indices are derived from this tuple rather than hard-coded, so the SQL and the
  * decoder cannot drift apart.
  */
+/**
+ * Child-row column orders, kept beside their SQL for the same reason the card
+ * columns are: these are read positionally, which skips building an object per
+ * row. A 2,000-card board carries several thousand child rows, so this is most
+ * of what remains of the read budget.
+ */
+const COMMENT_COLUMNS = ['id', 'card_number', 'author', 'body', 'created_at', 'edited_at'] as const
+const CHECKLIST_COLUMNS = ['id', 'card_number', 'position', 'text', 'done_at', 'done_by'] as const
+const GIT_COLUMNS = [
+  'card_number',
+  'branch',
+  'base_branch',
+  'commit_count',
+  'files_changed',
+  'additions',
+  'deletions',
+  'pushed',
+  'pr_url',
+  'pr_state',
+  'last_activity_at',
+] as const
+
+function commentFromRaw(row: readonly unknown[]): Comment {
+  return {
+    id: row[0] as string,
+    cardNumber: row[1] as number,
+    author: row[2] as string,
+    body: row[3] as string,
+    createdAt: row[4] as string,
+    editedAt: row[5] as string | null,
+  }
+}
+
+function checklistFromRaw(row: readonly unknown[]): ChecklistItem {
+  return {
+    id: row[0] as string,
+    position: row[2] as number,
+    text: row[3] as string,
+    doneAt: row[4] as string | null,
+    doneBy: row[5] as string | null,
+  }
+}
+
+function gitFromRaw(row: readonly unknown[]): GitSummary {
+  return {
+    branch: row[1] as string | null,
+    baseBranch: row[2] as string | null,
+    commits: row[3] as number,
+    filesChanged: row[4] as number,
+    additions: row[5] as number,
+    deletions: row[6] as number,
+    pushed: (row[7] as number) !== 0,
+    prUrl: row[8] as string | null,
+    prState: row[9] as string | null,
+    lastActivityAt: row[10] as string | null,
+  }
+}
+
 const CARD_COLUMNS = [
   'number',
   'id',
@@ -410,9 +468,11 @@ export function openSqliteCache(options: SqliteCacheOptions): YuzieCache {
     cardDelete: db.prepare('DELETE FROM cards WHERE board_slug = ? AND number = ?'),
     cardCount: db.prepare('SELECT count(*) AS n FROM cards WHERE board_slug = ?'),
 
-    commentsAll: db.prepare(
-      'SELECT id, card_number, author, body, created_at, edited_at FROM comments WHERE board_slug = ? ORDER BY created_at, id',
-    ),
+    commentsAll: db
+      .prepare(
+        `SELECT ${COMMENT_COLUMNS.join(', ')} FROM comments WHERE board_slug = ? ORDER BY created_at, id`,
+      )
+      .raw(),
     commentsByCard: db.prepare(
       'SELECT id, card_number, author, body, created_at, edited_at FROM comments WHERE board_slug = ? AND card_number = ? ORDER BY created_at, id',
     ),
@@ -428,9 +488,11 @@ export function openSqliteCache(options: SqliteCacheOptions): YuzieCache {
       'DELETE FROM comments WHERE board_slug = ? AND card_number = ?',
     ),
 
-    checklistAll: db.prepare(
-      'SELECT id, card_number, position, text, done_at, done_by FROM checklist_items WHERE board_slug = ? ORDER BY position, id',
-    ),
+    checklistAll: db
+      .prepare(
+        `SELECT ${CHECKLIST_COLUMNS.join(', ')} FROM checklist_items WHERE board_slug = ? ORDER BY position, id`,
+      )
+      .raw(),
     checklistByCard: db.prepare(
       'SELECT id, card_number, position, text, done_at, done_by FROM checklist_items WHERE board_slug = ? AND card_number = ? ORDER BY position, id',
     ),
@@ -446,11 +508,9 @@ export function openSqliteCache(options: SqliteCacheOptions): YuzieCache {
       'DELETE FROM checklist_items WHERE board_slug = ? AND card_number = ?',
     ),
 
-    gitAll: db.prepare(
-      `SELECT card_number, branch, base_branch, commit_count, files_changed, additions, deletions,
-              pushed, pr_url, pr_state, last_activity_at
-       FROM git_links WHERE board_slug = ?`,
-    ),
+    gitAll: db
+      .prepare(`SELECT ${GIT_COLUMNS.join(', ')} FROM git_links WHERE board_slug = ?`)
+      .raw(),
     gitByCard: db.prepare(
       `SELECT card_number, branch, base_branch, commit_count, files_changed, additions, deletions,
               pushed, pr_url, pr_state, last_activity_at
@@ -570,15 +630,15 @@ export function openSqliteCache(options: SqliteCacheOptions): YuzieCache {
           : allRows<unknown[]>(sql.cardListByColumn, boardSlug, filter.column)
 
       const commentsByCard = groupBy(
-        allRows<CommentRow>(sql.commentsAll, boardSlug),
-        (row) => row.card_number,
+        allRows<unknown[]>(sql.commentsAll, boardSlug),
+        (row) => row[1] as number,
       )
       const checklistByCard = groupBy(
-        allRows<ChecklistRow>(sql.checklistAll, boardSlug),
-        (row) => row.card_number,
+        allRows<unknown[]>(sql.checklistAll, boardSlug),
+        (row) => row[1] as number,
       )
       const gitByCard = new Map(
-        allRows<GitRow>(sql.gitAll, boardSlug).map((row) => [row.card_number, gitFromRow(row)]),
+        allRows<unknown[]>(sql.gitAll, boardSlug).map((row) => [row[0] as number, gitFromRaw(row)]),
       )
 
       const result: Card[] = []
@@ -588,8 +648,8 @@ export function openSqliteCache(options: SqliteCacheOptions): YuzieCache {
         const checklistRows = checklistByCard.get(number)
         const card = cardFromRawRow(
           row,
-          commentRows === undefined ? EMPTY_COMMENTS : commentRows.map(commentFromRow),
-          checklistRows === undefined ? EMPTY_CHECKLIST : checklistRows.map(checklistFromRow),
+          commentRows === undefined ? EMPTY_COMMENTS : commentRows.map(commentFromRaw),
+          checklistRows === undefined ? EMPTY_CHECKLIST : checklistRows.map(checklistFromRaw),
           gitByCard.get(number),
         )
         if (!matchesFilter(card, filter)) continue

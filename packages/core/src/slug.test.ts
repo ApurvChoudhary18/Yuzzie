@@ -97,6 +97,16 @@ describe('branchFor', () => {
     expect(isValidBranchName(branch)).toBe(true)
   })
 
+  it('refuses a card number that is not a positive integer', () => {
+    // `task/NaN-...` and `task/undefined-...` are valid Git refs, so nothing
+    // downstream would reject them.
+    const bad = [Number.NaN, 0, -1, 1.5, undefined] as unknown as number[]
+    for (const number of bad) {
+      expect(() => branchFor({ number, title: 'Fix OAuth' })).toThrow(ValidationError)
+    }
+    expect(branchFor({ number: 1, title: 'Fix OAuth' })).toBe('task/1-fix-oauth')
+  })
+
   it('fails loudly on a mistyped placeholder', () => {
     expect(() => branchFor(card, 'task/{brnach}-{slug}')).toThrow(ValidationError)
     expect(() => branchFor(card, 'task/{brnach}-{slug}')).toThrow(/Supported: \{id\}/)

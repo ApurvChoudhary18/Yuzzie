@@ -87,6 +87,16 @@ export function branchFor(
   template: string = DEFAULT_BRANCH_TEMPLATE,
   context: BranchContext = {},
 ): string {
+  // `task/NaN-fix-oauth` is a *valid* Git ref, so nothing downstream would catch
+  // a card number that failed to parse. Reject it at the source.
+  if (!Number.isInteger(card.number) || card.number < 1) {
+    throw new ValidationError(
+      'validation_failed',
+      `Cannot build a branch for card number ${JSON.stringify(card.number)}: expected a positive integer`,
+      { details: { number: card.number } },
+    )
+  }
+
   const slug = slugify(card.title, context.slugMaxLength ?? DEFAULT_SLUG_MAX_LENGTH)
 
   const rendered = template.replace(PLACEHOLDER, (match, rawName: string) => {

@@ -47,6 +47,26 @@ export async function buildServer(options: BuildServerOptions): Promise<YuzieSer
     bodyLimit: 1024 * 1024,
   })
 
+  // Fastify rejects an empty body when `Content-Type: application/json` is set,
+  // but that is exactly what `fetch` and most HTTP clients send for a POST with
+  // no payload — `POST /auth/device` takes none. Treat it as `{}`.
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_request, payload, done) => {
+    const text = typeof payload === 'string' ? payload.trim() : ''
+    if (text.length === 0) {
+      done(null, {})
+      return
+    }
+    try {
+      done(null, JSON.parse(text) as unknown)
+    } catch {
+      const error = new Error('Request body is not valid JSON') as Error & {
+        statusCode?: number
+      }
+      error.statusCode = 400
+      done(error, undefined)
+    }
+  })
+
   registerErrorHandler(app)
 
   if (options.config.rateLimitEnabled) {

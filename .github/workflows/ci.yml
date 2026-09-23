@@ -55,3 +55,9 @@ jobs:
 
       - name: CLI binary prints a version
         run: node packages/cli/dist/index.js --version
+
+      # Performance budgets run alone, so they measure the code rather than the
+      # runner. Linux only: the macOS legs skip @yuzie/server and are noisier.
+      - name: Performance budgets
+        if: runner.os == 'Linux'
+        run: pnpm turbo bench --concurrency=1

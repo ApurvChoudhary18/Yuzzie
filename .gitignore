@@ -26,4 +26,4 @@ pnpm-debug.log*
 Thumbs.db
 
 # transient bundle used by the store durability test
-.crash-test/
+.crash-test*/

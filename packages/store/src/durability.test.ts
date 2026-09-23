@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { BUNDLE_DIR, buildRunnableBundle, removeRunnableBundle } from './__tests__/bundle.js'
+import { BUNDLE_DIR } from './__tests__/bundle.js'
 import { openJsonCache } from './json-driver.js'
 import { openSqliteCache } from './sqlite-driver.js'
 import type { CacheDriverKind, YuzieCache } from './types.js'
@@ -74,14 +74,12 @@ describe('a process killed mid-write', () => {
   let scriptPath: string
 
   beforeAll(() => {
-    buildRunnableBundle()
     scriptPath = join(BUNDLE_DIR, 'crash.mjs')
     writeFileSync(scriptPath, CRASH_SCRIPT, 'utf8')
     workspace = mkdtempSync(join(tmpdir(), 'yuzie-crash-'))
   })
 
   afterAll(() => {
-    removeRunnableBundle()
     rmSync(workspace, { recursive: true, force: true })
   })
 
