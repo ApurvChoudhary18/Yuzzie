@@ -1,6 +1,14 @@
 /**
- * @yuzie/core — Domain types, zod schemas, events, and the pure board reducer.
+ * `@yuzie/core` — the single source of truth for the Yuzie domain (SPEC.md §10.2).
  *
- * Session 0 placeholder. Product logic arrives in a later session; see SPEC.md §18.
+ * No I/O lives here. The only runtime capability used is `crypto.randomUUID`,
+ * which keeps the package importable in a browser as well as in Node.
  */
-export const PACKAGE_NAME = '@yuzie/core' as const
+export * from './errors.js'
+export * from './events.js'
+export * from './ids.js'
+export * from './rank.js'
+export * from './reducer.js'
+export * from './schema.js'
+export * from './slug.js'
+export * from './types.js'
