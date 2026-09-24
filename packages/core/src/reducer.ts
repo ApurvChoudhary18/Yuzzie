@@ -102,7 +102,10 @@ function reduce(state: BoardState, event: EventEnvelope): BoardState {
         const { added, removed } = event.payload
         const kept = card.assignees.filter((handle) => !removed.includes(handle))
         const appended = added.filter((handle) => !kept.includes(handle))
-        return { ...card, assignees: [...kept, ...appended], updatedAt: event.ts }
+        // Assignees are a set, kept in handle order: the server stores no order
+        // and returns them sorted, so folding events must land on the same array
+        // a snapshot would, or two clients would disagree about one card.
+        return { ...card, assignees: [...kept, ...appended].sort(), updatedAt: event.ts }
       })
 
     case 'card.deleted': {
@@ -162,7 +165,8 @@ function reduce(state: BoardState, event: EventEnvelope): BoardState {
         git: {
           ...(card.git ?? EMPTY_GIT),
           ...defined(event.payload),
-          lastActivityAt: event.ts,
+          // The server's stored value when it sends one; older servers did not.
+          lastActivityAt: event.payload.lastActivityAt ?? event.ts,
         },
         updatedAt: event.ts,
       }))
@@ -170,9 +174,13 @@ function reduce(state: BoardState, event: EventEnvelope): BoardState {
     case 'card.commits.attached':
       return withCard(state, event.cardNo, (card) => {
         const known = new Set(card.commits.map((commit) => commit.sha))
+        const full = new Map((event.payload.commits ?? []).map((commit) => [commit.sha, commit]))
         const added: Commit[] = event.payload.shas
           .filter((sha) => !known.has(sha))
-          .map((sha) => ({ sha, message: null, author: event.actor, committedAt: event.ts }))
+          .map(
+            (sha) =>
+              full.get(sha) ?? { sha, message: null, author: event.actor, committedAt: event.ts },
+          )
         if (added.length === 0) return card
         return { ...card, commits: [...card.commits, ...added], updatedAt: event.ts }
       })
@@ -233,7 +241,17 @@ function reduce(state: BoardState, event: EventEnvelope): BoardState {
  */
 export function applyEvent(state: BoardState, event: EventEnvelope): BoardState {
   if (event.seq <= state.seq) return state
-  return { ...reduce(state, event), seq: event.seq }
+  const next = reduce(state, event)
+  const number = event.type === 'card.created' ? event.payload.number : event.cardNo
+  const card = number === undefined ? undefined : next.cards[number]
+  if (event.version === undefined || card === undefined || card.version === event.version) {
+    return { ...next, seq: event.seq }
+  }
+  return {
+    ...next,
+    cards: { ...next.cards, [card.number]: { ...card, version: event.version } },
+    seq: event.seq,
+  }
 }
 
 /**

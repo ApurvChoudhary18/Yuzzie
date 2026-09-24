@@ -212,6 +212,7 @@ export const events = pgTable(
     payload: jsonb('payload').notNull(),
     createdAt: createdAt(),
     idempotencyKey: text('idempotency_key'),
+    cardVersion: integer('card_version'),
   },
   (table) => [primaryKey({ columns: [table.boardId, table.seq] })],
 )

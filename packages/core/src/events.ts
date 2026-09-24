@@ -89,6 +89,12 @@ export const CardBranchLinkedPayloadSchema = z.object({
   branch: z.string().min(1),
   base: z.string().min(1).nullable(),
 })
+/**
+ * §12.3 lists `{ commits, filesChanged, additions, deletions, pushed, prUrl }`.
+ * `prState` and `lastActivityAt` are included for the same reason as the anchor
+ * payload below: the server stores them, and an event that could not carry them
+ * would leave every client that folds events disagreeing with a snapshot.
+ */
 export const CardGitUpdatedPayloadSchema = GitSummarySchema.pick({
   commits: true,
   filesChanged: true,
@@ -96,9 +102,17 @@ export const CardGitUpdatedPayloadSchema = GitSummarySchema.pick({
   deletions: true,
   pushed: true,
   prUrl: true,
+  prState: true,
+  lastActivityAt: true,
 }).partial()
+/**
+ * §12.3 lists `{ shas: [] }`. The full records ride along in `commits` so a
+ * client folding the event keeps the message and commit time the server stored,
+ * instead of inventing them; `shas` stays for compatibility.
+ */
 export const CardCommitsAttachedPayloadSchema = z.object({
   shas: z.array(CommitSchema.shape.sha).min(1),
+  commits: z.array(CommitSchema).optional(),
 })
 /**
  * §12.3 lists `{ path, line }`; `endLine` and `commitSha` are included because
@@ -138,6 +152,13 @@ const envelopeBase = {
   actor: HandleSchema.nullable(),
   /** Echoed back so an optimistic client can drop its own write (§12.2). */
   idempotencyKey: z.string().min(1).optional(),
+  /**
+   * The card's version after this event. The server bumps a card's version on
+   * every mutation, not only on `card.updated`, so without this a client folding
+   * events would hold a stale version and its next `If-Match` would conflict
+   * with a write that never touched the same fields.
+   */
+  version: z.number().int().positive().optional(),
   ts: IsoDateTimeSchema,
 }
 
