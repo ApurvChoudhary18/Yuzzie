@@ -6,7 +6,7 @@
   "description": "Yuzie \u2014 a real-time, Git-aware kanban board for your team, in your terminal.",
   "packageManager": "pnpm@10.33.1",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "build": "turbo build",

@@ -62,7 +62,7 @@ e2e/                       cross-package end-to-end tests (journeys §6)
 
 ## Development
 
-Requires Node 20+ (CI covers 20, 22, 24) and pnpm.
+Requires Node 22+ (CI covers 22 and 24) and pnpm.
 
 ```sh
 pnpm install

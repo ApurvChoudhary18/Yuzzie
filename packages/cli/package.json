@@ -18,7 +18,7 @@
     "dist"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "build": "tsup && node -e \"require('fs').chmodSync('dist/index.js', 0o755)\"",
