@@ -22,7 +22,7 @@ Product & Engineering Spec · v1.0 · 19 August 2026
 | Date | 19 August 2026 |
 | Status | Approved for build |
 | Primary implementation agent | Claude Code |
-| Primary language | TypeScript (Node.js 20+) |
+| Primary language | TypeScript (Node.js 22+) |
 | Intended readers | Implementing engineers, Claude Code sessions, future contributors |
 
 **How to use this document.** Sections 1–13 are the product and architecture contract:
@@ -833,7 +833,7 @@ yuzie/
 
 | Concern | Choice | Rationale | Rejected alternatives |
 | --- | --- | --- | --- |
-| Language | TypeScript 5.x, Node 20+ | One language across CLI, server, SDK; best terminal-UI ecosystem; npx distribution is native. | Go (better binaries, worse TUI/React ecosystem and no npm-native distribution); Rust (slowest to build for a solo/small team). |
+| Language | TypeScript 5.x, Node 22+ | One language across CLI, server, SDK; best terminal-UI ecosystem; npx distribution is native. | Go (better binaries, worse TUI/React ecosystem and no npm-native distribution); Rust (slowest to build for a solo/small team). |
 | Python | Not used. | No component benefits. A Python client may ship post-v1 as a thin wrapper over the REST API. | — |
 | CLI parsing | `commander` | Mature, small, good subcommand + help ergonomics. | `yargs` (heavier), `oclif` (too much framework). |
 | TUI | `ink` (React for CLI) + `ink-testing-library` | Component model, diffing renderer, testable, hooks fit the realtime model. | `blessed` (unmaintained, imperative), raw ANSI (unmaintainable at this scope). |
@@ -1489,7 +1489,7 @@ S0 ─► S1 ─┬─► S2 ─► S3 ─► S4 ─┬─► S5 ─┬─► S6
 - tsup config per package; `@yuzie/cli` emits a shebanged single-file bin.
 - Biome config, `.editorconfig`, `.nvmrc` (Node 22).
 - Changesets initialised.
-- GitHub Actions: matrix Node 20/22/24 × ubuntu/macos, running install → build → test → lint → typecheck.
+- GitHub Actions: matrix Node 22/24 × ubuntu/macos, running install → build → test → lint → typecheck.
 - `SPEC.md` (this document) committed at root; `README.md` skeleton with the pitch from §2.
 - `docker-compose.yml` for Postgres + Redis (dev only).
 
@@ -1509,7 +1509,7 @@ Set up a pnpm + turborepo TypeScript monorepo exactly matching the layout in
 vitest, linted with biome. packages/cli must build to a single shebanged
 executable at packages/cli/dist/index.js that prints its version.
 
-Add GitHub Actions CI (matrix: node 20/22/24 on ubuntu + macos) running
+Add GitHub Actions CI (matrix: node 22/24 on ubuntu + macos) running
 install, build, test, lint, typecheck. Initialise changesets. Add a
 docker-compose.yml with postgres 16 and redis 7 for local dev.
 

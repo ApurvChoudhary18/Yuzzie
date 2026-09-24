@@ -8,7 +8,7 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm'],
-  target: 'node20',
+  target: 'node22',
   // A single shebanged file so `npx yuzie` is one fetch and one process.
   bundle: true,
   splitting: false,

@@ -33,7 +33,7 @@ export function buildRunnableBundle(): void {
       '.crash-test',
       '--no-dts',
       '--target',
-      'node20',
+      'node22',
       '--external',
       'better-sqlite3',
     ],
