@@ -148,6 +148,7 @@ async function appendEvents(
       cardNo: draft.cardNo ?? null,
       payload: envelope.payload as Record<string, unknown>,
       createdAt: ts,
+      idempotencyKey: idempotencyKey ?? null,
     })
 
     envelopes.push(envelope)

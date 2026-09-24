@@ -30,25 +30,30 @@
   },
   "devDependencies": {
     "@testcontainers/postgresql": "^11.14.0",
+    "@testcontainers/redis": "^11.14.0",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^22.10.0",
     "@types/pg": "^8.23.1",
+    "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^3.2.7",
     "drizzle-kit": "^0.31.11",
     "testcontainers": "^11.14.0",
     "tsup": "^8.3.0",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "vitest": "^3.0.0",
+    "ws": "^8.21.3"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.0",
+    "@fastify/websocket": "^11.3.1",
     "@prometheus-io/client": "^0.16.1",
     "@yuzie/core": "workspace:^",
     "drizzle-orm": "^0.45.3",
     "fastify": "^5.12.5",
+    "ioredis": "^6.0.0",
     "pg": "^8.23.0",
     "zod": "^4.6.5"
   },

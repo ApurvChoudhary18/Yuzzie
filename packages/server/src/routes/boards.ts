@@ -14,7 +14,7 @@ import {
   slugify,
   TokenCreateRequestSchema,
 } from '@yuzie/core'
-import { and, asc, eq, gt, isNull } from 'drizzle-orm'
+import { and, asc, eq, isNull } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { authorizeOn } from '../auth/context.js'
@@ -24,15 +24,16 @@ import {
   boards,
   cards,
   columns,
-  events,
   labels,
   memberships,
   users,
   workspaces,
 } from '../db/schema.js'
+import { loadEvents } from '../services/log.js'
 import { currentSeq, mutateBoard } from '../services/mutate.js'
 import {
   loadMembers,
+  toBoard,
   toColumn,
   toIso,
   toIsoRequired,
@@ -55,21 +56,6 @@ const DEFAULT_COLUMNS: ReadonlyArray<{ name: string; semantics: ColumnSemantics 
   { name: 'Review', semantics: 'review' },
   { name: 'Done', semantics: 'terminal' },
 ]
-
-function serializeBoard(row: typeof boards.$inferSelect) {
-  return {
-    id: row.id,
-    workspaceId: row.workspaceId,
-    slug: row.slug,
-    name: row.name,
-    repoRemote: row.repoRemote,
-    baseBranch: row.baseBranch,
-    branchTemplate: row.branchTemplate,
-    nextCardNo: row.nextCardNo,
-    archivedAt: toIso(row.archivedAt),
-    createdAt: toIsoRequired(row.createdAt),
-  }
-}
 
 export function registerBoardRoutes(app: FastifyInstance, context: AppContext): void {
   const { db } = context
@@ -101,7 +87,7 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
       .where(eq(memberships.userId, auth.user.id))
       .orderBy(asc(boards.slug))
 
-    return reply.send({ boards: rows.map((row) => serializeBoard(row.board)) })
+    return reply.send({ boards: rows.map((row) => toBoard(row.board)) })
   })
 
   app.post('/boards', async (request, reply) => {
@@ -173,7 +159,7 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
         return row
       })
 
-      return created(serializeBoard(board))
+      return created(toBoard(board))
     })
   })
 
@@ -193,7 +179,7 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
     const members = await loadMembers(db, access.board.id)
 
     return reply.send({
-      board: serializeBoard(access.board),
+      board: toBoard(access.board),
       columns: columnRows.map(toColumn),
       labels: labelRows.map(toLabel),
       members,
@@ -229,7 +215,7 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
         { idempotencyKey, bus: context.bus },
       )
 
-      return ok(serializeBoard(value))
+      return ok(toBoard(value))
     })
   })
 
@@ -395,34 +381,16 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
         throw boardError('validation_failed', '`since` must be a non-negative integer')
       }
 
-      const rows = await db
-        .select({ event: events, actor: users.handle })
-        .from(events)
-        .leftJoin(users, eq(events.actorId, users.id))
-        .where(and(eq(events.boardId, access.board.id), gt(events.seq, since)))
-        .orderBy(asc(events.seq))
-        .limit(limit)
-
       return reply.send({
-        events: rows.map(({ event, actor }) => ({
-          id: event.id,
-          seq: Number(event.seq),
-          type: event.type,
-          actor,
-          ...(event.cardNo === null ? {} : { cardNo: event.cardNo }),
-          payload: event.payload,
-          ts: toIsoRequired(event.createdAt),
-        })),
+        events: await loadEvents(db, access.board.id, { since, limit }),
         seq: await currentSeq(db, access.board.id),
       })
     },
   )
 
   app.get<{ Params: { slug: string } }>('/boards/:slug/presence', async (request, reply) => {
-    // Presence is transient and lives in the realtime gateway (Session 4). Until
-    // then the snapshot is honestly empty rather than absent.
-    await requireBoard(context, request, request.params.slug)
-    return reply.send({ users: [] })
+    const { access } = await requireBoard(context, request, request.params.slug)
+    return reply.send({ users: context.presence(access.board.id) })
   })
 
   app.get('/tokens', async (request, reply) => {

@@ -33,6 +33,42 @@ export const ConfigSchema = z.object({
     .default(15 * 60 * 1000),
   devicePollIntervalSeconds: z.number().int().positive().default(5),
   logLevel: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+
+  // --- Realtime gateway (§12.2, §14.1, §18 Session 4) ---------------------------
+  /** Multi-node fan-out. Unset means in-process pub/sub, which is all one node needs. */
+  redisUrl: z.string().min(1).optional(),
+  /** §14.1: at most two connections per user per board. */
+  wsMaxConnectionsPerUser: z.number().int().positive().default(2),
+  /** §12.2: resume by replay up to this gap; beyond it, a snapshot. */
+  wsReplayLimit: z.number().int().positive().default(500),
+  /** Frames a connection may have waiting before it is reset with a snapshot. */
+  wsOutboundQueueLimit: z.number().int().positive().default(1024),
+  /** Bytes handed to a socket but not yet flushed, before frames queue instead. */
+  wsMaxInflightBytes: z
+    .number()
+    .int()
+    .positive()
+    .default(1024 * 1024),
+  /** A client being reset that has not drained within this is disconnected. */
+  wsResetTimeoutMs: z.number().int().positive().default(30_000),
+  /** §12.2: the server closes after 45 s of silence. */
+  wsHeartbeatTimeoutMs: z.number().int().positive().default(45_000),
+  wsHelloTimeoutMs: z.number().int().positive().default(10_000),
+  /** §14.1 message rate cap: a token bucket of this size, refilled per second. */
+  wsMessageBurst: z.number().int().positive().default(40),
+  wsMessagesPerSecond: z.number().positive().default(20),
+  /** §12.2: presence expires 60 s after the last heartbeat. */
+  presenceTtlMs: z.number().int().positive().default(60_000),
+  /**
+   * How often a board with subscribers checks its head against the event log.
+   * Pub/sub is at-most-once; a lost *final* event has no successor to reveal the
+   * gap, so this bounds how long a client can go without it.
+   */
+  wsHeadCheckMs: z.number().int().positive().default(5_000),
+  /** How often timeouts and expiry are checked; bounds how late expiry can be. */
+  presenceSweepMs: z.number().int().positive().default(5_000),
+  /** §18 Session 4: presence broadcast coalesced to at most 5 Hz. */
+  presenceBroadcastIntervalMs: z.number().int().positive().default(200),
 })
 
 export type ServerConfig = z.infer<typeof ConfigSchema>
@@ -56,6 +92,7 @@ export function loadConfig(
     publicUrl: env.YUZIE_PUBLIC_URL,
     signupMode: env.YUZIE_SIGNUP as ServerConfigInput['signupMode'],
     logLevel: env.LOG_LEVEL as ServerConfigInput['logLevel'],
+    redisUrl: env.REDIS_URL,
   }
 
   const merged: Record<string, unknown> = {}

@@ -7,6 +7,7 @@
  */
 import type {
   Anchor,
+  Board,
   Card,
   ChecklistItem,
   Column,
@@ -24,6 +25,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import type { Database } from '../db/client.js'
 import {
   anchors,
+  type boards,
   cardAssignees,
   cardLabels,
   cards,
@@ -45,6 +47,21 @@ export function toIso(value: Date | string | null): string | null {
 
 export function toIsoRequired(value: Date | string): string {
   return toIso(value) ?? new Date(0).toISOString()
+}
+
+export function toBoard(row: typeof boards.$inferSelect): Board {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    slug: row.slug,
+    name: row.name,
+    repoRemote: row.repoRemote,
+    baseBranch: row.baseBranch,
+    branchTemplate: row.branchTemplate,
+    nextCardNo: row.nextCardNo,
+    archivedAt: toIso(row.archivedAt),
+    createdAt: toIsoRequired(row.createdAt),
+  }
 }
 
 export function toUser(row: typeof users.$inferSelect): User {

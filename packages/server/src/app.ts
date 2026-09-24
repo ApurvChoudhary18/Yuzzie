@@ -2,6 +2,7 @@
  * The Fastify application (SPEC.md §10.3, §12.1).
  */
 import rateLimit from '@fastify/rate-limit'
+import websocket from '@fastify/websocket'
 import { boardError } from '@yuzie/core'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { hashToken } from './auth/tokens.js'
@@ -9,6 +10,9 @@ import type { ServerConfig } from './config.js'
 import type { Database } from './db/client.js'
 import { registerErrorHandler } from './http/errors.js'
 import { createMetrics, type Metrics } from './http/metrics.js'
+import { createGateway, type Gateway, selectProtocol } from './realtime/gateway.js'
+import { createMemoryPubSub, type PubSub } from './realtime/pubsub.js'
+import { createRedisPubSub } from './realtime/redis.js'
 import { registerAuthRoutes } from './routes/auth.js'
 import { registerBoardRoutes } from './routes/boards.js'
 import { registerCardRoutes } from './routes/cards.js'
@@ -21,19 +25,28 @@ export interface BuildServerOptions {
   readonly config: ServerConfig
   readonly db: Database
   readonly metrics?: Metrics
-  /** Session 4's gateway supplies its own so it can subscribe to the fan-out. */
+  /** Supplied by tests that want to observe or inject committed events. */
   readonly bus?: EventBus
+  /**
+   * The cross-node broker. Defaults to Redis when `redisUrl` is configured and to
+   * in-process otherwise. One passed in here is not closed with the server.
+   */
+  readonly pubsub?: PubSub
+  /** Names this node to the others sharing the broker. */
+  readonly nodeId?: string
+  /** The realtime gateway's clock; tests move it to exercise 45 s and 60 s timeouts. */
+  readonly now?: () => number
 }
 
 export interface YuzieServer {
   readonly app: FastifyInstance
   readonly context: AppContext
+  readonly gateway: Gateway
 }
 
 export async function buildServer(options: BuildServerOptions): Promise<YuzieServer> {
   const metrics = options.metrics ?? createMetrics()
   const bus = options.bus ?? createEventBus()
-  const context: AppContext = { config: options.config, db: options.db, metrics, bus }
 
   bus.subscribe((_boardId, committed) => {
     for (const event of committed) metrics.events.labels({ type: event.type }).inc()
@@ -45,6 +58,51 @@ export async function buildServer(options: BuildServerOptions): Promise<YuzieSer
     // concern, not something to guess at here.
     trustProxy: false,
     bodyLimit: 1024 * 1024,
+  })
+
+  const ownsPubsub = options.pubsub === undefined
+  const pubsub =
+    options.pubsub ??
+    (options.config.redisUrl === undefined
+      ? createMemoryPubSub()
+      : await createRedisPubSub(options.config.redisUrl, {
+          onError: (error) => app.log.warn({ err: error }, 'redis connection error'),
+        }))
+
+  const gateway = createGateway({
+    config: options.config,
+    db: options.db,
+    metrics,
+    bus,
+    pubsub,
+    log: app.log,
+    ...(options.nodeId === undefined ? {} : { nodeId: options.nodeId }),
+    ...(options.now === undefined ? {} : { now: options.now }),
+  })
+
+  const context: AppContext = {
+    config: options.config,
+    db: options.db,
+    metrics,
+    bus,
+    presence: (boardId) => gateway.presence(boardId),
+  }
+
+  // Close streams with 1001 before the websocket plugin's own preClose, which
+  // would otherwise close them without a reason a client can act on.
+  app.addHook('preClose', async () => {
+    await gateway.close()
+  })
+  app.addHook('onClose', async () => {
+    if (ownsPubsub) await pubsub.close()
+  })
+
+  await app.register(websocket, {
+    options: {
+      // Client frames are a few hundred bytes at most (§12.2).
+      maxPayload: 16 * 1024,
+      handleProtocols: selectProtocol,
+    },
   })
 
   // Fastify rejects an empty body when `Content-Type: application/json` is set,
@@ -124,9 +182,10 @@ export async function buildServer(options: BuildServerOptions): Promise<YuzieSer
       registerAuthRoutes(instance, context)
       registerBoardRoutes(instance, context)
       registerCardRoutes(instance, context)
+      gateway.register(instance)
     },
     { prefix: '/v1' },
   )
 
-  return { app, context }
+  return { app, context, gateway }
 }

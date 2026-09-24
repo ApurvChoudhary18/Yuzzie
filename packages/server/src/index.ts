@@ -1,8 +1,8 @@
 /**
  * `@yuzie/server` — the authoritative Yuzie service (SPEC.md §10.1).
  *
- * The realtime gateway (§12.2) arrives in Session 4; everything here is the REST
- * surface in §12.1.
+ * The REST surface in §12.1 and the realtime gateway in §12.2, over Postgres,
+ * with Redis as an optional broker between nodes.
  */
 export { type BuildServerOptions, buildServer, type YuzieServer } from './app.js'
 export {
@@ -39,7 +39,20 @@ export {
   withIdempotency,
 } from './http/idempotency.js'
 export { createMetrics, type Metrics } from './http/metrics.js'
+export {
+  createGateway,
+  type Gateway,
+  type GatewayOptions,
+  type GatewayStats,
+  selectProtocol,
+  upgradeAuthorization,
+} from './realtime/gateway.js'
+export { type EnqueueResult, type OutboundLimits, OutboundQueue } from './realtime/outbound.js'
+export { BoardPresence, mergeByHandle } from './realtime/presence.js'
+export { createMemoryPubSub, type PubSub, type PubSubHandler } from './realtime/pubsub.js'
+export { createRedisPubSub, type RedisPubSubOptions } from './realtime/redis.js'
 export { createEventBus, type EventBus, type EventListener } from './services/event-bus.js'
+export { type LoadEventsOptions, loadEvents, loadSnapshot, type Snapshot } from './services/log.js'
 export { currentSeq, mutateBoard } from './services/mutate.js'
 export { loadCard, loadCards, loadMembers } from './services/serialize.js'
 

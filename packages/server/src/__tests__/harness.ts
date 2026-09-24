@@ -14,6 +14,8 @@ import { createDatabase, type DatabaseHandle } from '../db/client.js'
 import { migratePostgres } from '../db/migrate.js'
 import { apiTokens, memberships, users } from '../db/schema.js'
 import { createMetrics, type Metrics } from '../http/metrics.js'
+import type { Gateway } from '../realtime/gateway.js'
+import type { PubSub } from '../realtime/pubsub.js'
 import { createEventBus, type EventBus } from '../services/event-bus.js'
 
 export interface TestServer {
@@ -22,7 +24,14 @@ export interface TestServer {
   readonly config: ServerConfig
   readonly metrics: Metrics
   readonly bus: EventBus
+  readonly gateway: Gateway
   close(): Promise<void>
+}
+
+export interface TestServerExtras {
+  readonly pubsub?: PubSub
+  readonly nodeId?: string
+  readonly now?: () => number
 }
 
 export function databaseUrl(): string {
@@ -35,7 +44,10 @@ export function databaseUrl(): string {
   return url
 }
 
-export async function startTestServer(overrides: Partial<ServerConfig> = {}): Promise<TestServer> {
+export async function startTestServer(
+  overrides: Partial<ServerConfig> = {},
+  extras: TestServerExtras = {},
+): Promise<TestServer> {
   const config = loadConfig(
     {},
     {
@@ -53,7 +65,7 @@ export async function startTestServer(overrides: Partial<ServerConfig> = {}): Pr
 
   const metrics = createMetrics()
   const bus = createEventBus()
-  const { app } = await buildServer({ config, db: handle.db, metrics, bus })
+  const { app, gateway } = await buildServer({ config, db: handle.db, metrics, bus, ...extras })
   await app.ready()
 
   return {
@@ -62,6 +74,7 @@ export async function startTestServer(overrides: Partial<ServerConfig> = {}): Pr
     config,
     metrics,
     bus,
+    gateway,
     async close() {
       await app.close()
       await handle.close()
