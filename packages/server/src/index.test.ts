@@ -34,6 +34,16 @@ describe('@yuzie/server public surface', () => {
     expect(typeof server.createMetrics).toBe('function')
   })
 
+  it('exports the realtime gateway and both brokers', () => {
+    expect(typeof server.createGateway).toBe('function')
+    expect(typeof server.createMemoryPubSub).toBe('function')
+    expect(typeof server.createRedisPubSub).toBe('function')
+    expect(typeof server.loadEvents).toBe('function')
+    expect(typeof server.loadSnapshot).toBe('function')
+    expect(typeof server.OutboundQueue).toBe('function')
+    expect(typeof server.BoardPresence).toBe('function')
+  })
+
   it('narrows a role to the weaker of two', () => {
     expect(server.narrowestRole('owner', 'viewer')).toBe('viewer')
     expect(server.narrowestRole('viewer', 'owner')).toBe('viewer')

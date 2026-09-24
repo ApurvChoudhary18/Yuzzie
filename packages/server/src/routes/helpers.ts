@@ -1,6 +1,7 @@
 /**
  * The small amount of plumbing every route shares.
  */
+import type { Presence } from '@yuzie/core'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import type { z } from 'zod'
 import {
@@ -20,6 +21,8 @@ export interface AppContext {
   readonly db: Database
   readonly metrics: Metrics
   readonly bus: EventBus
+  /** Transient presence, held by the realtime gateway rather than the database. */
+  readonly presence: (boardId: string) => Presence[]
 }
 
 /** Parse a request body, letting the error handler turn a ZodError into §12.1. */

@@ -37,4 +37,22 @@ describe('loadConfig', () => {
       /Invalid server configuration/,
     )
   })
+
+  it('applies the realtime defaults from §12.2 and §14.1', () => {
+    const config = loadConfig({ DATABASE_URL: 'postgres://localhost/yuzie' })
+    expect(config.redisUrl).toBeUndefined()
+    expect(config.wsMaxConnectionsPerUser).toBe(2)
+    expect(config.wsReplayLimit).toBe(500)
+    expect(config.wsHeartbeatTimeoutMs).toBe(45_000)
+    expect(config.presenceTtlMs).toBe(60_000)
+    expect(config.presenceBroadcastIntervalMs).toBe(200)
+  })
+
+  it('reads REDIS_URL for multi-node fan-out', () => {
+    const config = loadConfig({
+      DATABASE_URL: 'postgres://localhost/yuzie',
+      REDIS_URL: 'redis://localhost:6379',
+    })
+    expect(config.redisUrl).toBe('redis://localhost:6379')
+  })
 })

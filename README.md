@@ -38,7 +38,7 @@ job, or an AI agent can all drive the same board.
 | Milestone | Sessions | State |
 | --- | --- | --- |
 | M0 — Foundation | 0–2 | Complete |
-| M1 — Server alive | 3–4 | Session 3 complete |
+| M1 — Server alive | 3–4 | Complete |
 | M2 — CLI usable | 5–7 | Not started |
 | M3 — TUI usable | 8–10 | Not started |
 | M4 — Git-aware | 11–12 | Not started |
@@ -75,6 +75,9 @@ Local service dependencies for the server (from Session 3 onwards):
 ```sh
 docker compose up -d                    # postgres 16 + redis 7
 ```
+
+Redis is optional. Without `REDIS_URL` the realtime gateway fans out in-process, which is all
+a single node needs; set it when running more than one server node behind a load balancer.
 
 `@yuzie/server`'s tests run against a real Postgres through
 [testcontainers](https://node.testcontainers.org/), so they need a Docker runtime. Docker

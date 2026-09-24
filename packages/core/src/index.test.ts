@@ -30,6 +30,14 @@ describe('@yuzie/core public surface', () => {
     expect(core.JSON_API_VERSION).toBe('yuzie/v1')
   })
 
+  it('exports the realtime protocol the gateway and SDK share (§12.2)', () => {
+    expect(core.STREAM_PROTOCOL).toBe('yuzie.v1')
+    expect(typeof core.parseClientFrame).toBe('function')
+    expect(typeof core.parseServerFrame).toBe('function')
+    expect(typeof core.streamProtocols).toBe('function')
+    expect(core.BoardSnapshotSchema).toBeDefined()
+  })
+
   it('exports the error classes named in §13.1', () => {
     expect(typeof core.BoardError).toBe('function')
     expect(typeof core.NotFoundError).toBe('function')
