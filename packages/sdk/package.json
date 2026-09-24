@@ -11,6 +11,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
     }
   },
   "files": [
@@ -22,17 +26,30 @@
   },
   "scripts": {
     "build": "tsup",
-    "test": "vitest run",
+    "test": "vitest run && tsd",
     "lint": "biome check --error-on-warnings .",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "@vitest/coverage-v8": "^3.2.7",
+    "@yuzie/store": "workspace:^",
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.1.1",
+    "tsd": "^0.33.0",
     "tsup": "^8.3.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "@yuzie/core": "workspace:^",
+    "zod": "^4.6.5"
+  },
+  "tsd": {
+    "directory": "test-d"
   }
 }

@@ -21,9 +21,9 @@ import {
   type EventType,
   newId,
 } from '@yuzie/core'
-import { eq, sql } from 'drizzle-orm'
+import { eq, inArray, sql } from 'drizzle-orm'
 import type { Database } from '../db/client.js'
-import { boards, events } from '../db/schema.js'
+import { boards, cards, events } from '../db/schema.js'
 import type { EventBus } from './event-bus.js'
 
 export type BoardRow = typeof boards.$inferSelect
@@ -31,6 +31,7 @@ type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0]
 
 export interface EventDraft {
   readonly type: EventType
+  /** Set for card events; the card's final version is attached to the envelope. */
   readonly cardId?: string | null
   readonly cardNo?: number | null
   readonly payload: unknown
@@ -44,6 +45,13 @@ export interface MutationActor {
 export interface MutationContext {
   readonly tx: Transaction
   readonly board: BoardRow
+  /**
+   * The one clock reading for this mutation. Every event it emits carries this
+   * as `ts`, and every timestamp it stores should use it too — otherwise a
+   * client that folds the events (the reducer uses `ts`) disagrees with a
+   * snapshot by however many milliseconds lay between the two readings.
+   */
+  readonly now: Date
   /** Queue an event; it is written, in order, when the mutation commits. */
   emit(draft: EventDraft): void
   /** The next `#n` for this board. Safe because the board row is locked. */
@@ -76,12 +84,14 @@ export async function mutateBoard<T>(
     }
 
     const drafts: EventDraft[] = []
+    const now = new Date()
     let nextNumber = board.nextCardNo
     let allocated = 0
 
     const value = await fn({
       tx,
       board,
+      now,
       emit: (draft) => {
         drafts.push(draft)
       },
@@ -97,7 +107,7 @@ export async function mutateBoard<T>(
       await tx.update(boards).set({ nextCardNo: nextNumber }).where(eq(boards.id, boardId))
     }
 
-    const envelopes = await appendEvents(tx, boardId, actor, drafts, options.idempotencyKey)
+    const envelopes = await appendEvents(tx, boardId, actor, drafts, options.idempotencyKey, now)
     return { value, events: envelopes }
   })
 
@@ -111,8 +121,21 @@ async function appendEvents(
   actor: MutationActor | null,
   drafts: readonly EventDraft[],
   idempotencyKey: string | undefined,
+  ts: Date,
 ): Promise<EventEnvelope[]> {
   if (drafts.length === 0) return []
+
+  // Read once, after the mutation, so every event carries the version the card
+  // ended on. A deleted card has none, which is right: there is nothing to match.
+  const cardIds = [...new Set(drafts.flatMap((draft) => (draft.cardId ? [draft.cardId] : [])))]
+  const versions = new Map<string, number>()
+  if (cardIds.length > 0) {
+    const rows = await tx
+      .select({ id: cards.id, version: cards.version })
+      .from(cards)
+      .where(inArray(cards.id, cardIds))
+    for (const row of rows) versions.set(row.id, row.version)
+  }
 
   const [head] = await tx
     .select({ maxSeq: sql<string>`coalesce(max(${events.seq}), 0)` })
@@ -125,7 +148,7 @@ async function appendEvents(
   for (const draft of drafts) {
     seq += 1
     const id = newId()
-    const ts = new Date()
+    const version = draft.cardId ? versions.get(draft.cardId) : undefined
 
     const envelope = EventEnvelopeSchema.parse({
       id,
@@ -134,6 +157,7 @@ async function appendEvents(
       actor: actor?.handle ?? null,
       ...(draft.cardNo === null || draft.cardNo === undefined ? {} : { cardNo: draft.cardNo }),
       ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+      ...(version === undefined ? {} : { version }),
       payload: draft.payload,
       ts: ts.toISOString(),
     })
@@ -149,6 +173,7 @@ async function appendEvents(
       payload: envelope.payload as Record<string, unknown>,
       createdAt: ts,
       idempotencyKey: idempotencyKey ?? null,
+      cardVersion: version ?? null,
     })
 
     envelopes.push(envelope)

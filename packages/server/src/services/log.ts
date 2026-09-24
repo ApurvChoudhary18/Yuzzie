@@ -46,6 +46,7 @@ export async function loadEvents(
         actor,
         ...(event.cardNo === null ? {} : { cardNo: event.cardNo }),
         ...(event.idempotencyKey === null ? {} : { idempotencyKey: event.idempotencyKey }),
+        ...(event.cardVersion === null ? {} : { version: event.cardVersion }),
         payload: event.payload,
         ts: toIsoRequired(event.createdAt),
       }) as EventEnvelope,

@@ -134,7 +134,8 @@ describe('card events', () => {
       stateWithCard(),
       makeEvent('card.assigned', 1, { added: ['priya', 'rahul'], removed: [] }),
     )
-    expect(cardByNumber(added, 18)?.assignees).toEqual(['rahul', 'priya'])
+    // The fixture card starts with rahul; the set is kept in handle order, as the server returns it.
+    expect(cardByNumber(added, 18)?.assignees).toEqual(['priya', 'rahul'])
 
     const removed = applyEvent(
       added,
@@ -265,6 +266,49 @@ describe('git events', () => {
     )
     const second = applyEvent(first, makeEvent('card.commits.attached', 2, { shas: ['a3f9c21'] }))
     expect(cardByNumber(second, 18)).toBe(cardByNumber(first, 18))
+  })
+
+  it('card.git.updated keeps the server-stored lastActivityAt when the event carries it', () => {
+    const state = applyEvent(
+      stateWithCard(),
+      makeEvent('card.git.updated', 1, {
+        commits: 1,
+        prState: 'open',
+        lastActivityAt: '2026-08-18T12:00:00.000Z',
+      }),
+    )
+    const git = cardByNumber(state, 18)?.git
+    expect(git?.lastActivityAt).toBe('2026-08-18T12:00:00.000Z')
+    expect(git?.prState).toBe('open')
+  })
+
+  it('card.commits.attached keeps the full records when the event carries them', () => {
+    const commit = {
+      sha: 'c'.repeat(40),
+      message: 'fix: handle missing state',
+      author: 'priya',
+      committedAt: '2026-08-18T12:00:00.000Z',
+    }
+    const state = applyEvent(
+      stateWithCard(),
+      makeEvent('card.commits.attached', 1, { shas: [commit.sha], commits: [commit] }),
+    )
+    expect(cardByNumber(state, 18)?.commits).toEqual([commit])
+  })
+
+  it('takes the card version from the envelope, whatever the event type', () => {
+    const moved = applyEvent(stateWithCard(), {
+      ...makeEvent('card.moved', 1, { from: 'doing', to: 'review', rank: 'a1' }),
+      version: 7,
+    })
+    expect(cardByNumber(moved, 18)?.version).toBe(7)
+
+    // An event without one (from an older server) leaves the version alone.
+    const untouched = applyEvent(
+      moved,
+      makeEvent('card.moved', 2, { from: 'review', to: 'done', rank: 'a2' }),
+    )
+    expect(cardByNumber(untouched, 18)?.version).toBe(7)
   })
 
   it('card.anchor.set stores the range and the sha it was taken at', () => {

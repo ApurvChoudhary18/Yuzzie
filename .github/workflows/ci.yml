@@ -36,16 +36,17 @@ jobs:
       - name: Build
         run: pnpm turbo build
 
-      # @yuzie/server's suites run against a real Postgres via testcontainers.
-      # GitHub's Linux runners ship Docker; their macOS runners do not, so the
-      # macOS legs verify everything else and Linux covers the database layer.
+      # @yuzie/server's suites and the e2e suite run against a real Postgres via
+      # testcontainers. GitHub's Linux runners ship Docker; their macOS runners
+      # do not, so the macOS legs verify everything else and Linux covers the
+      # database layer and the cross-package journeys.
       - name: Test
         if: runner.os == 'Linux'
         run: pnpm turbo test
 
       - name: Test (macOS — no Docker runtime for testcontainers)
         if: runner.os == 'macOS'
-        run: pnpm turbo test --filter='!@yuzie/server'
+        run: pnpm turbo test --filter='!@yuzie/server' --filter='!@yuzie/e2e'
 
       - name: Lint
         run: pnpm turbo lint

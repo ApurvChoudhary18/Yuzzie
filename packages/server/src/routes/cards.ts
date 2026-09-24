@@ -213,10 +213,11 @@ async function setLabels(
 }
 
 /** Bump `version` and `updated_at`; §11.4 makes every write observable. */
-async function touchCard(tx: Transaction, cardId: string): Promise<number> {
+/** Bump a card's version and stamp it with the mutation's clock (see `MutationContext.now`). */
+async function touchCard(tx: Transaction, cardId: string, now: Date): Promise<number> {
   const [row] = await tx.select({ version: cards.version }).from(cards).where(eq(cards.id, cardId))
   const next = (row?.version ?? 0) + 1
-  await tx.update(cards).set({ version: next, updatedAt: new Date() }).where(eq(cards.id, cardId))
+  await tx.update(cards).set({ version: next, updatedAt: now }).where(eq(cards.id, cardId))
   return next
 }
 
@@ -298,6 +299,8 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               description: body.description ?? null,
               priority: body.priority ?? null,
               dueAt: body.dueAt === undefined ? null : new Date(body.dueAt),
+              createdAt: ctx.now,
+              updatedAt: ctx.now,
               createdBy: auth.user.id,
             })
             .returning()
@@ -399,7 +402,7 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               }
             }
 
-            const version = await touchCard(ctx.tx, row.id)
+            const version = await touchCard(ctx.tx, row.id, ctx.now)
             ctx.emit({
               type: 'card.updated',
               cardId: row.id,
@@ -490,7 +493,7 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               .update(cards)
               .set({ columnId: target.id, rank })
               .where(eq(cards.id, row.id))
-            await touchCard(ctx.tx, row.id)
+            await touchCard(ctx.tx, row.id, ctx.now)
 
             ctx.emit({
               type: 'card.moved',
@@ -549,7 +552,7 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
                 .onConflictDoNothing()
             }
 
-            await touchCard(ctx.tx, row.id)
+            await touchCard(ctx.tx, row.id, ctx.now)
             ctx.emit({
               type: 'card.assigned',
               cardId: row.id,
@@ -592,6 +595,7 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               cardId: row.id,
               authorId: auth.user.id,
               body: body.body,
+              createdAt: ctx.now,
             })
 
             ctx.emit({
@@ -644,7 +648,7 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               .returning()
             if (item === undefined) throw boardError('internal', 'Could not add the checklist item')
 
-            const version = await touchCard(ctx.tx, row.id)
+            const version = await touchCard(ctx.tx, row.id, ctx.now)
             const card = await loadCard(asQueryable(ctx.tx), access.board.id, number)
             ctx.emit({
               type: 'card.updated',
@@ -700,7 +704,7 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               })
             }
 
-            const doneAt = body.done === undefined ? item.doneAt : body.done ? new Date() : null
+            const doneAt = body.done === undefined ? item.doneAt : body.done ? ctx.now : null
             await ctx.tx
               .update(checklistItems)
               .set({
@@ -712,7 +716,7 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               })
               .where(eq(checklistItems.id, item.id))
 
-            await touchCard(ctx.tx, row.id)
+            await touchCard(ctx.tx, row.id, ctx.now)
             if (body.done !== undefined) {
               ctx.emit({
                 type: 'checklist.updated',
@@ -764,9 +768,9 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               ...(body.prState === undefined ? {} : { prState: body.prState }),
               lastActivityAt:
                 body.lastActivityAt === undefined || body.lastActivityAt === null
-                  ? new Date()
+                  ? ctx.now
                   : new Date(body.lastActivityAt),
-              updatedAt: new Date(),
+              updatedAt: ctx.now,
             }
 
             await ctx.tx
@@ -774,15 +778,21 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               .values({ cardId: row.id, ...patch })
               .onConflictDoUpdate({ target: gitLinks.cardId, set: patch })
 
-            await touchCard(ctx.tx, row.id)
+            await touchCard(ctx.tx, row.id, ctx.now)
 
+            const card = await loadCard(asQueryable(ctx.tx), access.board.id, number)
+            const git = card?.git
+            if (git == null) throw boardError('internal', 'Git summary vanished')
+
+            // Every value in these events is read back from what was stored, so a
+            // client folding them lands on exactly the summary a snapshot shows.
             // A branch link and a metric refresh are different events (§12.3).
-            if (body.branch !== undefined) {
+            if (body.branch !== undefined && git.branch !== null) {
               ctx.emit({
                 type: 'card.branch.linked',
                 cardId: row.id,
                 cardNo: number,
-                payload: { branch: body.branch, base: body.baseBranch ?? null },
+                payload: { branch: git.branch, base: git.baseBranch },
               })
             }
             ctx.emit({
@@ -790,18 +800,18 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               cardId: row.id,
               cardNo: number,
               payload: {
-                ...(body.commits === undefined ? {} : { commits: body.commits }),
-                ...(body.filesChanged === undefined ? {} : { filesChanged: body.filesChanged }),
-                ...(body.additions === undefined ? {} : { additions: body.additions }),
-                ...(body.deletions === undefined ? {} : { deletions: body.deletions }),
-                ...(body.pushed === undefined ? {} : { pushed: body.pushed }),
-                ...(body.prUrl === undefined ? {} : { prUrl: body.prUrl }),
+                ...(body.commits === undefined ? {} : { commits: git.commits }),
+                ...(body.filesChanged === undefined ? {} : { filesChanged: git.filesChanged }),
+                ...(body.additions === undefined ? {} : { additions: git.additions }),
+                ...(body.deletions === undefined ? {} : { deletions: git.deletions }),
+                ...(body.pushed === undefined ? {} : { pushed: git.pushed }),
+                ...(body.prUrl === undefined ? {} : { prUrl: git.prUrl }),
+                ...(body.prState === undefined ? {} : { prState: git.prState }),
+                lastActivityAt: git.lastActivityAt,
               },
             })
 
-            const card = await loadCard(asQueryable(ctx.tx), access.board.id, number)
-            if (card?.git == null) throw boardError('internal', 'Git summary vanished')
-            return card.git
+            return git
           },
           { idempotencyKey, bus: context.bus },
         )
@@ -841,15 +851,19 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               )
               .onConflictDoNothing()
 
-            await touchCard(ctx.tx, row.id)
+            await touchCard(ctx.tx, row.id, ctx.now)
+            const card = await loadCard(asQueryable(ctx.tx), access.board.id, number)
+            const shas = body.commits.map((commit) => commit.sha)
             ctx.emit({
               type: 'card.commits.attached',
               cardId: row.id,
               cardNo: number,
-              payload: { shas: body.commits.map((commit) => commit.sha) },
+              payload: {
+                shas,
+                // As stored, so a client folding this matches a snapshot.
+                commits: (card?.commits ?? []).filter((commit) => shas.includes(commit.sha)),
+              },
             })
-
-            const card = await loadCard(asQueryable(ctx.tx), access.board.id, number)
             return card?.commits ?? []
           },
           { idempotencyKey, bus: context.bus },
@@ -889,7 +903,7 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               primaryAnchor: true,
             })
 
-            await touchCard(ctx.tx, row.id)
+            await touchCard(ctx.tx, row.id, ctx.now)
             ctx.emit({
               type: 'card.anchor.set',
               cardId: row.id,
@@ -921,24 +935,41 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
       authorizeOn(access, 'watch.write')
       const number = parseCardNumber(request.params.no)
 
-      return mutation(context, request, reply, auth, async () => {
+      return mutation(context, request, reply, auth, async (idempotencyKey) => {
         const body = parseBody(WatchRequestSchema, request.body)
-        const [row] = await db
-          .select()
-          .from(cards)
-          .where(and(eq(cards.boardId, access.board.id), eq(cards.number, number)))
-        if (row === undefined) throw cardNotFound(number, access.board.slug)
 
-        if (body.watching) {
-          await db
-            .insert(watchers)
-            .values({ cardId: row.id, userId: auth.user.id })
-            .onConflictDoNothing()
-        } else {
-          await db
-            .delete(watchers)
-            .where(and(eq(watchers.cardId, row.id), eq(watchers.userId, auth.user.id)))
-        }
+        await mutateBoard(
+          db,
+          access.board.id,
+          { id: auth.user.id, handle: auth.user.handle },
+          async (ctx) => {
+            const row = await requireCardRow(ctx.tx, access.board.id, access.board.slug, number)
+
+            if (body.watching) {
+              await ctx.tx
+                .insert(watchers)
+                .values({ cardId: row.id, userId: auth.user.id })
+                .onConflictDoNothing()
+            } else {
+              await ctx.tx
+                .delete(watchers)
+                .where(and(eq(watchers.cardId, row.id), eq(watchers.userId, auth.user.id)))
+            }
+
+            // Watching is not editing, so the version is left alone — bumping it
+            // would make every pending edit to this card conflict. `updatedAt`
+            // moves with the event's `ts`, which is what the reducer does.
+            await ctx.tx.update(cards).set({ updatedAt: ctx.now }).where(eq(cards.id, row.id))
+            const card = await loadCard(asQueryable(ctx.tx), access.board.id, number)
+            ctx.emit({
+              type: 'card.updated',
+              cardId: row.id,
+              cardNo: number,
+              payload: { fields: { watchers: card?.watchers ?? [] }, version: row.version },
+            })
+          },
+          { idempotencyKey, bus: context.bus },
+        )
 
         return ok({ number, watching: body.watching })
       })
