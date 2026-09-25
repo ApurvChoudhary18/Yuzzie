@@ -46,6 +46,7 @@ export class Context {
   readonly home: string
   private repoPromise: Promise<Repo | null> | null = null
   private configPromise: Promise<LoadedConfig> | null = null
+  private readonly requests = new AbortController()
 
   constructor(
     readonly options: GlobalOptions,
@@ -124,6 +125,14 @@ export class Context {
     return createClient({ baseUrl: await this.server(), client: `cli/${VERSION}` })
   }
 
+  /**
+   * Give up on every request still in flight. The TUI calls this on the way
+   * out, so a server that never answers cannot keep the process alive.
+   */
+  abortRequests(): void {
+    this.requests.abort()
+  }
+
   /** A signed-in client; exits 3 with one actionable line when there is no token (§18 Session 6). */
   async client(): Promise<YuzieClient> {
     const token = await this.token()
@@ -141,7 +150,10 @@ export class Context {
             retries: 0,
             fetch: () => Promise.reject(new TypeError('offline (--offline)')),
           }
-        : {}),
+        : {
+            fetch: (url: string, init: RequestInit) =>
+              fetch(url, { ...init, signal: this.requests.signal }),
+          }),
     })
   }
 

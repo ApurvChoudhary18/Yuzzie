@@ -20,6 +20,10 @@ import {
 import type { z } from 'zod'
 import type { FetchLike, ResponseLike } from './platform.js'
 
+function isAbort(error: unknown): boolean {
+  return error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')
+}
+
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
 export interface HttpOptions {
@@ -147,7 +151,8 @@ export function createHttp(options: HttpOptions): Http {
             ...(body === undefined ? {} : { body }),
           })
         } catch (cause) {
-          if (attempt < retries) {
+          // A request the caller gave up on is not a flaky network: don't retry it.
+          if (attempt < retries && !isAbort(cause)) {
             await sleep(backoff(attempt))
             continue
           }

@@ -363,10 +363,21 @@ function build(io: Io, finish: (code: number) => void): Command {
       finish(EXIT_OK)
     })
 
-  // `yuzie` with no command opens the board (the TUI arrives in Session 8).
-  program.action(() => {
-    io.stdout.write(`${program.helpInformation()}\n`)
-    finish(EXIT_OK)
+  // `yuzie` with no command opens the board (§7.1). Under a pipe there is no
+  // screen to draw on, so it prints help instead. YUZIE_FORCE_TUI draws anyway
+  // (the first-paint timing test uses it).
+  program.action(async (...raw: unknown[]) => {
+    const terminal = io.stdout.isTTY === true || io.env.YUZIE_FORCE_TUI === '1'
+    if (!terminal) {
+      io.stdout.write(`${program.helpInformation()}\n`)
+      finish(EXIT_OK)
+      return
+    }
+    // Loaded on demand: the TUI's dependencies are most of the start-up time
+    // of every other command.
+    await action(async (context: Context) => (await import('./tui/run.js')).startTui(context))(
+      ...raw,
+    )
   })
 
   return program
