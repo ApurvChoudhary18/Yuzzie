@@ -40,7 +40,7 @@ job, or an AI agent can all drive the same board.
 | M0 — Foundation | 0–2 | Complete |
 | M1 — Server alive | 3–4 | Complete |
 | M2 — CLI usable | 5–7 | Complete |
-| M3 — TUI usable | 8–10 | Not started |
+| M3 — TUI usable | 8–10 | In progress (board view) |
 | M4 — Git-aware | 11–12 | Not started |
 | M5 — Resilient | 13–14 | Not started |
 | M6 — Agents | 15 | Not started |
@@ -68,6 +68,7 @@ Requires Node 22+ (CI covers 22 and 24) and pnpm.
 pnpm install
 pnpm turbo build test lint typecheck    # the full pipeline
 node packages/cli/dist/index.js --version
+pnpm turbo bench --concurrency=1        # timing budgets, run alone
 ```
 
 Local service dependencies for the server (from Session 3 onwards):

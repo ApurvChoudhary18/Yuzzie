@@ -104,6 +104,12 @@ export interface YuzieClient {
     poll(deviceCode: string): Promise<DevicePollResult>
   }
   connect(slug: string, options?: Omit<ConnectOptions, keyof ClientOptions>): Promise<Board>
+  /**
+   * A board that is not open yet. `board.open()` fills `board.state` from the
+   * cache synchronously, before its first network call, so a UI can paint
+   * cached data at once and patch it as the server answers (SPEC.md §8.1).
+   */
+  board(slug: string, options?: Omit<ConnectOptions, keyof ClientOptions>): Board
 }
 
 export function createClient(options: ClientOptions = {}): YuzieClient {
@@ -223,9 +229,9 @@ export function createClient(options: ClientOptions = {}): YuzieClient {
       },
     },
 
-    async connect(slug, connectOptions = {}) {
+    board(slug, connectOptions = {}) {
       const socket = connectOptions.webSocket ?? defaultWebSocket()
-      const board = new Board({
+      return new Board({
         slug,
         http,
         offline: connectOptions.offline ?? 'fail',
@@ -236,6 +242,10 @@ export function createClient(options: ClientOptions = {}): YuzieClient {
         ...(socket === undefined ? {} : { socket }),
         ...(options.client === undefined ? {} : { client: options.client }),
       })
+    },
+
+    async connect(slug, connectOptions = {}) {
+      const board = this.board(slug, connectOptions)
       try {
         await board.open()
       } catch (error) {

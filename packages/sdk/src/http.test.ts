@@ -179,6 +179,18 @@ describe('createHttp', () => {
     expect(calls).toHaveLength(3)
   })
 
+  it('does not retry a request the caller aborted', async () => {
+    const aborted = new Error('This operation was aborted')
+    aborted.name = 'AbortError'
+    const { fetch, calls } = scripted(aborted, response(200, {}))
+    const http = createHttp({ ...base, fetch, retries: 2 })
+    const error = await http
+      .request({ method: 'GET', path: '/x', schema: z.object({}) })
+      .catch((caught: unknown) => caught)
+    expect(error).toBeInstanceOf(OfflineError)
+    expect(calls).toHaveLength(1)
+  })
+
   it('rejects a 2xx body that does not match the contract, instead of returning it', async () => {
     const { fetch } = scripted(response(200, { number: 'eighteen' }))
     const http = createHttp({ ...base, fetch })

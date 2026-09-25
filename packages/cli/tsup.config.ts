@@ -9,9 +9,10 @@ export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm'],
   target: 'node22',
-  // A single shebanged file so `npx yuzie` is one fetch and one process.
+  // The TUI (Ink, React) is a separate chunk, loaded only when the board opens,
+  // so every other command starts without it.
   bundle: true,
-  splitting: false,
+  splitting: true,
   dts: false,
   sourcemap: true,
   clean: true,
