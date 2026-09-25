@@ -278,3 +278,20 @@ export function mountSource(
 
 /** Let React commit and Ink repaint. */
 export const tick = () => new Promise((resolve) => setTimeout(resolve, 20))
+
+/**
+ * Wait until the screen stops changing: every key sent so far has been handled
+ * and drawn. Slow CI machines need this rather than a fixed pause.
+ */
+export async function settled(terminal: Terminal, quietMs = 80, maxMs = 10_000): Promise<void> {
+  const until = Date.now() + maxMs
+  let count = terminal.frames.length
+  let quietSince = Date.now()
+  while (Date.now() < until) {
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    if (terminal.frames.length !== count) {
+      count = terminal.frames.length
+      quietSince = Date.now()
+    } else if (Date.now() - quietSince >= quietMs) return
+  }
+}

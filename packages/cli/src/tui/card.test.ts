@@ -13,6 +13,7 @@ import {
   mount,
   NOW,
   person,
+  settled,
   tick,
   view,
 } from './__tests__/fixtures.js'
@@ -135,7 +136,7 @@ async function openCard(board: BoardView, columns: number, rows: number) {
   harness.keyboard.write('l')
   await tick()
   harness.keyboard.write('\r')
-  await tick()
+  await settled(harness.terminal)
   return harness
 }
 
@@ -144,6 +145,7 @@ async function keys(harness: Awaited<ReturnType<typeof openCard>>, ...pressed: s
     harness.keyboard.write(key)
     await tick()
   }
+  await settled(harness.terminal)
 }
 
 function checkShape(frame: string, columns: number, rows: number): string[] {
@@ -173,7 +175,7 @@ describe('card view snapshots', () => {
           harness.keyboard.write('j')
           await new Promise((resolve) => setTimeout(resolve, 1))
         }
-        await tick()
+        await settled(harness.terminal)
         const end = harness.terminal.lastFrame()
         checkShape(end, columns, rows)
         expect(`\n${end}`).toMatchSnapshot()
