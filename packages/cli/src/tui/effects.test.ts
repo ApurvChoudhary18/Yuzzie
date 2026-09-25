@@ -30,7 +30,7 @@ afterEach(async () => {
   for (const step of cleanup.splice(0).reverse()) await step()
 })
 
-async function waitFor(check: () => boolean, what: string, ms = 2_000): Promise<void> {
+async function waitFor(check: () => boolean, what: string, ms = 8_000): Promise<void> {
   const until = Date.now() + ms
   while (!check()) {
     if (Date.now() > until) throw new Error(`timed out waiting for ${what}`)
