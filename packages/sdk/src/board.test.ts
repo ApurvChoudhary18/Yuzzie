@@ -288,10 +288,12 @@ describe('optimistic writes', () => {
     const moving = board.cards.move(1, 'DON')
     expect(board.state.cards[1]?.column).toBe('done')
     expect(board.unconfirmed).toBe(1)
+    expect([...board.pendingCards]).toEqual([1])
 
     release()
     await moving
     expect(board.unconfirmed).toBe(0)
+    expect(board.pendingCards.size).toBe(0)
     expect(board.state.cards[1]).toMatchObject({ column: 'done', rank: 'q', version: 2 })
   })
 

@@ -1,32 +1,40 @@
 /**
- * The board view, drawn (SPEC.md §8.2, §8.5, §8.6).
+ * The TUI, drawn: board view, list view, card view and overlays (SPEC.md §8.2,
+ * §8.3, §8.5, §8.6).
  *
  * A pure function of the view, the navigation state and the theme. It returns
  * exactly `height` lines, each exactly `width` characters wide before escapes,
  * so the terminal never wraps or shears whatever size it is.
  */
 import type { Card, Presence } from '@yuzie/core'
+import { cardBody } from './card.js'
 import {
   BOARD_CHROME,
   type BoardView,
   boardGeometry,
+  CONFLICT_MS,
+  describeFilter,
+  findCard,
   isNarrow,
   isTooSmall,
   type ListEntry,
   listEntries,
   listRows,
   type ViewColumn,
+  visibleView,
 } from './layout.js'
-import type { NavState } from './state.js'
+import { CARD_CHROME, type NavState, type Overlay } from './state.js'
 import {
   fitLine,
   invert,
   type Line,
   lineWidth,
+  overlayLine,
   paintLine,
   plainLine,
   seg,
   textWidth,
+  wrap,
 } from './text.js'
 import type { Theme } from './theme.js'
 
@@ -76,10 +84,22 @@ function metaLine(card: Card, column: ViewColumn, view: BoardView, theme: Theme)
   return parts
 }
 
-function titleLine(card: Card, selected: boolean, theme: Theme): Line {
+/** `◌` while a write is unconfirmed; `⚠` for a while after the server refused one. */
+function markers(card: Card, view: BoardView, theme: Theme): Line {
+  const g = theme.glyphs
+  const conflict = view.conflicts.get(card.number)
+  if (conflict !== undefined && view.now - conflict < CONFLICT_MS) return [seg(g.warn, 'red')]
+  if (view.pending.has(card.number) || card.number < 0) return [seg(g.pending, 'dim')]
+  return []
+}
+
+function titleLine(card: Card, selected: boolean, view: BoardView, theme: Theme): Line {
+  const number = card.number < 0 ? '#new' : `#${card.number}`
   return [
     seg(selected ? theme.glyphs.marker : ' ', selected ? 'accent' : undefined),
-    seg(`#${card.number} `, 'dim'),
+    seg(number, 'dim'),
+    ...markers(card, view, theme),
+    seg(' '),
     seg(card.title, selected ? 'title' : undefined),
   ]
 }
@@ -106,10 +126,31 @@ function statusText(view: BoardView, theme: Theme): Line {
   }
 }
 
-function header(view: BoardView, width: number, theme: Theme): Line {
+/** What the board is narrowed to, shown in the header while it is. */
+function narrowing(nav: NavState, theme: Theme): Line {
+  const parts = [
+    ...(nav.query.trim() === '' ? [] : [`/${nav.query.trim()}`]),
+    ...(nav.filter === null ? [] : [describeFilter(nav.filter)]),
+  ]
+  if (parts.length === 0) return []
+  return [seg(parts.join(' · '), 'yellow'), seg(`  esc clears  ${theme.glyphs.h} `, 'dim')]
+}
+
+function header(
+  view: BoardView,
+  width: number,
+  theme: Theme,
+  title: Line = [seg('yuzie', 'title'), seg(` · ${view.slug} `)],
+  extra: Line = [],
+): Line {
   const g = theme.glyphs
-  const title: Line = [seg(`${g.tl} `, 'border'), seg('yuzie', 'title'), seg(` · ${view.slug} `)]
-  const status = statusText(view, theme)
+  const head: Line = [seg(`${g.tl} `, 'border'), ...title]
+  const status = [...extra, ...statusText(view, theme)]
+  return rule(head, status, width, theme)
+}
+
+function rule(title: Line, status: Line, width: number, theme: Theme): Line {
+  const g = theme.glyphs
   const room = width - lineWidth(title) - lineWidth(status) - 4
   if (room < 1)
     return fitLine(
@@ -131,7 +172,9 @@ function header(view: BoardView, width: number, theme: Theme): Line {
   ]
 }
 
-const HINTS = [
+type Hints = ReadonlyArray<readonly [string, string]>
+
+const BOARD_HINTS: Hints = [
   ['?', 'help'],
   ['/', 'search'],
   ['n', 'new'],
@@ -140,20 +183,82 @@ const HINTS = [
   ['a', 'assign'],
   ['ENTER', 'open'],
   ['q', 'quit'],
-] as const
+]
 
-function hints(theme: Theme): Line {
+const CARD_HINTS: Hints = [
+  ['C', 'comment'],
+  ['m', 'move'],
+  ['a', 'assign'],
+  ['e', 'edit'],
+  ['x', 'check'],
+  ['w', 'watch'],
+  ['ESC', 'back'],
+]
+
+function overlayHints(overlay: Overlay): Hints {
+  switch (overlay.kind) {
+    case 'pick':
+      return [
+        ['j k', 'choose'],
+        ['ENTER', overlay.purpose === 'assign' ? 'assign / unassign' : 'pick'],
+        ['ESC', 'cancel'],
+      ]
+    case 'input':
+      if (overlay.purpose === 'search')
+        return [
+          ['ENTER', 'keep'],
+          ['ESC', 'clear'],
+        ]
+      return overlay.multiline
+        ? [
+            ['Ctrl-D', 'send'],
+            ['ENTER', 'new line'],
+            ['ESC', 'cancel'],
+          ]
+        : [
+            ['ENTER', 'save'],
+            ['ESC', 'cancel'],
+          ]
+    case 'confirm':
+      return [
+        ['y', 'delete'],
+        ['n', 'keep'],
+      ]
+    case 'checklist':
+      return [
+        ['j k', 'choose'],
+        ['x', 'toggle'],
+        ['+', 'add'],
+        ['ESC', 'close'],
+      ]
+  }
+}
+
+function hints(nav: NavState, theme: Theme): Line {
+  const list =
+    nav.overlay !== null
+      ? overlayHints(nav.overlay)
+      : nav.screen === 'card'
+        ? CARD_HINTS
+        : BOARD_HINTS
   const line: Line = []
-  HINTS.forEach(([key, what], index) => {
+  list.forEach(([key, what], index) => {
     if (index > 0) line.push(seg('  '))
-    line.push(seg(key === 'ENTER' ? theme.glyphs.enter : key, 'accent'), seg(` ${what}`, 'dim'))
+    const name = key === 'ENTER' ? theme.glyphs.enter : key === 'ESC' ? 'esc' : key
+    line.push(seg(name, 'accent'), seg(` ${what}`, 'dim'))
   })
   return line
 }
 
-function toastLine(view: BoardView, theme: Theme): Line {
+function toastLine(view: BoardView, nav: NavState, theme: Theme): Line {
+  const overlay = nav.overlay
+  if (overlay?.kind === 'input' && overlay.purpose === 'search') {
+    return [seg('/', 'accent'), seg(overlay.text), seg('▏', 'accent')]
+  }
   if (view.toast === null || view.now - view.toast.at > TOAST_MS) return []
   if (view.toast.kind === 'info') return [seg('→ ', 'accent'), seg(view.toast.text, 'dim')]
+  if (view.toast.kind === 'warn')
+    return [seg(`${theme.glyphs.warn} `, 'red'), seg(view.toast.text, 'yellow')]
   return [seg(`${theme.glyphs.check} `, 'green'), seg(view.toast.text)]
 }
 
@@ -174,23 +279,36 @@ function bottom(width: number, theme: Theme): Line {
   return [seg(`${g.bl}${g.h.repeat(Math.max(0, width - 2))}${g.br}`, 'border')]
 }
 
-function helpLines(theme: Theme): Line[] {
+function helpLines(nav: NavState, theme: Theme): Line[] {
   const g = theme.glyphs
-  const rows: Array<[string, string]> = [
-    [`${g.left}${g.right}  h l`, 'columns'],
-    [`${g.up}${g.down}  j k`, 'cards'],
-    ['gg  G', 'first / last card'],
-    ['1-9', 'jump to column'],
-    [g.enter, 'open card'],
-    ['n', 'new card'],
-    ['m  a  c', 'move, assign, claim'],
-    ['C  e', 'comment, edit in $EDITOR'],
-    ['w  d  D', 'watch, done, delete'],
-    ['o  g', 'open code, open branch'],
-    ['/  f', 'search, filter'],
-    ['r', 'refresh'],
-    ['q', 'quit'],
-  ]
+  const rows: Array<[string, string]> =
+    nav.screen === 'card'
+      ? [
+          [`${g.up}${g.down}  j k`, 'scroll'],
+          ['esc  q', 'back to the board'],
+          ['m  a', 'move, assign'],
+          ['C', 'comment (Ctrl-D sends)'],
+          ['x  +', 'check off an item, add one'],
+          ['e', 'edit in $EDITOR'],
+          ['c  w  d  D', 'claim, watch, done, delete'],
+          ['o  g', 'open code, open branch'],
+          ['r', 'refresh'],
+        ]
+      : [
+          [`${g.left}${g.right}  h l`, 'columns'],
+          [`${g.up}${g.down}  j k`, 'cards'],
+          ['gg  G', 'first / last card'],
+          ['1-9', 'jump to column'],
+          [g.enter, 'open card'],
+          ['n', 'new card'],
+          ['m  a  c', 'move, assign, claim'],
+          ['C  e', 'comment, edit in $EDITOR'],
+          ['w  d  D', 'watch, done, delete'],
+          ['o  g', 'open code, open branch'],
+          ['/  f', 'search, filter'],
+          ['r', 'refresh'],
+          ['q', 'quit'],
+        ]
   return [
     [seg('Keys', 'title'), seg('  (any key to close)', 'dim')],
     [],
@@ -237,7 +355,7 @@ function columnRows(
   const visible = column.cards.slice(first, first + slots)
   visible.forEach((card, offset) => {
     const selected = nav.column === index && nav.selected[index] === first + offset
-    const title = fitLine(titleLine(card, selected, theme), width, g.ellipsis)
+    const title = fitLine(titleLine(card, selected, view, theme), width, g.ellipsis)
     const meta = fitLine([seg('     '), ...metaLine(card, column, view, theme)], width, g.ellipsis)
     lines.push(selected ? invert(title) : title, selected ? invert(meta) : meta, [])
   })
@@ -258,7 +376,10 @@ function boardLines(view: BoardView, nav: NavState, theme: Theme): Line[] {
   const cardRows = height - BOARD_CHROME
   const area = cardRows + 1 // the ↑ row above the first card
 
-  const out: Line[] = [header(view, width, theme), framed([], width, theme)]
+  const out: Line[] = [
+    header(view, width, theme, undefined, narrowing(nav, theme)),
+    framed([], width, theme),
+  ]
 
   // Column titles, with ‹ › in the gutter when there is more to either side.
   const top: Line = [seg(g.tl, 'border')]
@@ -330,7 +451,7 @@ function listLine(
   const selected = nav.column === entry.column && nav.selected[entry.column] === entry.index
   const meta = metaLine(card, column, view, theme)
   const metaWidth = Math.min(lineWidth(meta), Math.floor(width / 2))
-  const title = fitLine(titleLine(card, selected, theme), width - metaWidth - 1, g.ellipsis)
+  const title = fitLine(titleLine(card, selected, view, theme), width - metaWidth - 1, g.ellipsis)
   const line = fitLine(
     [...title, seg(' '), ...fitLine(meta, metaWidth, g.ellipsis)],
     width,
@@ -344,7 +465,10 @@ function listLines(view: BoardView, nav: NavState, theme: Theme): Line[] {
   const entries = listEntries(view.columns.map((column) => column.cards.length))
   const rows = listRows(height)
   const inner = width - 4
-  const out: Line[] = [header(view, width, theme), framed([], width, theme)]
+  const out: Line[] = [
+    header(view, width, theme, undefined, narrowing(nav, theme)),
+    framed([], width, theme),
+  ]
   const visible = entries.slice(nav.listScroll, nav.listScroll + rows)
   for (let row = 0; row < rows; row += 1) {
     const entry = visible[row]
@@ -375,6 +499,201 @@ function centred(lines: Line[], rows: number, width: number, theme: Theme): Line
   return out
 }
 
+// ---------------------------------------------------------------------------
+// Card view (§8.3)
+// ---------------------------------------------------------------------------
+
+function cardLines(card: Card, view: BoardView, nav: NavState, theme: Theme): Line[] {
+  const { width, height } = nav
+  const g = theme.glyphs
+  const pending = view.pending.has(card.number) || card.number < 0
+  const conflict = view.conflicts.get(card.number)
+  const marker: Line =
+    conflict !== undefined && view.now - conflict < CONFLICT_MS
+      ? [
+          seg(`${g.warn} changed on the server; your edit was undone`, 'red'),
+          seg(`  ${g.h} `, 'border'),
+        ]
+      : pending
+        ? [seg(`${g.pending} saving${g.ellipsis}`, 'dim'), seg(`  ${g.h} `, 'border')]
+        : []
+  const title: Line = [
+    seg(card.number < 0 ? '#new' : `#${card.number}`, 'dim'),
+    seg(' '),
+    seg(card.title, 'title'),
+    seg(' '),
+  ]
+  const out: Line[] = [header(view, width, theme, title, marker)]
+
+  const body = cardBody(card, view, width, theme)
+  const rows = Math.max(1, height - CARD_CHROME)
+  const first = Math.min(nav.cardScroll, Math.max(0, body.length - rows))
+  for (let row = 0; row < rows; row += 1) {
+    const above = row === 0 && first > 0
+    const below = row === rows - 1 && first + rows < body.length
+    out.push(
+      framed(body[first + row] ?? [], width, theme, ' ', above ? g.up : below ? g.down : ' '),
+    )
+  }
+  return out
+}
+
+function presenceLine(card: Card, view: BoardView, theme: Theme): Line {
+  const here = view.presence.filter(
+    (person) =>
+      person.cardNo === card.number && person.state !== 'online' && person.handle !== view.me,
+  )
+  if (here.length === 0) return []
+  const names = here.map((person) => `@${person.handle}`).join(', ')
+  const working = here.some((person) => person.state === 'working')
+  return [
+    seg(`${theme.glyphs.dot} `, working ? 'green' : 'accent'),
+    seg(
+      `${names} ${here.length === 1 ? 'is' : 'are'} ${working ? 'working on' : 'viewing'} this card`,
+    ),
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// Overlays
+// ---------------------------------------------------------------------------
+
+function boxed(title: string, content: Line[], width: number, theme: Theme): Line[] {
+  const g = theme.glyphs
+  const inner = width - 4
+  const label = ` ${title} `
+  const top = `${g.tl}${g.h}${label}`
+  return [
+    fitLine(
+      [
+        seg(top, 'border'),
+        seg(g.h.repeat(Math.max(0, width - textWidth(top) - 1)), 'border'),
+        seg(g.tr, 'border'),
+      ],
+      width,
+      g.ellipsis,
+    ),
+    ...content.map(
+      (line): Line => [
+        seg(`${g.v} `, 'border'),
+        ...fitLine(line, inner, g.ellipsis),
+        seg(` ${g.v}`, 'border'),
+      ],
+    ),
+    [seg(`${g.bl}${g.h.repeat(width - 2)}${g.br}`, 'border')],
+  ]
+}
+
+/** Options with the chosen one inverted, scrolled so it stays in view. */
+function choices(
+  options: ReadonlyArray<{ label: string; current?: boolean; done?: boolean }>,
+  index: number,
+  rows: number,
+  inner: number,
+  theme: Theme,
+  mark: (option: { current?: boolean; done?: boolean }) => Line,
+): Line[] {
+  const g = theme.glyphs
+  const first = Math.max(0, Math.min(index - Math.floor(rows / 2), options.length - rows))
+  return options.slice(first, first + rows).map((option, offset) => {
+    const chosen = first + offset === index
+    const line = fitLine(
+      [seg(chosen ? `${g.marker} ` : '  ', 'accent'), ...mark(option), seg(option.label)],
+      inner,
+      g.ellipsis,
+    )
+    return chosen ? invert(line) : line
+  })
+}
+
+function overlayBox(
+  overlay: Overlay,
+  view: BoardView,
+  nav: NavState,
+  rows: number,
+  theme: Theme,
+): Line[] | null {
+  const g = theme.glyphs
+  const room = nav.width - 8
+  switch (overlay.kind) {
+    case 'pick': {
+      const width = Math.min(
+        room,
+        Math.max(36, ...overlay.options.map((o) => textWidth(o.label) + 10)),
+      )
+      const visible = Math.max(1, Math.min(overlay.options.length, rows - 2))
+      const content =
+        overlay.options.length === 0
+          ? [[seg('Nothing to choose from.', 'dim')] as Line]
+          : choices(overlay.options, overlay.index, visible, width - 4, theme, (option) =>
+              option.current === true ? [seg(`${g.check} `, 'green')] : [seg('  ')],
+            )
+      return boxed(overlay.title, content, width, theme)
+    }
+    case 'input': {
+      if (overlay.purpose === 'search') return null
+      const width = Math.min(room, 72)
+      const inner = width - 4
+      const text = overlay.text
+        .split('\n')
+        .flatMap((line) => (line === '' ? [''] : wrap(line, inner - 1)))
+      const lines = text.length === 0 ? [''] : text
+      const shown = lines.slice(-Math.max(1, Math.min(8, rows - 2)))
+      const content = shown.map(
+        (line, index): Line =>
+          index === shown.length - 1 ? [seg(line), seg('▏', 'accent')] : [seg(line)],
+      )
+      while (overlay.multiline && content.length < 3) content.push([])
+      return boxed(overlay.title, content, width, theme)
+    }
+    case 'confirm': {
+      const width = Math.min(room, Math.max(40, textWidth(overlay.title) + 16))
+      return boxed(
+        'Delete',
+        [
+          [seg(`Delete #${overlay.cardNo} `), seg(overlay.title, 'title'), seg('?')],
+          [],
+          [seg('y', 'accent'), seg(' delete   ', 'dim'), seg('n', 'accent'), seg(' keep', 'dim')],
+        ],
+        width,
+        theme,
+      )
+    }
+    case 'checklist': {
+      const card = findCard(view, overlay.cardNo)
+      const items =
+        card === undefined ? [] : [...card.checklist].sort((a, b) => a.position - b.position)
+      const width = Math.min(room, Math.max(40, ...items.map((item) => textWidth(item.text) + 12)))
+      const options = items.map((item) => ({
+        label: `${String(item.position).padStart(2)}  ${item.text}`,
+        done: item.doneAt !== null,
+      }))
+      const visible = Math.max(1, Math.min(options.length, rows - 2))
+      return boxed(
+        `Checklist #${overlay.cardNo}`,
+        choices(options, overlay.index, visible, width - 4, theme, (option) =>
+          option.done === true ? [seg(`${g.check} `, 'green')] : [seg(`${g.open} `, 'dim')],
+        ),
+        width,
+        theme,
+      )
+    }
+  }
+}
+
+/** Draw `box` centred over rows `top`..`top + rows` of `lines`. */
+function compose(lines: Line[], box: Line[], top: number, rows: number, width: number): Line[] {
+  const boxWidth = lineWidth(box[0] ?? [])
+  const x = Math.max(0, Math.floor((width - boxWidth) / 2))
+  const y = top + Math.max(0, Math.floor((rows - box.length) / 2))
+  return lines.map((line, row) => {
+    const part = box[row - y]
+    return part === undefined ? line : overlayLine(fitLine(line, width, ''), x, part)
+  })
+}
+
+// ---------------------------------------------------------------------------
+
 /** The whole screen, as lines of styled segments. */
 export function frameLines(view: BoardView, nav: NavState, theme: Theme): Line[] {
   const { width, height } = nav
@@ -392,11 +711,17 @@ export function frameLines(view: BoardView, nav: NavState, theme: Theme): Line[]
     ]
   }
 
-  const empty = view.columns.every((column) => column.cards.length === 0)
+  const card = nav.screen === 'card' && nav.cardNo !== null ? findCard(view, nav.cardNo) : undefined
+  const shown = visibleView(view, nav.query, nav.filter)
+  const everything = view.columns.every((column) => column.cards.length === 0)
+  const nothingShown = shown.columns.every((column) => column.cards.length === 0)
+  const bodyRows = height - 5
   let body: Line[]
   if (nav.help) {
-    body = [header(view, width, theme), ...centred(helpLines(theme), height - 5, width, theme)]
-  } else if (empty) {
+    body = [header(view, width, theme), ...centred(helpLines(nav, theme), bodyRows, width, theme)]
+  } else if (card !== undefined) {
+    body = cardLines(card, view, nav, theme)
+  } else if (everything) {
     body = [
       header(view, width, theme),
       ...centred(
@@ -406,25 +731,45 @@ export function frameLines(view: BoardView, nav: NavState, theme: Theme): Line[]
           [seg('Create the first one: '), seg('yuzie add "Your first card"', 'accent')],
           [seg('or press ', 'dim'), seg('n', 'accent'), seg(' here.', 'dim')],
         ],
-        height - 5,
+        bodyRows,
+        width,
+        theme,
+      ),
+    ]
+  } else if (nothingShown) {
+    body = [
+      header(view, width, theme, undefined, narrowing(nav, theme)),
+      ...centred(
+        [
+          [seg('No cards match.', 'title')],
+          [],
+          [seg('esc', 'accent'), seg(' shows everything again.', 'dim')],
+        ],
+        bodyRows,
         width,
         theme,
       ),
     ]
   } else {
-    body = isNarrow(width) ? listLines(view, nav, theme) : boardLines(view, nav, theme)
+    body = isNarrow(width) ? listLines(shown, nav, theme) : boardLines(shown, nav, theme)
   }
 
   const footer = [
-    framed([], width, theme),
-    framed(toastLine(view, theme), width, theme),
-    framed(hints(theme), width, theme),
+    card !== undefined && !nav.help
+      ? framed(presenceLine(card, view, theme), width, theme)
+      : framed([], width, theme),
+    framed(toastLine(view, nav, theme), width, theme),
+    framed(hints(nav, theme), width, theme),
     bottom(width, theme),
   ]
-  const lines = [...body, ...footer]
   // Exactly `height` lines, whatever happened above.
-  while (lines.length < height)
-    lines.splice(lines.length - footer.length, 0, framed([], width, theme))
+  while (body.length < height - footer.length) body.push(framed([], width, theme))
+  let lines = [...body.slice(0, height - footer.length), ...footer]
+
+  if (nav.overlay !== null && !nav.help) {
+    const box = overlayBox(nav.overlay, view, nav, bodyRows, theme)
+    if (box !== null) lines = compose(lines, box, 1, bodyRows, width)
+  }
   return lines.slice(0, height).map((line) => fitLine(line, width, g.ellipsis))
 }
 

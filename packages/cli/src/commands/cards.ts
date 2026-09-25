@@ -5,14 +5,11 @@
  * Each one renders for people or as a `--json` envelope (§7.3), and fails
  * through the exit codes of §7.4.
  */
-import { mkdtemp, readFile, rm as remove, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { type AnchorInput, type Card, type Column, NotFoundError } from '@yuzie/core'
 import { matchColumn } from '@yuzie/sdk'
 import type { Context } from '../context.js'
 import { parseDue, parseDuration, parsePriority } from '../dates.js'
-import { diffCard, parseDocument, runEditor, toDocument } from '../edit.js'
+import { diffCard, editText, parseDocument, toDocument } from '../edit.js'
 import { UsageError } from '../exit.js'
 import {
   columnName,
@@ -286,18 +283,6 @@ async function readStdin(context: Context): Promise<string> {
   return Buffer.concat(chunks).toString('utf8')
 }
 
-async function editText(context: Context, initial: string, name: string): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'yuzie-'))
-  const path = join(dir, name)
-  try {
-    await writeFile(path, initial, 'utf8')
-    await runEditor(path, context.io.env)
-    return await readFile(path, 'utf8')
-  } finally {
-    await remove(dir, { recursive: true, force: true })
-  }
-}
-
 export async function comment(
   context: Context,
   reference: string,
@@ -305,7 +290,7 @@ export async function comment(
   options: { editor?: boolean },
 ): Promise<void> {
   let body = words.join(' ')
-  if (options.editor === true) body = await editText(context, '', 'COMMENT.md')
+  if (options.editor === true) body = await editText(context.io.env, '', 'COMMENT.md')
   else if (body === '-') body = await readStdin(context)
   body = body.trim()
   if (body.length === 0)
@@ -324,7 +309,7 @@ export async function comment(
 export async function edit(context: Context, reference: string): Promise<void> {
   await withBoard(context, async (session) => {
     const card = await session.card(reference)
-    const text = await editText(context, toDocument(card), `card-${card.number}.md`)
+    const text = await editText(context.io.env, toDocument(card), `card-${card.number}.md`)
     const patch = diffCard(card, parseDocument(text), context.now())
     const fields = Object.keys(patch)
     if (fields.length === 0) {

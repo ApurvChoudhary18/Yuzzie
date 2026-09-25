@@ -77,3 +77,55 @@ export function paintLine(line: Line, theme: Theme): string {
 export function plainLine(line: Line): string {
   return line.map((part) => part.text).join('')
 }
+
+/** Characters `start` up to `end` of a line, keeping each segment's style. */
+export function sliceLine(line: Line, start: number, end: number): Line {
+  const out: Line = []
+  let position = 0
+  for (const part of line) {
+    const all = chars(part.text)
+    const from = Math.max(start, position)
+    const to = Math.min(end, position + all.length)
+    if (from < to) out.push({ ...part, text: all.slice(from - position, to - position).join('') })
+    position += all.length
+    if (position >= end) break
+  }
+  return out
+}
+
+/** `base` with `insert` drawn over it from column `x`; the line keeps its width. */
+export function overlayLine(base: Line, x: number, insert: Line): Line {
+  const size = lineWidth(insert)
+  return [...sliceLine(base, 0, x), ...insert, ...sliceLine(base, x + size, lineWidth(base))]
+}
+
+/** Word-wrap prose to `width` columns, keeping blank lines; long words are broken. */
+export function wrap(text: string, width: number): string[] {
+  if (width <= 0) return []
+  const out: string[] = []
+  for (const paragraph of text.replace(/\r\n/g, '\n').split('\n')) {
+    let current = ''
+    for (const word of paragraph.split(/\s+/).filter((part) => part.length > 0)) {
+      let rest = word
+      while (textWidth(rest) > width) {
+        if (current.length > 0) {
+          out.push(current)
+          current = ''
+        }
+        out.push(chars(rest).slice(0, width).join(''))
+        rest = chars(rest).slice(width).join('')
+      }
+      if (rest.length === 0) continue
+      if (current.length === 0) current = rest
+      else if (textWidth(current) + 1 + textWidth(rest) <= width) current += ` ${rest}`
+      else {
+        out.push(current)
+        current = rest
+      }
+    }
+    out.push(current)
+  }
+  // No trailing blank lines from a trailing newline.
+  while (out.length > 0 && out[out.length - 1] === '') out.pop()
+  return out
+}

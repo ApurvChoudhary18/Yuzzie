@@ -1,0 +1,1171 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`card view snapshots > 20 checklist items at 80×24 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 0 online · synced ─┐
+│                                                                              │
+│ STATUS     Doing                      ASSIGNEE  @rahul                       │
+│ PRIORITY   p1                         WATCHERS  @priya, @adarsh              │
+│ LABELS     bug · auth                 DUE       Fri 21 Aug                   │
+│                                                                              │
+│ DESCRIPTION                                                                  │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails  │
+│ intermittently. Also needs refresh-token handling.                           │
+│                                                                              │
+│ CODE       src/auth/oauth.ts:42       [o] open in editor                     │
+│ BRANCH     task/18-fix-github-oauth   [g] open PR                            │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                       │
+│                                                                              │
+│ CHECKLIST  7/20                                                              │
+│   ✓  1  Step 1: something that needs doing                                   │
+│   ○  2  Step 2: something that needs doing                                   │
+│   ○  3  Step 3: something that needs doing                                   │
+│   ✓  4  Step 4: something that needs doing                                   │
+│   ○  5  Step 5: something that needs doing                                  ↓│
+│                                                                              │
+│                                                                              │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back              │
+└──────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > 20 checklist items at 80×24 2`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 0 online · synced ─┐
+│   ○  5  Step 5: something that needs doing                                  ↑│
+│   ○  6  Step 6: something that needs doing                                   │
+│   ✓  7  Step 7: something that needs doing                                   │
+│   ○  8  Step 8: something that needs doing                                   │
+│   ○  9  Step 9: something that needs doing                                   │
+│   ✓ 10  Step 10: something that needs doing                                  │
+│   ○ 11  Step 11: something that needs doing                                  │
+│   ○ 12  Step 12: something that needs doing                                  │
+│   ✓ 13  Step 13: something that needs doing                                  │
+│   ○ 14  Step 14: something that needs doing                                  │
+│   ○ 15  Step 15: something that needs doing                                  │
+│   ✓ 16  Step 16: something that needs doing                                  │
+│   ○ 17  Step 17: something that needs doing                                  │
+│   ○ 18  Step 18: something that needs doing                                  │
+│   ✓ 19  Step 19: something that needs doing                                  │
+│   ○ 20  Step 20: something that needs doing                                  │
+│                                                                              │
+│ ACTIVITY                                                                     │
+│   nothing yet                                                                │
+│                                                                              │
+│                                                                              │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back              │
+└──────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > 20 checklist items at 100×40 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 0 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul                                 │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails intermittently. Also │
+│ needs refresh-token handling.                                                                    │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-github-oauth             [g] open PR                                      │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                                           │
+│                                                                                                  │
+│ CHECKLIST  7/20                                                                                  │
+│   ✓  1  Step 1: something that needs doing                                                       │
+│   ○  2  Step 2: something that needs doing                                                       │
+│   ○  3  Step 3: something that needs doing                                                       │
+│   ✓  4  Step 4: something that needs doing                                                       │
+│   ○  5  Step 5: something that needs doing                                                       │
+│   ○  6  Step 6: something that needs doing                                                       │
+│   ✓  7  Step 7: something that needs doing                                                       │
+│   ○  8  Step 8: something that needs doing                                                       │
+│   ○  9  Step 9: something that needs doing                                                       │
+│   ✓ 10  Step 10: something that needs doing                                                      │
+│   ○ 11  Step 11: something that needs doing                                                      │
+│   ○ 12  Step 12: something that needs doing                                                      │
+│   ✓ 13  Step 13: something that needs doing                                                      │
+│   ○ 14  Step 14: something that needs doing                                                      │
+│   ○ 15  Step 15: something that needs doing                                                      │
+│   ✓ 16  Step 16: something that needs doing                                                      │
+│   ○ 17  Step 17: something that needs doing                                                      │
+│   ○ 18  Step 18: something that needs doing                                                      │
+│   ✓ 19  Step 19: something that needs doing                                                      │
+│   ○ 20  Step 20: something that needs doing                                                      │
+│                                                                                                 ↓│
+│                                                                                                  │
+│                                                                                                  │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > 20 checklist items at 100×40 2`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 0 online · synced ─┐
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                       ↑│
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails intermittently. Also │
+│ needs refresh-token handling.                                                                    │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-github-oauth             [g] open PR                                      │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                                           │
+│                                                                                                  │
+│ CHECKLIST  7/20                                                                                  │
+│   ✓  1  Step 1: something that needs doing                                                       │
+│   ○  2  Step 2: something that needs doing                                                       │
+│   ○  3  Step 3: something that needs doing                                                       │
+│   ✓  4  Step 4: something that needs doing                                                       │
+│   ○  5  Step 5: something that needs doing                                                       │
+│   ○  6  Step 6: something that needs doing                                                       │
+│   ✓  7  Step 7: something that needs doing                                                       │
+│   ○  8  Step 8: something that needs doing                                                       │
+│   ○  9  Step 9: something that needs doing                                                       │
+│   ✓ 10  Step 10: something that needs doing                                                      │
+│   ○ 11  Step 11: something that needs doing                                                      │
+│   ○ 12  Step 12: something that needs doing                                                      │
+│   ✓ 13  Step 13: something that needs doing                                                      │
+│   ○ 14  Step 14: something that needs doing                                                      │
+│   ○ 15  Step 15: something that needs doing                                                      │
+│   ✓ 16  Step 16: something that needs doing                                                      │
+│   ○ 17  Step 17: something that needs doing                                                      │
+│   ○ 18  Step 18: something that needs doing                                                      │
+│   ✓ 19  Step 19: something that needs doing                                                      │
+│   ○ 20  Step 20: something that needs doing                                                      │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│   nothing yet                                                                                    │
+│                                                                                                  │
+│                                                                                                  │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > 50 activity entries at 80×24 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 0 online · synced ─┐
+│                                                                              │
+│ STATUS     Doing                      ASSIGNEE  @rahul                       │
+│ PRIORITY   p1                         WATCHERS  @priya, @adarsh              │
+│ LABELS     bug · auth                 DUE       Fri 21 Aug                   │
+│                                                                              │
+│ DESCRIPTION                                                                  │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails  │
+│ intermittently. Also needs refresh-token handling.                           │
+│                                                                              │
+│ CODE       src/auth/oauth.ts:42       [o] open in editor                     │
+│ BRANCH     task/18-fix-github-oauth   [g] open PR                            │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                       │
+│                                                                              │
+│ CHECKLIST  2/3                                                               │
+│   ✓  1  Fix callback state handling                                          │
+│   ✓  2  Add token refresh                                                    │
+│   ○  3  Add regression tests                                                 │
+│                                                                              │
+│ ACTIVITY                                                                    ↓│
+│                                                                              │
+│                                                                              │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back              │
+└──────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > 50 activity entries at 80×24 2`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 0 online · synced ─┐
+│     3h  @priya moved #18 Fix GitHub OAuth → Review (32)                     ↑│
+│     3h  @rahul moved #18 Fix GitHub OAuth → Doing (33)                       │
+│     2h  @priya moved #18 Fix GitHub OAuth → Review (34)                      │
+│     2h  @rahul moved #18 Fix GitHub OAuth → Doing (35)                       │
+│     2h  @priya moved #18 Fix GitHub OAuth → Review (36)                      │
+│     2h  @rahul moved #18 Fix GitHub OAuth → Doing (37)                       │
+│     2h  @priya moved #18 Fix GitHub OAuth → Review (38)                      │
+│     2h  @rahul moved #18 Fix GitHub OAuth → Doing (39)                       │
+│     1h  @priya moved #18 Fix GitHub OAuth → Review (40)                      │
+│     1h  @rahul moved #18 Fix GitHub OAuth → Doing (41)                       │
+│     1h  @priya moved #18 Fix GitHub OAuth → Review (42)                      │
+│     1h  @rahul moved #18 Fix GitHub OAuth → Doing (43)                       │
+│     1h  @priya moved #18 Fix GitHub OAuth → Review (44)                      │
+│     1h  @rahul moved #18 Fix GitHub OAuth → Doing (45)                       │
+│    50m  @priya moved #18 Fix GitHub OAuth → Review (46)                      │
+│    40m  @rahul moved #18 Fix GitHub OAuth → Doing (47)                       │
+│    30m  @priya moved #18 Fix GitHub OAuth → Review (48)                      │
+│    20m  @rahul moved #18 Fix GitHub OAuth → Doing (49)                       │
+│    10m  @priya moved #18 Fix GitHub OAuth → Review (50)                      │
+│                                                                              │
+│                                                                              │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back              │
+└──────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > 50 activity entries at 100×40 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 0 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul                                 │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails intermittently. Also │
+│ needs refresh-token handling.                                                                    │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-github-oauth             [g] open PR                                      │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                                           │
+│                                                                                                  │
+│ CHECKLIST  2/3                                                                                   │
+│   ✓  1  Fix callback state handling                                                              │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│     8h  @rahul moved #18 Fix GitHub OAuth → Doing (1)                                            │
+│     8h  @priya moved #18 Fix GitHub OAuth → Review (2)                                           │
+│     8h  @rahul moved #18 Fix GitHub OAuth → Doing (3)                                            │
+│     7h  @priya moved #18 Fix GitHub OAuth → Review (4)                                           │
+│     7h  @rahul moved #18 Fix GitHub OAuth → Doing (5)                                            │
+│     7h  @priya moved #18 Fix GitHub OAuth → Review (6)                                           │
+│     7h  @rahul moved #18 Fix GitHub OAuth → Doing (7)                                            │
+│     7h  @priya moved #18 Fix GitHub OAuth → Review (8)                                           │
+│     7h  @rahul moved #18 Fix GitHub OAuth → Doing (9)                                            │
+│     6h  @priya moved #18 Fix GitHub OAuth → Review (10)                                          │
+│     6h  @rahul moved #18 Fix GitHub OAuth → Doing (11)                                           │
+│     6h  @priya moved #18 Fix GitHub OAuth → Review (12)                                          │
+│     6h  @rahul moved #18 Fix GitHub OAuth → Doing (13)                                           │
+│     6h  @priya moved #18 Fix GitHub OAuth → Review (14)                                          │
+│     6h  @rahul moved #18 Fix GitHub OAuth → Doing (15)                                           │
+│     5h  @priya moved #18 Fix GitHub OAuth → Review (16)                                         ↓│
+│                                                                                                  │
+│                                                                                                  │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > 50 activity entries at 100×40 2`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 0 online · synced ─┐
+│     5h  @priya moved #18 Fix GitHub OAuth → Review (16)                                         ↑│
+│     5h  @rahul moved #18 Fix GitHub OAuth → Doing (17)                                           │
+│     5h  @priya moved #18 Fix GitHub OAuth → Review (18)                                          │
+│     5h  @rahul moved #18 Fix GitHub OAuth → Doing (19)                                           │
+│     5h  @priya moved #18 Fix GitHub OAuth → Review (20)                                          │
+│     5h  @rahul moved #18 Fix GitHub OAuth → Doing (21)                                           │
+│     4h  @priya moved #18 Fix GitHub OAuth → Review (22)                                          │
+│     4h  @rahul moved #18 Fix GitHub OAuth → Doing (23)                                           │
+│     4h  @priya moved #18 Fix GitHub OAuth → Review (24)                                          │
+│     4h  @rahul moved #18 Fix GitHub OAuth → Doing (25)                                           │
+│     4h  @priya moved #18 Fix GitHub OAuth → Review (26)                                          │
+│     4h  @rahul moved #18 Fix GitHub OAuth → Doing (27)                                           │
+│     3h  @priya moved #18 Fix GitHub OAuth → Review (28)                                          │
+│     3h  @rahul moved #18 Fix GitHub OAuth → Doing (29)                                           │
+│     3h  @priya moved #18 Fix GitHub OAuth → Review (30)                                          │
+│     3h  @rahul moved #18 Fix GitHub OAuth → Doing (31)                                           │
+│     3h  @priya moved #18 Fix GitHub OAuth → Review (32)                                          │
+│     3h  @rahul moved #18 Fix GitHub OAuth → Doing (33)                                           │
+│     2h  @priya moved #18 Fix GitHub OAuth → Review (34)                                          │
+│     2h  @rahul moved #18 Fix GitHub OAuth → Doing (35)                                           │
+│     2h  @priya moved #18 Fix GitHub OAuth → Review (36)                                          │
+│     2h  @rahul moved #18 Fix GitHub OAuth → Doing (37)                                           │
+│     2h  @priya moved #18 Fix GitHub OAuth → Review (38)                                          │
+│     2h  @rahul moved #18 Fix GitHub OAuth → Doing (39)                                           │
+│     1h  @priya moved #18 Fix GitHub OAuth → Review (40)                                          │
+│     1h  @rahul moved #18 Fix GitHub OAuth → Doing (41)                                           │
+│     1h  @priya moved #18 Fix GitHub OAuth → Review (42)                                          │
+│     1h  @rahul moved #18 Fix GitHub OAuth → Doing (43)                                           │
+│     1h  @priya moved #18 Fix GitHub OAuth → Review (44)                                          │
+│     1h  @rahul moved #18 Fix GitHub OAuth → Doing (45)                                           │
+│    50m  @priya moved #18 Fix GitHub OAuth → Review (46)                                          │
+│    40m  @rahul moved #18 Fix GitHub OAuth → Doing (47)                                           │
+│    30m  @priya moved #18 Fix GitHub OAuth → Review (48)                                          │
+│    20m  @rahul moved #18 Fix GitHub OAuth → Doing (49)                                           │
+│    10m  @priya moved #18 Fix GitHub OAuth → Review (50)                                          │
+│                                                                                                  │
+│                                                                                                  │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > a full card at 80×24 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 2 online · synced ─┐
+│                                                                              │
+│ STATUS     Doing                      ASSIGNEE  @rahul ● working             │
+│ PRIORITY   p1                         WATCHERS  @priya, @adarsh              │
+│ LABELS     bug · auth                 DUE       Fri 21 Aug                   │
+│                                                                              │
+│ DESCRIPTION                                                                  │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails  │
+│ intermittently. Also needs refresh-token handling.                           │
+│                                                                              │
+│ CODE       src/auth/oauth.ts:42       [o] open in editor                     │
+│ BRANCH     task/18-fix-github-oauth   [g] open PR                            │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                       │
+│                                                                              │
+│ CHECKLIST  2/3                                                               │
+│   ✓  1  Fix callback state handling                                          │
+│   ✓  2  Add token refresh                                                    │
+│   ○  3  Add regression tests                                                 │
+│                                                                              │
+│ ACTIVITY                                                                    ↓│
+│ ● @adarsh is viewing this card                                               │
+│                                                                              │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back              │
+└──────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > a full card at 80×24 2`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 2 online · synced ─┐
+│ DESCRIPTION                                                                 ↑│
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails  │
+│ intermittently. Also needs refresh-token handling.                           │
+│                                                                              │
+│ CODE       src/auth/oauth.ts:42       [o] open in editor                     │
+│ BRANCH     task/18-fix-github-oauth   [g] open PR                            │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                       │
+│                                                                              │
+│ CHECKLIST  2/3                                                               │
+│   ✓  1  Fix callback state handling                                          │
+│   ✓  2  Add token refresh                                                    │
+│   ○  3  Add regression tests                                                 │
+│                                                                              │
+│ ACTIVITY                                                                     │
+│     5h  @rahul claimed and started task/18-fix-github-oauth                  │
+│     4h  @rahul pushed 3 commits (a3f9c21, 8b21e04, 5c7ba91)                  │
+│     3h  @adarsh commented on #18 Fix GitHub OAuth: "Check the redirect_uri   │
+│         whitelist too — staging differs."                                    │
+│     2h  @rahul checked an item on #18 Fix GitHub OAuth                       │
+│ ● @adarsh is viewing this card                                               │
+│                                                                              │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back              │
+└──────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > a full card at 100×40 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails intermittently. Also │
+│ needs refresh-token handling.                                                                    │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-github-oauth             [g] open PR                                      │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                                           │
+│                                                                                                  │
+│ CHECKLIST  2/3                                                                                   │
+│   ✓  1  Fix callback state handling                                                              │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│     5h  @rahul claimed and started task/18-fix-github-oauth                                      │
+│     4h  @rahul pushed 3 commits (a3f9c21, 8b21e04, 5c7ba91)                                      │
+│     3h  @adarsh commented on #18 Fix GitHub OAuth: "Check the redirect_uri whitelist too —       │
+│         staging differs."                                                                        │
+│     2h  @rahul checked an item on #18 Fix GitHub OAuth                                           │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│ ● @adarsh is viewing this card                                                                   │
+│                                                                                                  │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > a full card at 100×40 2`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails intermittently. Also │
+│ needs refresh-token handling.                                                                    │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-github-oauth             [g] open PR                                      │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                                           │
+│                                                                                                  │
+│ CHECKLIST  2/3                                                                                   │
+│   ✓  1  Fix callback state handling                                                              │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│     5h  @rahul claimed and started task/18-fix-github-oauth                                      │
+│     4h  @rahul pushed 3 commits (a3f9c21, 8b21e04, 5c7ba91)                                      │
+│     3h  @adarsh commented on #18 Fix GitHub OAuth: "Check the redirect_uri whitelist too —       │
+│         staging differs."                                                                        │
+│     2h  @rahul checked an item on #18 Fix GitHub OAuth                                           │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│ ● @adarsh is viewing this card                                                                   │
+│                                                                                                  │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > a long description at 80×24 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 0 online · synced ─┐
+│                                                                              │
+│ STATUS     Doing                      ASSIGNEE  @rahul                       │
+│ PRIORITY   p1                         WATCHERS  @priya, @adarsh              │
+│ LABELS     bug · auth                 DUE       Fri 21 Aug                   │
+│                                                                              │
+│ DESCRIPTION                                                                  │
+│ Paragraph 1. The callback handler reads the state parameter from the         │
+│ session, but the session cookie is set with SameSite=Strict, so on the       │
+│ redirect back from GitHub the browser does not send it and the check fails.  │
+│                                                                              │
+│ Paragraph 2. The callback handler reads the state parameter from the         │
+│ session, but the session cookie is set with SameSite=Strict, so on the       │
+│ redirect back from GitHub the browser does not send it and the check fails.  │
+│                                                                              │
+│ Paragraph 3. The callback handler reads the state parameter from the         │
+│ session, but the session cookie is set with SameSite=Strict, so on the       │
+│ redirect back from GitHub the browser does not send it and the check fails.  │
+│                                                                              │
+│ Paragraph 4. The callback handler reads the state parameter from the        ↓│
+│                                                                              │
+│                                                                              │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back              │
+└──────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > a long description at 80×24 2`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 0 online · synced ─┐
+│ Paragraph 5. The callback handler reads the state parameter from the        ↑│
+│ session, but the session cookie is set with SameSite=Strict, so on the       │
+│ redirect back from GitHub the browser does not send it and the check fails.  │
+│                                                                              │
+│ Paragraph 6. The callback handler reads the state parameter from the         │
+│ session, but the session cookie is set with SameSite=Strict, so on the       │
+│ redirect back from GitHub the browser does not send it and the check fails.  │
+│                                                                              │
+│ CODE       src/auth/oauth.ts:42       [o] open in editor                     │
+│ BRANCH     task/18-fix-github-oauth   [g] open PR                            │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                       │
+│                                                                              │
+│ CHECKLIST  2/3                                                               │
+│   ✓  1  Fix callback state handling                                          │
+│   ✓  2  Add token refresh                                                    │
+│   ○  3  Add regression tests                                                 │
+│                                                                              │
+│ ACTIVITY                                                                     │
+│   nothing yet                                                                │
+│                                                                              │
+│                                                                              │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back              │
+└──────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > a long description at 100×40 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 0 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul                                 │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ Paragraph 1. The callback handler reads the state parameter from the session, but the session    │
+│ cookie is set with SameSite=Strict, so on the redirect back from GitHub the browser does not     │
+│ send it and the check fails.                                                                     │
+│                                                                                                  │
+│ Paragraph 2. The callback handler reads the state parameter from the session, but the session    │
+│ cookie is set with SameSite=Strict, so on the redirect back from GitHub the browser does not     │
+│ send it and the check fails.                                                                     │
+│                                                                                                  │
+│ Paragraph 3. The callback handler reads the state parameter from the session, but the session    │
+│ cookie is set with SameSite=Strict, so on the redirect back from GitHub the browser does not     │
+│ send it and the check fails.                                                                     │
+│                                                                                                  │
+│ Paragraph 4. The callback handler reads the state parameter from the session, but the session    │
+│ cookie is set with SameSite=Strict, so on the redirect back from GitHub the browser does not     │
+│ send it and the check fails.                                                                     │
+│                                                                                                  │
+│ Paragraph 5. The callback handler reads the state parameter from the session, but the session    │
+│ cookie is set with SameSite=Strict, so on the redirect back from GitHub the browser does not     │
+│ send it and the check fails.                                                                     │
+│                                                                                                  │
+│ Paragraph 6. The callback handler reads the state parameter from the session, but the session    │
+│ cookie is set with SameSite=Strict, so on the redirect back from GitHub the browser does not     │
+│ send it and the check fails.                                                                     │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-github-oauth             [g] open PR                                      │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                                           │
+│                                                                                                  │
+│ CHECKLIST  2/3                                                                                  ↓│
+│                                                                                                  │
+│                                                                                                  │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > a long description at 100×40 2`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 0 online · synced ─┐
+│ Paragraph 1. The callback handler reads the state parameter from the session, but the session   ↑│
+│ cookie is set with SameSite=Strict, so on the redirect back from GitHub the browser does not     │
+│ send it and the check fails.                                                                     │
+│                                                                                                  │
+│ Paragraph 2. The callback handler reads the state parameter from the session, but the session    │
+│ cookie is set with SameSite=Strict, so on the redirect back from GitHub the browser does not     │
+│ send it and the check fails.                                                                     │
+│                                                                                                  │
+│ Paragraph 3. The callback handler reads the state parameter from the session, but the session    │
+│ cookie is set with SameSite=Strict, so on the redirect back from GitHub the browser does not     │
+│ send it and the check fails.                                                                     │
+│                                                                                                  │
+│ Paragraph 4. The callback handler reads the state parameter from the session, but the session    │
+│ cookie is set with SameSite=Strict, so on the redirect back from GitHub the browser does not     │
+│ send it and the check fails.                                                                     │
+│                                                                                                  │
+│ Paragraph 5. The callback handler reads the state parameter from the session, but the session    │
+│ cookie is set with SameSite=Strict, so on the redirect back from GitHub the browser does not     │
+│ send it and the check fails.                                                                     │
+│                                                                                                  │
+│ Paragraph 6. The callback handler reads the state parameter from the session, but the session    │
+│ cookie is set with SameSite=Strict, so on the redirect back from GitHub the browser does not     │
+│ send it and the check fails.                                                                     │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-github-oauth             [g] open PR                                      │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                                           │
+│                                                                                                  │
+│ CHECKLIST  2/3                                                                                   │
+│   ✓  1  Fix callback state handling                                                              │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│   nothing yet                                                                                    │
+│                                                                                                  │
+│                                                                                                  │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > no description at 80×24 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 0 online · synced ─┐
+│                                                                              │
+│ STATUS     Doing                      ASSIGNEE  @rahul                       │
+│ PRIORITY   p1                         WATCHERS  @priya, @adarsh              │
+│ LABELS     bug · auth                 DUE       Fri 21 Aug                   │
+│                                                                              │
+│ DESCRIPTION                                                                  │
+│ No description — e to write one.                                             │
+│                                                                              │
+│ CODE       src/auth/oauth.ts:42       [o] open in editor                     │
+│ BRANCH     task/18-fix-github-oauth   [g] open PR                            │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                       │
+│                                                                              │
+│ CHECKLIST  2/3                                                               │
+│   ✓  1  Fix callback state handling                                          │
+│   ✓  2  Add token refresh                                                    │
+│   ○  3  Add regression tests                                                 │
+│                                                                              │
+│ ACTIVITY                                                                     │
+│   nothing yet                                                                │
+│                                                                              │
+│                                                                              │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back              │
+└──────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > no description at 80×24 2`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 0 online · synced ─┐
+│                                                                              │
+│ STATUS     Doing                      ASSIGNEE  @rahul                       │
+│ PRIORITY   p1                         WATCHERS  @priya, @adarsh              │
+│ LABELS     bug · auth                 DUE       Fri 21 Aug                   │
+│                                                                              │
+│ DESCRIPTION                                                                  │
+│ No description — e to write one.                                             │
+│                                                                              │
+│ CODE       src/auth/oauth.ts:42       [o] open in editor                     │
+│ BRANCH     task/18-fix-github-oauth   [g] open PR                            │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                       │
+│                                                                              │
+│ CHECKLIST  2/3                                                               │
+│   ✓  1  Fix callback state handling                                          │
+│   ✓  2  Add token refresh                                                    │
+│   ○  3  Add regression tests                                                 │
+│                                                                              │
+│ ACTIVITY                                                                     │
+│   nothing yet                                                                │
+│                                                                              │
+│                                                                              │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back              │
+└──────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > no description at 100×40 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 0 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul                                 │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ No description — e to write one.                                                                 │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-github-oauth             [g] open PR                                      │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                                           │
+│                                                                                                  │
+│ CHECKLIST  2/3                                                                                   │
+│   ✓  1  Fix callback state handling                                                              │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│   nothing yet                                                                                    │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > no description at 100×40 2`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 0 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul                                 │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ No description — e to write one.                                                                 │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-github-oauth             [g] open PR                                      │
+│ GIT        3 commits · 7 files · pushed · PR #204 open                                           │
+│                                                                                                  │
+│ CHECKLIST  2/3                                                                                   │
+│   ✓  1  Fix callback state handling                                                              │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│   nothing yet                                                                                    │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > no git link at 80×24 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 0 online · synced ─┐
+│                                                                              │
+│ STATUS     Doing                      ASSIGNEE  @rahul                       │
+│ PRIORITY   p1                         WATCHERS  @priya, @adarsh              │
+│ LABELS     bug · auth                 DUE       Fri 21 Aug                   │
+│                                                                              │
+│ DESCRIPTION                                                                  │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails  │
+│ intermittently. Also needs refresh-token handling.                           │
+│                                                                              │
+│ BRANCH     not linked — c to claim and start a branch                        │
+│                                                                              │
+│ CHECKLIST  2/3                                                               │
+│   ✓  1  Fix callback state handling                                          │
+│   ✓  2  Add token refresh                                                    │
+│   ○  3  Add regression tests                                                 │
+│                                                                              │
+│ ACTIVITY                                                                     │
+│   nothing yet                                                                │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back              │
+└──────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > no git link at 80×24 2`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 0 online · synced ─┐
+│                                                                              │
+│ STATUS     Doing                      ASSIGNEE  @rahul                       │
+│ PRIORITY   p1                         WATCHERS  @priya, @adarsh              │
+│ LABELS     bug · auth                 DUE       Fri 21 Aug                   │
+│                                                                              │
+│ DESCRIPTION                                                                  │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails  │
+│ intermittently. Also needs refresh-token handling.                           │
+│                                                                              │
+│ BRANCH     not linked — c to claim and start a branch                        │
+│                                                                              │
+│ CHECKLIST  2/3                                                               │
+│   ✓  1  Fix callback state handling                                          │
+│   ✓  2  Add token refresh                                                    │
+│   ○  3  Add regression tests                                                 │
+│                                                                              │
+│ ACTIVITY                                                                     │
+│   nothing yet                                                                │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back              │
+└──────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > no git link at 100×40 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 0 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul                                 │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails intermittently. Also │
+│ needs refresh-token handling.                                                                    │
+│                                                                                                  │
+│ BRANCH     not linked — c to claim and start a branch                                            │
+│                                                                                                  │
+│ CHECKLIST  2/3                                                                                   │
+│   ✓  1  Fix callback state handling                                                              │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│   nothing yet                                                                                    │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`card view snapshots > no git link at 100×40 2`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 0 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul                                 │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails intermittently. Also │
+│ needs refresh-token handling.                                                                    │
+│                                                                                                  │
+│ BRANCH     not linked — c to claim and start a branch                                            │
+│                                                                                                  │
+│ CHECKLIST  2/3                                                                                   │
+│   ✓  1  Fix callback state handling                                                              │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│   nothing yet                                                                                    │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`overlays > checklist over the card view 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails intermittently. Also │
+│ needs refresh-token handling.                                                                    │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-githu┌─ Checklist #18 ──────────────────────┐                             │
+│ GIT        3 commits · 7 fil│   ✓  1  Fix callback state handling  │                             │
+│                             │   ✓  2  Add token refresh            │                             │
+│ CHECKLIST  2/3              │ ▸ ○  3  Add regression tests         │                             │
+│   ✓  1  Fix callback state h└──────────────────────────────────────┘                             │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│     5h  @rahul claimed and started task/18-fix-github-oauth                                      │
+│     4h  @rahul pushed 3 commits (a3f9c21, 8b21e04, 5c7ba91)                                      │
+│     3h  @adarsh commented on #18 Fix GitHub OAuth: "Check the redirect_uri whitelist too —       │
+│         staging differs."                                                                        │
+│     2h  @rahul checked an item on #18 Fix GitHub OAuth                                           │
+│                                                                                                  │
+│ ● @adarsh is viewing this card                                                                   │
+│                                                                                                  │
+│ j k choose  x toggle  + add  esc close                                                           │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`overlays > column picker over the card view 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails intermittently. Also │
+│ needs refresh-token handling.                                                                    │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-github-┌─ Move #18 to ────────────────────┐                               │
+│ GIT        3 commits · 7 files│     Todo                         │                               │
+│                               │   ✓ Doing                        │                               │
+│ CHECKLIST  2/3                │ ▸   Done                         │                               │
+│   ✓  1  Fix callback state han└──────────────────────────────────┘                               │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│     5h  @rahul claimed and started task/18-fix-github-oauth                                      │
+│     4h  @rahul pushed 3 commits (a3f9c21, 8b21e04, 5c7ba91)                                      │
+│     3h  @adarsh commented on #18 Fix GitHub OAuth: "Check the redirect_uri whitelist too —       │
+│         staging differs."                                                                        │
+│     2h  @rahul checked an item on #18 Fix GitHub OAuth                                           │
+│                                                                                                  │
+│ ● @adarsh is viewing this card                                                                   │
+│                                                                                                  │
+│ j k choose  ↵ pick  esc cancel                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`overlays > comment composer over the card view 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails intermittently. Also │
+│ needs refresh-token handling.                                                                    │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     t┌─ Comment on #18 ─────────────────────────────────────────────────────┐             │
+│ GIT        3│ Looks                                                                │             │
+│             │ good▏                                                                │             │
+│ CHECKLIST  2│                                                                      │             │
+│   ✓  1  Fix └──────────────────────────────────────────────────────────────────────┘             │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│     5h  @rahul claimed and started task/18-fix-github-oauth                                      │
+│     4h  @rahul pushed 3 commits (a3f9c21, 8b21e04, 5c7ba91)                                      │
+│     3h  @adarsh commented on #18 Fix GitHub OAuth: "Check the redirect_uri whitelist too —       │
+│         staging differs."                                                                        │
+│     2h  @rahul checked an item on #18 Fix GitHub OAuth                                           │
+│                                                                                                  │
+│ ● @adarsh is viewing this card                                                                   │
+│                                                                                                  │
+│ Ctrl-D send  ↵ new line  esc cancel                                                              │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`overlays > delete confirmation over the card view 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails intermittently. Also │
+│ needs refresh-token handling.                                                                    │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-githu┌─ Delete ─────────────────────────────┐                             │
+│ GIT        3 commits · 7 fil│ Delete #18 Fix GitHub OAuth?         │                             │
+│                             │                                      │                             │
+│ CHECKLIST  2/3              │ y delete   n keep                    │                             │
+│   ✓  1  Fix callback state h└──────────────────────────────────────┘                             │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│     5h  @rahul claimed and started task/18-fix-github-oauth                                      │
+│     4h  @rahul pushed 3 commits (a3f9c21, 8b21e04, 5c7ba91)                                      │
+│     3h  @adarsh commented on #18 Fix GitHub OAuth: "Check the redirect_uri whitelist too —       │
+│         staging differs."                                                                        │
+│     2h  @rahul checked an item on #18 Fix GitHub OAuth                                           │
+│                                                                                                  │
+│ ● @adarsh is viewing this card                                                                   │
+│                                                                                                  │
+│ y delete  n keep                                                                                 │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`overlays > help over the card view 1`] = `
+"
+┌ yuzie · yuzie-dev ───────────────────────────────────────────────────────── ● 2 online · synced ─┐
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                     Keys  (any key to close)                                     │
+│                                                                                                  │
+│                                          ↑↓  j k   scroll                                        │
+│                                    esc  q    back to the board                                   │
+│                                       m  a      move, assign                                     │
+│                                  C         comment (Ctrl-D sends)                                │
+│                                x  +      check off an item, add one                              │
+│                                     e         edit in $EDITOR                                    │
+│                                c  w  d  Dclaim, watch, done, delete                              │
+│                                  o  g      open code, open branch                                │
+│                                         r         refresh                                        │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│ C comment  m move  a assign  e edit  x check  w watch  esc back                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`overlays > member picker over the card view 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails intermittently. Also │
+│ needs refresh-token handling.                                                                    │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-github-┌─ Assign #18 ─────────────────────┐                               │
+│ GIT        3 commits · 7 files│ ▸ ✓ @rahul (you)                 │                               │
+│                               │     @priya                       │                               │
+│ CHECKLIST  2/3                │     @sam                         │                               │
+│   ✓  1  Fix callback state han└──────────────────────────────────┘                               │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│     5h  @rahul claimed and started task/18-fix-github-oauth                                      │
+│     4h  @rahul pushed 3 commits (a3f9c21, 8b21e04, 5c7ba91)                                      │
+│     3h  @adarsh commented on #18 Fix GitHub OAuth: "Check the redirect_uri whitelist too —       │
+│         staging differs."                                                                        │
+│     2h  @rahul checked an item on #18 Fix GitHub OAuth                                           │
+│                                                                                                  │
+│ ● @adarsh is viewing this card                                                                   │
+│                                                                                                  │
+│ j k choose  ↵ assign / unassign  esc cancel                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`overlays > new card prompt, search and filter over the board 1`] = `
+"
+┌ yuzie · yuzie-dev ───────────────────────────────────────────────────────── ● 2 online · synced ─┐
+│                                                                                                  │
+│ ┌────────── TODO (0) ───────────┬────────── DOING (1) ──────────┬────────── DONE (0) ──────────┐ │
+│ │                               │                               │                              │ │
+│ │                               │ #18 Fix GitHub OAuth          │                              │ │
+│ │                               │     @rahul ● 3c/7f  p1 bug au…│                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │           ┌─ New card in Todo ───────────────────────────────────────────────────┐           │ │
+│ │           │ Ship▏                                                                │           │ │
+│ │           └──────────────────────────────────────────────────────────────────────┘           │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ └───────────────────────────────┴───────────────────────────────┴──────────────────────────────┘ │
+│                                                                                                  │
+│                                                                                                  │
+│ ↵ save  esc cancel                                                                               │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`overlays > new card prompt, search and filter over the board 2`] = `
+"
+┌ yuzie · yuzie-dev ─────────────────────────────────── /oauth  esc clears  ─ ● 2 online · synced ─┐
+│                                                                                                  │
+│ ┌────────── TODO (0) ───────────┬────────── DOING (1) ──────────┬────────── DONE (0) ──────────┐ │
+│ │                               │                               │                              │ │
+│ │                               │ #18 Fix GitHub OAuth          │                              │ │
+│ │                               │     @rahul ● 3c/7f  p1 bug au…│                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                             ┌─ Show ───────────────────────────┐                             │ │
+│ │                             │ ▸ ✓ Everything                   │                             │ │
+│ │                             │     Mine                         │                             │ │
+│ │                             │     Assigned to @rahul           │                             │ │
+│ │                             │     Label: auth                  │                             │ │
+│ │                             │     Label: bug                   │                             │ │
+│ │                             └──────────────────────────────────┘                             │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ │                               │                               │                              │ │
+│ └───────────────────────────────┴───────────────────────────────┴──────────────────────────────┘ │
+│                                                                                                  │
+│                                                                                                  │
+│ j k choose  ↵ pick  esc cancel                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`overlays > new checklist item over the card view 1`] = `
+"
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+│                                                                                                  │
+│ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
+│ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
+│ LABELS     bug · auth                           DUE       Fri 21 Aug                             │
+│                                                                                                  │
+│ DESCRIPTION                                                                                      │
+│ OAuth callback drops the \`state\` param on redirect, so token exchange fails intermittently. Also │
+│ needs refresh-token handling.                                                                    │
+│                                                                                                  │
+│ CODE       src/auth/oauth.ts:42                 [o] open in editor                               │
+│ BRANCH     task/18-fix-github-oauth             [g] open PR                                      │
+│ GIT        3┌─ New checklist item on #18 ──────────────────────────────────────────┐             │
+│             │ Test▏                                                                │             │
+│ CHECKLIST  2└──────────────────────────────────────────────────────────────────────┘             │
+│   ✓  1  Fix callback state handling                                                              │
+│   ✓  2  Add token refresh                                                                        │
+│   ○  3  Add regression tests                                                                     │
+│                                                                                                  │
+│ ACTIVITY                                                                                         │
+│     5h  @rahul claimed and started task/18-fix-github-oauth                                      │
+│     4h  @rahul pushed 3 commits (a3f9c21, 8b21e04, 5c7ba91)                                      │
+│     3h  @adarsh commented on #18 Fix GitHub OAuth: "Check the redirect_uri whitelist too —       │
+│         staging differs."                                                                        │
+│     2h  @rahul checked an item on #18 Fix GitHub OAuth                                           │
+│                                                                                                  │
+│ ● @adarsh is viewing this card                                                                   │
+│                                                                                                  │
+│ ↵ save  esc cancel                                                                               │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;

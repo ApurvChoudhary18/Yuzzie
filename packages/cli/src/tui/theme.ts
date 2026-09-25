@@ -45,6 +45,10 @@ export interface Glyphs {
   readonly enter: string
   readonly ellipsis: string
   readonly none: string
+  /** A write painted before the server confirmed it. */
+  readonly pending: string
+  /** An unchecked checklist item. */
+  readonly open: string
 }
 
 const UNICODE: Glyphs = {
@@ -67,6 +71,8 @@ const UNICODE: Glyphs = {
   enter: '↵',
   ellipsis: '…',
   none: '—',
+  pending: '◌',
+  open: '○',
 }
 
 const ASCII: Glyphs = {
@@ -89,6 +95,8 @@ const ASCII: Glyphs = {
   enter: 'RET',
   ellipsis: '~',
   none: '-',
+  pending: '~',
+  open: 'o',
 }
 
 type Codes = readonly [open: string, close: string]

@@ -6,14 +6,14 @@ import { EventEmitter } from 'node:events'
 import type { Card, Column, Presence } from '@yuzie/core'
 import { render } from 'ink'
 import { createElement } from 'react'
-import { App, type BoardSource } from '../App.js'
+import { App, type AppProps, type BoardSource } from '../App.js'
 import { type BoardView, viewColumns } from '../layout.js'
 import type { Effect } from '../state.js'
 import { makeTheme } from '../theme.js'
 
 export const NOW = new Date('2026-08-19T12:00:00.000Z')
 const BOARD_ID = '11111111-1111-4111-8111-111111111111'
-const hoursAgo = (n: number) => new Date(NOW.getTime() - n * 3_600_000).toISOString()
+export const hoursAgo = (n: number) => new Date(NOW.getTime() - n * 3_600_000).toISOString()
 
 export function column(
   key: string,
@@ -61,7 +61,7 @@ export function card(number: number, overrides: Partial<Card> = {}): Card {
   }
 }
 
-function git(commits: number, filesChanged: number, idleHours: number): Card['git'] {
+export function git(commits: number, filesChanged: number, idleHours: number): Card['git'] {
   return {
     branch: 'feat/x',
     baseBranch: 'main',
@@ -76,7 +76,7 @@ function git(commits: number, filesChanged: number, idleHours: number): Card['gi
   }
 }
 
-const person = (handle: string, cardNo: number | null): Presence => ({
+export const person = (handle: string, cardNo: number | null): Presence => ({
   handle,
   kind: 'human',
   state: cardNo === null ? 'online' : 'working',
@@ -85,7 +85,12 @@ const person = (handle: string, cardNo: number | null): Presence => ({
   since: null,
 })
 
-function view(columns: Column[], cards: Card[], presence: Presence[] = []): BoardView {
+export function view(
+  columns: Column[],
+  cards: Card[],
+  presence: Presence[] = [],
+  extra: Partial<BoardView> = {},
+): BoardView {
   return {
     slug: 'yuzie-dev',
     columns: viewColumns(columns, cards),
@@ -94,7 +99,34 @@ function view(columns: Column[], cards: Card[], presence: Presence[] = []): Boar
     queued: 0,
     toast: null,
     now: NOW.getTime(),
+    members: ['rahul', 'priya', 'sam'],
+    me: 'rahul',
+    pending: new Set(),
+    conflicts: new Map(),
+    activity: new Map(),
+    ...extra,
   }
+}
+
+/** A board whose columns hold exactly these card numbers: what the reducer tests need. */
+export function viewOf(
+  numbers: ReadonlyArray<readonly number[]>,
+  extra: Partial<BoardView> = {},
+): BoardView {
+  const columns = numbers.map((_, index) =>
+    column(
+      `c${index}`,
+      `Column ${index + 1}`,
+      index,
+      index === numbers.length - 1 ? 'terminal' : null,
+    ),
+  )
+  const cards = numbers.flatMap((list, index) =>
+    list.map((number, position) =>
+      card(number, { column: `c${index}`, rank: `a${String(position).padStart(4, '0')}` }),
+    ),
+  )
+  return view(columns, cards, [], extra)
 }
 
 const STANDARD = [
@@ -191,8 +223,12 @@ export class Keyboard extends EventEmitter {
     this.data = null
     return data
   }
+  /** Every raw-mode switch, so a test can check the terminal was handed back. */
+  readonly rawModes: boolean[] = []
   setEncoding(): void {}
-  setRawMode(): void {}
+  setRawMode(mode: boolean): void {
+    this.rawModes.push(mode)
+  }
   resume(): void {}
   pause(): void {}
   ref(): void {}
@@ -205,24 +241,39 @@ export function staticSource(board: BoardView): BoardSource {
 
 /** Render the app into a terminal of the given size, following its resizes. */
 export function mount(board: BoardView, columns: number, rows: number) {
+  const effects: Effect[] = []
+  const mounted = mountSource(staticSource(board), columns, rows, {
+    onEffect: (effect) => effects.push(effect),
+  })
+  return { ...mounted, effects }
+}
+
+/** The app over any source — a real SDK board in the behaviour tests. */
+export function mountSource(
+  source: BoardSource,
+  columns: number,
+  rows: number,
+  props: Pick<AppProps, 'onEffect'> & Partial<Pick<AppProps, 'onSuspend'>>,
+) {
   const terminal = new Terminal(columns, rows)
   const keyboard = new Keyboard()
-  const effects: Effect[] = []
   const instance = render(
     createElement(App, {
-      source: staticSource(board),
+      source,
       theme: makeTheme('plain', 'unicode'),
-      onEffect: (effect: Effect) => effects.push(effect),
+      ...props,
     }),
     {
       stdout: terminal as unknown as NodeJS.WriteStream,
       stdin: keyboard as unknown as NodeJS.ReadStream,
       debug: true,
+      // As in run.ts; Ink also skips suspend/resume when it thinks it is not.
+      interactive: true,
       exitOnCtrlC: false,
       patchConsole: false,
     },
   )
-  return { terminal, keyboard, effects, instance }
+  return { terminal, keyboard, instance }
 }
 
 /** Let React commit and Ink repaint. */

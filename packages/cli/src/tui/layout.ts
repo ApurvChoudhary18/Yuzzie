@@ -40,6 +40,13 @@ export interface ViewColumn {
 
 export type Connection = 'connecting' | 'live' | 'reconnecting' | 'offline'
 
+/** One line of a card's activity panel (§8.3). */
+export interface ActivityEntry {
+  readonly at: number
+  readonly who: string
+  readonly text: string
+}
+
 export interface BoardView {
   readonly slug: string
   readonly columns: readonly ViewColumn[]
@@ -50,10 +57,93 @@ export interface BoardView {
   readonly toast: {
     readonly text: string
     readonly at: number
-    /** `event`: something happened (✓); `info`: a hint about a key (→). */
-    readonly kind?: 'event' | 'info'
+    /**
+     * `event`: something happened (✓); `info`: a hint about a key (→);
+     * `warn`: something failed or was undone (⚠).
+     */
+    readonly kind?: 'event' | 'info' | 'warn'
   } | null
   readonly now: number
+  /** Board members' handles, for the member picker. */
+  readonly members: readonly string[]
+  /** The signed-in user's handle, once known. */
+  readonly me: string | null
+  /** Cards with a write painted optimistically and not yet confirmed. */
+  readonly pending: ReadonlySet<number>
+  /** Cards whose last write was refused by the server, and when (§8, rollback). */
+  readonly conflicts: ReadonlyMap<number, number>
+  /** Loaded activity per card; `null` while it is loading. */
+  readonly activity: ReadonlyMap<number, readonly ActivityEntry[] | null>
+}
+
+/** How long a card keeps its conflict marker. */
+export const CONFLICT_MS = 10_000
+
+/** What `f` can narrow the board to (§8.4). */
+export type Filter =
+  | { readonly kind: 'mine' }
+  | { readonly kind: 'assignee'; readonly handle: string }
+  | { readonly kind: 'label'; readonly label: string }
+
+export function describeFilter(filter: Filter): string {
+  switch (filter.kind) {
+    case 'mine':
+      return 'mine'
+    case 'assignee':
+      return `@${filter.handle}`
+    case 'label':
+      return filter.label
+  }
+}
+
+function matchesQuery(card: Card, query: string): boolean {
+  const words = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word.length > 0)
+  const haystack = [
+    `#${card.number}`,
+    card.title,
+    ...card.labels,
+    ...card.assignees.map((handle) => `@${handle}`),
+  ]
+    .join(' ')
+    .toLowerCase()
+  return words.every((word) => haystack.includes(word))
+}
+
+function matchesFilter(card: Card, filter: Filter, me: string | null): boolean {
+  switch (filter.kind) {
+    case 'mine':
+      return me !== null && card.assignees.includes(me)
+    case 'assignee':
+      return card.assignees.includes(filter.handle)
+    case 'label':
+      return card.labels.includes(filter.label)
+  }
+}
+
+/** The board as the user asked to see it: search (`/`) and filter (`f`) applied. */
+export function visibleView(view: BoardView, query: string, filter: Filter | null): BoardView {
+  if (query.trim().length === 0 && filter === null) return view
+  return {
+    ...view,
+    columns: view.columns.map((column) => ({
+      ...column,
+      cards: column.cards.filter(
+        (card) =>
+          matchesQuery(card, query) && (filter === null || matchesFilter(card, filter, view.me)),
+      ),
+    })),
+  }
+}
+
+export function findCard(view: BoardView, cardNo: number): Card | undefined {
+  for (const column of view.columns) {
+    const card = column.cards.find((candidate) => candidate.number === cardNo)
+    if (card !== undefined) return card
+  }
+  return undefined
 }
 
 export function viewColumns(columns: readonly Column[], cards: readonly Card[]): ViewColumn[] {

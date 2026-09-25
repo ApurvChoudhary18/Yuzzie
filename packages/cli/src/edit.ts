@@ -13,6 +13,9 @@
  *     The callback returns 500 when the state param is missing.
  */
 import { spawn } from 'node:child_process'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { Card, CardUpdateRequest } from '@yuzie/core'
 import { Document, isSeq, parse } from 'yaml'
 import { parseDue, parsePriority } from './dates.js'
@@ -147,4 +150,21 @@ export function runEditor(
       else reject(new UsageError(`${editor} exited with ${code}; nothing was changed.`))
     })
   })
+}
+
+/** Write `initial` to a temporary file, open it in the editor, and return what was saved. */
+export async function editText(
+  env: Readonly<Record<string, string | undefined>>,
+  initial: string,
+  name: string,
+): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), 'yuzie-'))
+  const path = join(dir, name)
+  try {
+    await writeFile(path, initial, 'utf8')
+    await runEditor(path, env)
+    return await readFile(path, 'utf8')
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
 }

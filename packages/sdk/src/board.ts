@@ -229,6 +229,8 @@ const CARD_PATH = /\/cards\/(\d+)(\/.*)?$/
 interface Pending {
   readonly key: string
   readonly apply: (state: BoardState) => BoardState
+  /** The card the write is about, when it is about one. */
+  readonly cardNo: number | null
 }
 
 interface WriteSpec<T> {
@@ -307,6 +309,16 @@ export class Board {
   /** Writes applied optimistically and not yet confirmed or rejected. */
   get unconfirmed(): number {
     return this.pending.length
+  }
+
+  /**
+   * Cards with a write applied optimistically and not yet confirmed, so a UI
+   * can mark them. A card created offline also has a negative (provisional) number.
+   */
+  get pendingCards(): ReadonlySet<number> {
+    const cards = new Set<number>()
+    for (const write of this.pending) if (write.cardNo !== null) cards.add(write.cardNo)
+    return cards
   }
 
   on<K extends keyof BoardEventMap>(
@@ -489,7 +501,12 @@ export class Board {
   async write<T>(spec: WriteSpec<T>): Promise<T> {
     const key = newId()
     if (spec.optimistic !== undefined) {
-      this.pending.push({ key, apply: spec.optimistic })
+      const match = CARD_PATH.exec(spec.path)
+      this.pending.push({
+        key,
+        apply: spec.optimistic,
+        cardNo: match === null ? null : Number(match[1]),
+      })
       this.changed()
     }
 
