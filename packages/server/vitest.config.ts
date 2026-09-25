@@ -10,6 +10,8 @@ export default defineConfig({
     // One container per file would be wasteful; the suites share a database and
     // isolate themselves by creating their own workspaces and boards.
     fileParallelism: false,
+    // Wall-clock budgets run alone in the `bench` task; see vitest.bench.config.ts.
+    exclude: ['**/node_modules/**', '**/dist/**', 'src/realtime-timing.test.ts'],
     coverage: {
       provider: 'v8',
       all: true,

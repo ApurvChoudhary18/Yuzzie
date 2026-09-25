@@ -34,5 +34,13 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "@yuzie/core": "workspace:^",
+    "@yuzie/git": "workspace:^",
+    "@yuzie/sdk": "workspace:^",
+    "@yuzie/store": "workspace:^",
+    "commander": "^14.0.3",
+    "zod": "^4.6.5"
   }
 }

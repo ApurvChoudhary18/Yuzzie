@@ -26,7 +26,8 @@
     "test": "vitest run",
     "lint": "biome check --error-on-warnings .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "bench": "vitest run --config vitest.bench.config.ts"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "^11.14.0",

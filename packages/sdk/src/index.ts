@@ -49,6 +49,7 @@ export {
   createClient,
   DEFAULT_BASE_URL,
   type DevicePollResult,
+  type ServerHealth,
   Yuzie,
   type YuzieClient,
 } from './client.js'

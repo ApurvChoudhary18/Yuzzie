@@ -16,6 +16,7 @@ import { createRedisPubSub } from './realtime/redis.js'
 import { registerAuthRoutes } from './routes/auth.js'
 import { registerBoardRoutes } from './routes/boards.js'
 import { registerCardRoutes } from './routes/cards.js'
+import { registerDevicePage } from './routes/device-page.js'
 import type { AppContext } from './routes/helpers.js'
 import { createEventBus, type EventBus } from './services/event-bus.js'
 
@@ -169,6 +170,8 @@ export async function buildServer(options: BuildServerOptions): Promise<YuzieSer
   app.get('/healthz', async (_request, reply) => {
     return reply.send({ status: 'ok', version: 'yuzie/v1' })
   })
+
+  registerDevicePage(app)
 
   app.get('/metrics', async (_request, reply) => {
     return reply

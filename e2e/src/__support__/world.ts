@@ -11,6 +11,7 @@ import {
   type DatabaseHandle,
   loadConfig,
   migratePostgres,
+  type ServerConfigInput,
 } from '@yuzie/server'
 import type { FastifyInstance } from 'fastify'
 
@@ -21,12 +22,15 @@ export interface World {
   close(): Promise<void>
 }
 
-export async function startWorld(): Promise<World> {
+export async function startWorld(overrides: Partial<ServerConfigInput> = {}): Promise<World> {
   const databaseUrl = process.env.TEST_DATABASE_URL
   if (databaseUrl === undefined)
     throw new Error('TEST_DATABASE_URL is not set; see global-setup.ts')
 
-  const config = loadConfig({}, { databaseUrl, logLevel: 'silent', rateLimitEnabled: false })
+  const config = loadConfig(
+    {},
+    { databaseUrl, logLevel: 'silent', rateLimitEnabled: false, ...overrides },
+  )
   const handle: DatabaseHandle = createDatabase(config.databaseUrl)
   await migratePostgres(handle.pool)
   const { app } = await buildServer({ config, db: handle.db })
