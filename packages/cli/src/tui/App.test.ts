@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { FIXTURES, mount, SIZES, staticSource, tick } from './__tests__/fixtures.js'
 import { App } from './App.js'
 import { renderPlain } from './frame.js'
-import { type BoardView, numbersOf } from './layout.js'
+import type { BoardView } from './layout.js'
 import { initialNav, reduce } from './state.js'
 import { textWidth } from './text.js'
 import { makeTheme } from './theme.js'
@@ -49,7 +49,7 @@ describe('snapshots', () => {
         const nav = reduce(
           initialNav(columns, rows, board.columns.length),
           { type: 'data' },
-          numbersOf(board),
+          board,
         ).state
         const early = renderPlain(board, nav, makeTheme('plain', 'unicode'))
         expect(lines(early).map((line) => line.trimEnd())).toEqual(output)
@@ -82,10 +82,15 @@ describe('keys through Ink', () => {
     await tick()
     app.stdin.write('m')
     await tick()
+    expect(app.lastFrame()).toContain('Move #15 to')
+    app.stdin.write('j')
+    await tick()
+    app.stdin.write('\r')
+    await tick()
     app.stdin.write('\r')
     await tick()
     expect(effects).toEqual([
-      { type: 'move', cardNo: 15 },
+      { type: 'move', cardNo: 15, column: 'done' },
       { type: 'open', cardNo: 15 },
     ])
   })
