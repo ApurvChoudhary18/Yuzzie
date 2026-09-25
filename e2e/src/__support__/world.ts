@@ -22,14 +22,30 @@ export interface World {
   close(): Promise<void>
 }
 
+async function freshDatabase(url: string): Promise<string> {
+  const name = `world_${randomUUID().replace(/-/g, '').slice(0, 12)}`
+  const admin = createDatabase(url, 1)
+  try {
+    await admin.pool.query(`CREATE DATABASE ${name}`)
+  } finally {
+    await admin.close()
+  }
+  const next = new URL(url)
+  next.pathname = `/${name}`
+  return next.toString()
+}
+
 export async function startWorld(overrides: Partial<ServerConfigInput> = {}): Promise<World> {
   const databaseUrl = process.env.TEST_DATABASE_URL
   if (databaseUrl === undefined)
     throw new Error('TEST_DATABASE_URL is not set; see global-setup.ts')
 
+  // A database per world: handles are global on a server, so two test files
+  // both signing in as @rahul must not meet — the second would rightly be refused.
+  const isolated = await freshDatabase(databaseUrl)
   const config = loadConfig(
     {},
-    { databaseUrl, logLevel: 'silent', rateLimitEnabled: false, ...overrides },
+    { databaseUrl: isolated, logLevel: 'silent', rateLimitEnabled: false, ...overrides },
   )
   const handle: DatabaseHandle = createDatabase(config.databaseUrl)
   await migratePostgres(handle.pool)
