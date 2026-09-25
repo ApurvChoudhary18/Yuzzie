@@ -521,3 +521,29 @@ describe('@yuzie/sdk/node', () => {
     await board.close()
   })
 })
+
+describe('client.health', () => {
+  const healthy: FetchLike = async (url) => {
+    expect(url).toBe('https://api.test/healthz')
+    return reply(200, { status: 'ok', version: 'yuzie/v1' })
+  }
+
+  it('checks /healthz beside the versioned API and times the round trip', async () => {
+    const client = createClient({ baseUrl: 'https://api.test/v1/', fetch: healthy })
+    const health = await client.health()
+    expect(health.version).toBe('yuzie/v1')
+    expect(health.latencyMs).toBeGreaterThanOrEqual(0)
+  })
+
+  it('is OfflineError when nothing answers, and internal when something else does', async () => {
+    const down = createClient({
+      baseUrl: 'https://api.test/v1',
+      fetch: async () => {
+        throw new TypeError('fetch failed')
+      },
+    })
+    await expect(down.health()).rejects.toBeInstanceOf(OfflineError)
+    const wrong = createClient({ baseUrl: 'https://api.test/v1', fetch: async () => reply(502) })
+    await expect(wrong.health()).rejects.toMatchObject({ code: 'internal', status: 502 })
+  })
+})

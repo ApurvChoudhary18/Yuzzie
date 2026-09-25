@@ -1,36 +1,30 @@
 /**
- * @yuzie/cli — the `yuzie` binary.
- *
- * Session 0 deliberately ships no product logic: the commander program, config
- * layering, and command surface arrive in Session 6 (SPEC.md §18). All this does
- * is prove the toolchain produces a working executable.
+ * @yuzie/cli — the `yuzie` (and `yz`) binary.
  */
 import { pathToFileURL } from 'node:url'
+import { EXIT_INTERRUPTED } from './exit.js'
+import { run } from './program.js'
 import { VERSION } from './version.js'
 
-export { VERSION }
-
-export function run(argv: readonly string[]): number {
-  if (argv.includes('--version') || argv.includes('-V')) {
-    process.stdout.write(`${VERSION}\n`)
-    return 0
-  }
-
-  process.stdout.write(
-    [
-      'yuzie · collaborative git-aware kanban',
-      '',
-      `  version ${VERSION}`,
-      '',
-      '  The command surface is not implemented yet (SPEC.md §18, Session 6).',
-      '',
-    ].join('\n'),
-  )
-  return 0
-}
+export { run, VERSION }
 
 // Only self-execute as a binary, never when imported by a test.
 const entry = process.argv[1]
 if (entry !== undefined && import.meta.url === pathToFileURL(entry).href) {
-  process.exit(run(process.argv.slice(2)))
+  process.on('SIGINT', () => process.exit(EXIT_INTERRUPTED))
+  run(process.argv.slice(2), {
+    stdout: process.stdout,
+    stderr: process.stderr,
+    stdin: process.stdin,
+    env: process.env,
+    cwd: process.cwd(),
+  }).then(
+    (code) => {
+      process.exitCode = code
+    },
+    (error: unknown) => {
+      process.stderr.write(`yuzie: ${error instanceof Error ? error.message : String(error)}\n`)
+      process.exitCode = 1
+    },
+  )
 }

@@ -469,6 +469,13 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
     })
   })
 
+  // `yuzie logout` revokes the token it is holding; it never knows that token's id.
+  app.delete('/tokens/current', async (request, reply) => {
+    const auth = await requireAuth(context, request)
+    await db.update(apiTokens).set({ revokedAt: new Date() }).where(eq(apiTokens.id, auth.token.id))
+    return reply.send({ id: auth.token.id, revoked: true })
+  })
+
   app.delete<{ Params: { id: string } }>('/tokens/:id', async (request, reply) => {
     const auth = await requireAuth(context, request)
     const parsed = z.uuid().safeParse(request.params.id)

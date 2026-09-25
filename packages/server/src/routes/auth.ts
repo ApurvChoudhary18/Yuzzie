@@ -5,15 +5,30 @@
  * containers, where there is no browser to redirect back to (§10.3).
  *
  * `POST /auth/device/approve` is the seam where a GitHub OAuth callback would
- * sit. A self-hosted server has no GitHub app, so possession of the short-lived
- * user code — which is only ever printed in the requesting terminal — is what
- * authorises the exchange. `YUZIE_SIGNUP=invite` requires the handle to exist
- * already, which is how a closed team locks that door.
+ * sit. A self-hosted server has no GitHub app and no passwords, so the rules are:
+ *
+ *   - A handle nobody has signed in as may be claimed by whoever holds the user
+ *     code (the code is only ever printed in the requesting terminal). With
+ *     `YUZIE_SIGNUP=invite` the handle must already exist, i.e. be invited.
+ *   - A handle with an active (unrevoked, unexpired) token is in use. Approving
+ *     a new device for it requires being signed in as that user — otherwise
+ *     anyone could start a login, approve it as `rahul`, and receive the
+ *     account Rahul is using right now.
+ *
+ * Known gap: a handle whose every token has been revoked or has expired can be
+ * claimed again by whoever approves. Refusing would lock out anyone who ran
+ * `yuzie logout` on their only device, and a self-hosted server has no other way
+ * to know who someone is. Closing it needs an identity provider (the GitHub
+ * OAuth seam above, or email) — tracked as a decision, not an oversight.
+ *
+ * `GET /device` is the page the CLI sends people to, so a self-hosted server
+ * can be signed in to from a browser without any other service.
  */
 import { boardError } from '@yuzie/core'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, gt, isNull, or } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { authenticate } from '../auth/context.js'
 import { generateDeviceCode, generateToken, generateUserCode, hashToken } from '../auth/tokens.js'
 import { apiTokens, deviceCodes, users } from '../db/schema.js'
 import { toUser } from '../services/serialize.js'
@@ -70,6 +85,26 @@ export function registerAuthRoutes(app: FastifyInstance, context: AppContext): v
 
     let userId: string
     if (existing !== undefined) {
+      const [claimed] = await db
+        .select({ id: apiTokens.id })
+        .from(apiTokens)
+        .where(
+          and(
+            eq(apiTokens.userId, existing.id),
+            isNull(apiTokens.revokedAt),
+            or(isNull(apiTokens.expiresAt), gt(apiTokens.expiresAt, new Date())),
+          ),
+        )
+        .limit(1)
+      if (claimed !== undefined) {
+        const approver = await authenticate(db, request.headers.authorization).catch(() => null)
+        if (approver?.user.id !== existing.id) {
+          throw boardError(
+            'forbidden',
+            `@${body.handle} already has an account. Approve this login while signed in as @${body.handle}.`,
+          )
+        }
+      }
       userId = existing.id
     } else {
       if (config.signupMode === 'invite') {
