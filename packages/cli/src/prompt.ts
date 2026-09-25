@@ -10,6 +10,7 @@
  * default is taken.
  */
 import { createInterface, type Interface } from 'node:readline'
+import { UsageError } from './exit.js'
 import type { Output } from './output.js'
 
 export interface Input {
@@ -51,6 +52,28 @@ export class Prompter {
     const normalised = (answer ?? '').trim().toLowerCase()
     if (normalised.length === 0) return fallback
     return normalised === 'y' || normalised === 'yes'
+  }
+
+  /** Whether a question can be answered at all (not under `--json`/`--yes`). */
+  get canAsk(): boolean {
+    return !this.assumeDefaults
+  }
+
+  /**
+   * Pick one of `options` by number. Callers check {@link canAsk} first: when
+   * nobody can answer, guessing would act on the wrong thing.
+   */
+  async choose(question: string, options: readonly string[]): Promise<number> {
+    this.output.prompt(`${this.output.paint('cyan', '?')} ${question}\n`)
+    for (const [index, option] of options.entries()) {
+      this.output.prompt(`  ${index + 1}) ${option}\n`)
+    }
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const answer = await this.ask(`Choose 1-${options.length}:`, '1')
+      const index = Number(answer) - 1
+      if (Number.isInteger(index) && index >= 0 && index < options.length) return index
+    }
+    throw new UsageError('No card chosen.', 'Use the card number instead, e.g. `yuzie card 18`.')
   }
 
   close(): void {

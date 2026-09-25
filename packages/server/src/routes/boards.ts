@@ -146,8 +146,14 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
             key: slugify(name, 64),
             name,
             rank: ranks[index] ?? rankBetween(),
+            // A custom list that uses the standard names still means the standard
+            // things: without this, "Done" in `yuzie init --columns` is not done.
             semantics:
-              body.columns === undefined ? (DEFAULT_COLUMNS[index]?.semantics ?? null) : null,
+              body.columns === undefined
+                ? (DEFAULT_COLUMNS[index]?.semantics ?? null)
+                : (DEFAULT_COLUMNS.find(
+                    (column) => column.name.toLowerCase() === name.toLowerCase(),
+                  )?.semantics ?? null),
           })),
         )
 

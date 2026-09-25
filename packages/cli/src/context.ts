@@ -36,6 +36,8 @@ export interface Io {
   readonly cwd: string
   /** Defaults to `HOME`, then the OS home directory. */
   readonly home?: string
+  /** Ends a blocking command such as `yuzie feed`; the binary relies on SIGINT instead. */
+  readonly stop?: Promise<void>
 }
 
 export class Context {
@@ -128,6 +130,32 @@ export class Context {
     if (token === undefined) {
       throw new AuthenticationError('unauthenticated', 'Not signed in. Run `yuzie login`.')
     }
-    return createClient({ baseUrl: await this.server(), token, client: `cli/${VERSION}` })
+    return createClient({
+      baseUrl: await this.server(),
+      token,
+      client: `cli/${VERSION}`,
+      // `--offline` (§7.1): the SDK sees a network that is down, so it reads from
+      // the cache and queues writes, exactly as it would on a plane.
+      ...(this.options.offline === true
+        ? {
+            retries: 0,
+            fetch: () => Promise.reject(new TypeError('offline (--offline)')),
+          }
+        : {}),
+    })
+  }
+
+  /** The terminal's width, for tables (§7.3); 80 when it cannot be known. */
+  get width(): number {
+    const columns = (this.io.stdout as { columns?: number }).columns
+    if (typeof columns === 'number' && columns > 0) return columns
+    const env = Number(this.io.env.COLUMNS)
+    return Number.isInteger(env) && env > 0 ? env : 80
+  }
+
+  /** The clock, injectable so output with relative times can be tested. */
+  now(): Date {
+    const fixed = this.io.env.YUZIE_NOW
+    return fixed === undefined ? new Date() : new Date(fixed)
   }
 }

@@ -130,11 +130,13 @@ export async function init(context: Context, options: InitOptions): Promise<void
         .split(',')
         .map((column) => column.trim())
         .filter((column) => column.length > 0)
+      const isDefault = columns.join(',') === DEFAULT_COLUMNS.join(',')
       board = await client.boards.create({
         name,
         ...(repo.remote === null ? {} : { repoRemote: repo.remote.display }),
         baseBranch: repo.defaultBranch,
-        columns,
+        // Leave the defaults to the server, which knows what each one means.
+        ...(isDefault ? {} : { columns }),
       })
       created = true
     }

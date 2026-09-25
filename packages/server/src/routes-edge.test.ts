@@ -573,3 +573,34 @@ describe('route behaviour at the edges', () => {
     })
   })
 })
+
+describe('column semantics for custom column lists', () => {
+  it('recognises the standard names in a custom list, so "Done" still means done', async () => {
+    const server = await startTestServer()
+    try {
+      const owner = await createUser(server)
+      const created = await call<{ slug: string }>(server, {
+        method: 'POST',
+        url: '/v1/boards',
+        token: owner.token,
+        body: { name: unique('custom'), columns: ['Todo', 'Doing', 'QA', 'Done'] },
+      })
+      const detail = await call<{ columns: Array<{ key: string; semantics: string | null }> }>(
+        server,
+        {
+          method: 'GET',
+          url: `/v1/boards/${created.body.slug}`,
+          token: owner.token,
+        },
+      )
+      expect(detail.body.columns.map((c) => [c.key, c.semantics])).toEqual([
+        ['todo', 'backlog'],
+        ['doing', 'in_progress'],
+        ['qa', null],
+        ['done', 'terminal'],
+      ])
+    } finally {
+      await server.close()
+    }
+  })
+})
