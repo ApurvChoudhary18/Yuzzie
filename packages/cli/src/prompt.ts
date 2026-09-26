@@ -62,18 +62,43 @@ export class Prompter {
   /**
    * Pick one of `options` by number. Callers check {@link canAsk} first: when
    * nobody can answer, guessing would act on the wrong thing.
+   *
+   * An empty answer takes `fallback`, when there is one; otherwise it asks
+   * again. End of input is never an answer: `none()` is thrown instead, so a
+   * script with nothing left to say does not pick option 1 by accident.
    */
-  async choose(question: string, options: readonly string[]): Promise<number> {
+  async choose(
+    question: string,
+    options: readonly string[],
+    settings: { fallback?: number; none?: () => Error } = {},
+  ): Promise<number> {
+    const none =
+      settings.none ??
+      (() =>
+        new UsageError('No answer given.', 'Answer the question, or pass the choice directly.'))
     this.output.prompt(`${this.output.paint('cyan', '?')} ${question}\n`)
     for (const [index, option] of options.entries()) {
       this.output.prompt(`  ${index + 1}) ${option}\n`)
     }
+    const hint =
+      settings.fallback === undefined
+        ? ''
+        : ` ${this.output.paint('dim', `(${settings.fallback + 1})`)}`
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const answer = await this.ask(`Choose 1-${options.length}:`, '1')
-      const index = Number(answer) - 1
-      if (Number.isInteger(index) && index >= 0 && index < options.length) return index
+      this.output.prompt(`${this.output.paint('cyan', '?')} Choose 1-${options.length}:${hint} `)
+      const answer = await this.readLine()
+      if (answer === undefined) {
+        this.echo('')
+        throw none()
+      }
+      this.echo(answer)
+      const trimmed = answer.trim()
+      if (trimmed.length === 0 && settings.fallback !== undefined) return settings.fallback
+      const index = Number(trimmed) - 1
+      if (trimmed.length > 0 && Number.isInteger(index) && index >= 0 && index < options.length)
+        return index
     }
-    throw new UsageError('No card chosen.', 'Use the card number instead, e.g. `yuzie card 18`.')
+    throw none()
   }
 
   close(): void {

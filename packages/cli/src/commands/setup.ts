@@ -49,15 +49,6 @@ export async function hooksUninstall(context: Context): Promise<void> {
   context.output.result('Hooks', { removed: results })
 }
 
-/**
- * What the installed shims call. Linking commits and updating presence arrive in
- * Session 11; until then this does nothing — and whatever it does later, it must
- * always exit 0, because a hook may never fail a git command (§9.5).
- */
-export async function hook(_context: Context, _name: string): Promise<number> {
-  return 0
-}
-
 export async function configGet(context: Context, key: string | undefined): Promise<void> {
   const { config, path } = await context.config()
   const value = key === undefined ? config : getPath(config, key)

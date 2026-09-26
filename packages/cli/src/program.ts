@@ -24,8 +24,10 @@ import {
   watch,
 } from './commands/cards.js'
 import { doctor } from './commands/doctor.js'
+import { branch, claim, commits, finish as finishCard } from './commands/git.js'
+import { hook } from './commands/hooks.js'
 import { init } from './commands/init.js'
-import { configGet, configSet, hook, hooksInstall, hooksUninstall } from './commands/setup.js'
+import { configGet, configSet, hooksInstall, hooksUninstall } from './commands/setup.js'
 import {
   activity,
   boardsArchive,
@@ -171,6 +173,60 @@ function build(io: Io, finish: (code: number) => void): Command {
         configSet(context, key, value, options),
       ),
     )
+
+  program
+    .command('claim <id>')
+    .description('assign to yourself, move to Doing, create and check out the branch (§9.3)')
+    .option('--no-branch', 'claim without touching Git')
+    .option('--from <base>', 'branch from this instead of the configured base')
+    .option('--force', 'carry uncommitted changes along instead of stopping')
+    .action(
+      action(
+        (
+          context: Context,
+          reference: string,
+          options: { branch?: boolean; from?: string; force?: boolean },
+        ) => claim(context, reference, options),
+      ),
+    )
+
+  program
+    .command('start <id>')
+    .description('like claim, but only checks out a branch that already exists')
+    .option('--force', 'carry uncommitted changes along instead of stopping')
+    .action(
+      action((context: Context, reference: string, options: { force?: boolean }) =>
+        claim(context, reference, options, 'start'),
+      ),
+    )
+
+  program
+    .command('finish <id>')
+    .description('pre-flight checks, then move the card on for review (§9.4)')
+    .option('--skip-checks', 'move it on without checking')
+    .option('--push', 'push the branch first if it is not pushed')
+    .action(
+      action(
+        (context: Context, reference: string, options: { skipChecks?: boolean; push?: boolean }) =>
+          finishCard(context, reference, options),
+      ),
+    )
+
+  program
+    .command('branch <id>')
+    .description('print the branch for a card; --create checks it out, --link records one')
+    .option('--create', 'create (or check out) the branch and link it')
+    .option('--link <name>', 'record an existing branch as this card’s branch')
+    .action(
+      action((context: Context, reference: string, options: { create?: boolean; link?: string }) =>
+        branch(context, reference, options),
+      ),
+    )
+
+  program
+    .command('commits <id>')
+    .description('list the commits linked to a card')
+    .action(action((context: Context, reference: string) => commits(context, reference)))
 
   const hooks = program.command('hooks').description('manage the git hooks')
   hooks
@@ -400,7 +456,11 @@ function build(io: Io, finish: (code: number) => void): Command {
     .allowExcessArguments()
     .action(async (name: string, _options: unknown, command: Command) => {
       try {
-        await hook(new Context(command.optsWithGlobals() as GlobalOptions, io), name)
+        await hook(
+          new Context(command.optsWithGlobals() as GlobalOptions, io),
+          name,
+          command.args.slice(1),
+        )
       } catch {
         // Swallowed on purpose (§9.5).
       }
