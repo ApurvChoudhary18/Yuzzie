@@ -161,8 +161,22 @@ export class RealtimeClient {
       this.scheduleReconnect()
     }
 
-    // Every error is followed by a close, which is where recovery happens.
-    socket.onerror = () => {}
+    socket.onerror = () => {
+      // An open socket's error is followed by a close, where recovery happens.
+      // A connection that failed to open may not be: Node's WebSocket reports a
+      // refused connection with an error and no close, and waiting for one
+      // would stop reconnecting for good (a restarted server never came back).
+      if (this.socket !== socket || socket.readyState === SOCKET_OPEN) return
+      this.detach(socket)
+      this.socket = null
+      this.clearTimers()
+      try {
+        socket.close()
+      } catch {
+        // Already closed.
+      }
+      if (!this.stopped) this.scheduleReconnect()
+    }
   }
 
   private handle(data: unknown): void {

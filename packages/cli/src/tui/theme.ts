@@ -24,6 +24,7 @@ export type Style =
   | 'red'
   | 'accent'
   | 'chip'
+  | 'agent'
 
 export interface Glyphs {
   readonly tl: string
@@ -49,6 +50,8 @@ export interface Glyphs {
   readonly pending: string
   /** An unchecked checklist item. */
   readonly open: string
+  /** A card someone else changed under you (§18 Session 10: `⟳ updated by @x`). */
+  readonly updated: string
 }
 
 const UNICODE: Glyphs = {
@@ -73,6 +76,7 @@ const UNICODE: Glyphs = {
   none: '—',
   pending: '◌',
   open: '○',
+  updated: '⟳',
 }
 
 const ASCII: Glyphs = {
@@ -97,6 +101,7 @@ const ASCII: Glyphs = {
   none: '-',
   pending: '~',
   open: 'o',
+  updated: '%',
 }
 
 type Codes = readonly [open: string, close: string]
@@ -115,6 +120,7 @@ const PALETTES: Record<Exclude<ColorTier, 'plain'>, Record<Style, Codes>> = {
     red: SGR('38;2;235;90;90', 39),
     accent: SGR('38;2;120;160;255', 39),
     chip: SGR('38;2;200;140;230', 39),
+    agent: SGR('38;2;220;110;220', 39),
   },
   '256': {
     border: SGR('38;5;244', 39),
@@ -126,6 +132,7 @@ const PALETTES: Record<Exclude<ColorTier, 'plain'>, Record<Style, Codes>> = {
     red: SGR('38;5;203', 39),
     accent: SGR('38;5;111', 39),
     chip: SGR('38;5;176', 39),
+    agent: SGR('38;5;170', 39),
   },
   '16': {
     border: SGR(90, 39),
@@ -137,6 +144,7 @@ const PALETTES: Record<Exclude<ColorTier, 'plain'>, Record<Style, Codes>> = {
     red: SGR(31, 39),
     accent: SGR(36, 39),
     chip: SGR(35, 39),
+    agent: SGR(95, 39),
   },
   // No colour: bold and inverse only, so selection is still visible.
   none: {
@@ -149,6 +157,7 @@ const PALETTES: Record<Exclude<ColorTier, 'plain'>, Record<Style, Codes>> = {
     red: ['', ''],
     accent: ['', ''],
     chip: ['', ''],
+    agent: ['', ''],
   },
 }
 

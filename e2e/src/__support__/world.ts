@@ -19,6 +19,10 @@ export interface World {
   /** `http://127.0.0.1:<port>/v1`, straight to the server. */
   readonly baseUrl: string
   readonly app: FastifyInstance
+  /** Kill the server: every connection drops and the port stops answering. */
+  stop(): Promise<void>
+  /** Start it again on the same port, with the same database. */
+  restart(): Promise<void>
   close(): Promise<void>
 }
 
@@ -49,14 +53,30 @@ export async function startWorld(overrides: Partial<ServerConfigInput> = {}): Pr
   )
   const handle: DatabaseHandle = createDatabase(config.databaseUrl)
   await migratePostgres(handle.pool)
-  const { app } = await buildServer({ config, db: handle.db })
+  let { app } = await buildServer({ config, db: handle.db })
   const address = await app.listen({ host: '127.0.0.1', port: 0 })
+  const port = Number(new URL(address).port)
+  let running = true
 
   return {
     baseUrl: `${address}/v1`,
-    app,
-    async close() {
+    get app() {
+      return app
+    },
+    async stop() {
+      if (!running) return
+      running = false
       await app.close()
+    },
+    async restart() {
+      if (running) return
+      app = (await buildServer({ config, db: handle.db })).app
+      await app.listen({ host: '127.0.0.1', port })
+      running = true
+    },
+    async close() {
+      if (running) await app.close()
+      running = false
       await handle.close()
     },
   }

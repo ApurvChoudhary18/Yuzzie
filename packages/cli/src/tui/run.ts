@@ -8,11 +8,13 @@
  */
 
 import { OfflineError } from '@yuzie/core'
+import { git } from '@yuzie/git'
 import { openCache, type YuzieCache } from '@yuzie/store'
 import type { Context } from '../context.js'
 import { currentSlug } from '../session.js'
 import { type EffectContext, ENTER_ALT_SCREEN, LEAVE_ALT_SCREEN, perform } from './effects.js'
 import { renderFrame } from './frame.js'
+import { PresenceReporter } from './presence.js'
 import { SdkSource } from './source.js'
 import { type Effect, initialNav, reduce } from './state.js'
 import { detectTheme } from './theme.js'
@@ -40,6 +42,13 @@ export async function startTui(context: Context): Promise<number> {
     ...(cache === undefined ? {} : { cache }),
   })
   const source = new SdkSource(board, slug)
+  // Working = this checkout's branch belongs to a card you are on (§8.5).
+  const presence = new PresenceReporter(board, async () => {
+    const repo = await context.repo()
+    if (repo === null) return null
+    const head = await git(repo.root, ['rev-parse', '--abbrev-ref', 'HEAD'])
+    return head.code === 0 && head.stdout !== 'HEAD' ? head.stdout : null
+  })
 
   // Not awaited: `open()` fills the state from the cache before its first
   // network call, so the first frame can show cached cards straight away.
@@ -72,6 +81,7 @@ export async function startTui(context: Context): Promise<number> {
     doneColumn: async () => (await context.config()).config.flow.doneColumn,
     suspend: (run) => suspend(run),
     quit: () => finish(),
+    presence,
   }
   const onEffect = (effect: Effect) => perform(effect, effects)
   const onSuspend = (inkSuspend: EffectContext['suspend']) => {
@@ -81,8 +91,9 @@ export async function startTui(context: Context): Promise<number> {
   // Paint the cached board with the pure renderer before Ink has even loaded
   // (it is most of our start-up time), then park the cursor at the top so
   // Ink's first frame lands exactly over this one.
-  const width = stdout.columns ?? 80
-  const height = stdout.rows ?? 24
+  // A pty that was never sized reports 0 × 0.
+  const width = stdout.columns || 80
+  const height = stdout.rows || 24
   const first = source.view()
   const nav = reduce(initialNav(width, height, first.columns.length), { type: 'data' }, first).state
   stdout.write(`${ENTER_ALT_SCREEN}${renderFrame(first, nav, theme)}${HOME}`)
@@ -123,6 +134,7 @@ export async function startTui(context: Context): Promise<number> {
   } finally {
     process.off('SIGTERM', onTerm)
     restore()
+    presence.stop()
     source.dispose()
     context.abortRequests()
     await Promise.race([opening, new Promise((resolve) => setTimeout(resolve, 200))])

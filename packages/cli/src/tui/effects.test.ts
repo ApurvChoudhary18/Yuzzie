@@ -54,6 +54,7 @@ async function start(cards: Card[], env: Record<string, string | undefined> = {}
     doneColumn: async () => 'done',
     suspend: (run) => suspend(run),
     quit: () => {},
+    presence: { view: () => {} },
   }
   const app = mountSource(source, 100, 30, {
     onEffect: (effect) => perform(effect, context),
@@ -130,8 +131,8 @@ describe('optimistic writes and rollback', () => {
     await tick()
     const after = t.frame()
     checkShape(after)
-    expect(after).toContain('#1⚠ Fix login redirect')
-    expect(after).toContain('⚠ #1 changed on the server; your edit was undone')
+    expect(after).toContain('#1⟳ Fix login redirect')
+    expect(after).toContain('⟳ #1 changed on the server; your edit was undone')
     expect(after).not.toContain('◌')
   })
 
