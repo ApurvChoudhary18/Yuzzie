@@ -126,7 +126,10 @@ export class SdkSource implements BoardSource {
       }
       this.remember(cardNo, event)
     }
-    this.say(`${actor(event)} ${describeEvent(event, this.board.state)}`, 'event')
+    // Toasts are news: your own changes echo back as events, but you just made
+    // them, and the key that made them already said so.
+    if (event.actor === null || event.actor !== this.board.handle)
+      this.say(`${actor(event)} ${describeEvent(event, this.board.state)}`, 'event')
   }
 
   /** Send what queued up while the server was away; the SDK keeps each write's idempotency key. */
@@ -251,8 +254,10 @@ export class SdkSource implements BoardSource {
 
   private connection(now: number): Connection {
     const status = this.board.status
-    if (status === 'live') return this.synced ? 'live' : 'connecting'
+    // First: a board with no stream (`--offline`) reads as `live`, and a
+    // stream that comes back clears this flag itself.
     if (this.offline) return 'offline'
+    if (status === 'live') return this.synced ? 'live' : 'connecting'
     if (status === 'reconnecting') {
       const since = this.reconnectingSince ?? now
       return this.board.queued > 0 || now - since >= OFFLINE_AFTER_MS ? 'offline' : 'reconnecting'

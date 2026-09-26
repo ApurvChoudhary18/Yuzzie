@@ -176,6 +176,17 @@ describe('connection status in the header', () => {
     expect(app.terminal.lastFrame()).toContain('Sent 2 queued changes')
   })
 
+  it('--offline reads as offline, though a board with no stream says live', () => {
+    const { board, source } = setup()
+    // The SDK reports `live` when there is no stream to be anything else.
+    expect(board.status).toBe('live')
+    source.offline = true
+    expect(source.view().connection).toBe('offline')
+    // A stream that comes back is the only thing that clears it.
+    board.setStatus('live')
+    expect(source.view().connection).toBe('live')
+  })
+
   it('reads as offline once reconnecting has gone on for a while', async () => {
     const { board, source } = setup()
     board.setStatus('reconnecting')

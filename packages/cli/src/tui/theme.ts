@@ -52,6 +52,9 @@ export interface Glyphs {
   readonly open: string
   /** A card someone else changed under you (§18 Session 10: `⟳ updated by @x`). */
   readonly updated: string
+  /** The arrow keys, as the help overlay names them. */
+  readonly arrowLeft: string
+  readonly arrowRight: string
 }
 
 const UNICODE: Glyphs = {
@@ -77,6 +80,8 @@ const UNICODE: Glyphs = {
   pending: '◌',
   open: '○',
   updated: '⟳',
+  arrowLeft: '←',
+  arrowRight: '→',
 }
 
 const ASCII: Glyphs = {
@@ -102,6 +107,8 @@ const ASCII: Glyphs = {
   pending: '~',
   open: 'o',
   updated: '%',
+  arrowLeft: '<',
+  arrowRight: '>',
 }
 
 type Codes = readonly [open: string, close: string]

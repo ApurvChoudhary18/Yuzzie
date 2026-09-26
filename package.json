@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Yuzie \u2014 a real-time, Git-aware kanban board for your team, in your terminal.",
+  "description": "Yuzie — a real-time, Git-aware kanban board for your team, in your terminal.",
   "packageManager": "pnpm@10.33.1",
   "engines": {
     "node": ">=22"
@@ -31,6 +31,11 @@
       "better-sqlite3",
       "esbuild",
       "ssh2"
-    ]
+    ],
+    "overrides": {
+      "tsup>esbuild": "^0.28.2",
+      "@esbuild-kit/core-utils>esbuild": "^0.25.12",
+      "dockerode>uuid": "^11.1.1"
+    }
   }
 }

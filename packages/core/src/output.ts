@@ -44,6 +44,18 @@ export const InviteEnvelopeSchema = jsonEnvelopeSchema(
   'Invite',
   z.object({ handle: HandleSchema, role: RoleSchema, boardSlug: SlugSchema }),
 )
+/** `yuzie share`: what a teammate needs to join this board. */
+export const ShareEnvelopeSchema = jsonEnvelopeSchema(
+  'Share',
+  z.object({
+    boardSlug: SlugSchema,
+    server: z.url(),
+    /** The repository to clone, whose committed `.yuzie/config.json` names the board. */
+    repo: z.string().min(1).nullable(),
+    /** The commands a teammate runs, in order. */
+    steps: z.array(z.string().min(1)).min(1),
+  }),
+)
 export const WatchEnvelopeSchema = jsonEnvelopeSchema(
   'Watch',
   z.object({ number: CardNumberSchema, watching: z.boolean() }),
@@ -65,6 +77,7 @@ export const OUTPUT_ENVELOPES = {
   Invite: InviteEnvelopeSchema,
   MemberList: MemberListEnvelopeSchema,
   Presence: PresenceEnvelopeSchema,
+  Share: ShareEnvelopeSchema,
   Watch: WatchEnvelopeSchema,
 } as const
 

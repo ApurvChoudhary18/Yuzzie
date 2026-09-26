@@ -234,6 +234,45 @@ export async function invite(
   })
 }
 
+/**
+ * `yuzie share` (§6.1): how a teammate joins. The board and server are in the
+ * committed `.yuzie/config.json`, so joining is: get invited, clone, sign in.
+ */
+export async function share(context: Context): Promise<void> {
+  const slug = await currentSlug(context)
+  const server = await context.server()
+  const repo = await context.repo()
+  const remote = repo?.remote ?? null
+  const steps = [
+    ...(remote === null ? [] : [`git clone ${remote.url}`, `cd ${remote.name}`]),
+    'yuzie login',
+    'yuzie',
+  ]
+  context.output.line(`Share ${context.output.paint('bold', slug)} with your team:`)
+  context.output.line('')
+  context.output.line(`  1. Invite them:  yuzie invite <email or @handle>`)
+  context.output.line(
+    remote === null
+      ? '  2. They sign in and open the board, with this board in their config:'
+      : `  2. They clone ${remote.display}, sign in and open the board:`,
+  )
+  for (const step of steps) context.output.line(`       ${step}`)
+  context.output.line('')
+  context.output.line(
+    context.output.paint(
+      'dim',
+      remote === null
+        ? `Board ${slug} on ${server}. Commit .yuzie/config.json so teammates pick it up.`
+        : `.yuzie/config.json in the repo already points at ${slug} on ${server}.`,
+    ),
+  )
+  context.output.result(
+    'Share',
+    { boardSlug: slug, server, repo: remote?.url ?? null, steps },
+    { boardSlug: slug },
+  )
+}
+
 export async function who(context: Context): Promise<void> {
   context.requireNetwork('Presence')
   await withBoard(context, async (session) => {

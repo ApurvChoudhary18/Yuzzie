@@ -38,11 +38,50 @@ import {
   feed,
   invite,
   members,
+  share,
   who,
 } from './commands/team.js'
 import { Context, type GlobalOptions, type Io } from './context.js'
-import { EXIT_OK, EXIT_USAGE, exitCodeFor } from './exit.js'
+import { EXIT_OK, EXIT_USAGE, exitCodeFor, UsageError } from './exit.js'
 import { VERSION } from './version.js'
+
+/** The command a mistyped word most likely meant: close in spelling, or a unique prefix. */
+export function closest(word: string, names: readonly string[]): string | null {
+  const distance = (a: string, b: string): number => {
+    let previous = Array.from({ length: b.length + 1 }, (_, index) => index)
+    let beforePrevious = previous
+    for (let i = 1; i <= a.length; i += 1) {
+      const current = [i]
+      for (let j = 1; j <= b.length; j += 1) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1
+        current[j] = Math.min(
+          (previous[j] ?? 0) + 1,
+          (current[j - 1] ?? 0) + 1,
+          (previous[j - 1] ?? 0) + cost,
+        )
+        // Two letters swapped (`lsit`) is one slip, not two.
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1])
+          current[j] = Math.min(current[j] ?? 0, (beforePrevious[j - 2] ?? 0) + 1)
+      }
+      beforePrevious = previous
+      previous = current
+    }
+    return previous[b.length] ?? Number.POSITIVE_INFINITY
+  }
+  const lower = word.toLowerCase()
+  const prefixed = names.filter((name) => name.startsWith(lower))
+  if (prefixed.length === 1) return prefixed[0] ?? null
+  let best: string | null = null
+  let bestDistance = 3
+  for (const name of names) {
+    const d = distance(lower, name)
+    if (d < bestDistance) {
+      best = name
+      bestDistance = d
+    }
+  }
+  return best
+}
 
 /** A command body: gets the context, then commander's positional args and options. */
 type Handler = (context: Context, ...args: never[]) => Promise<unknown>
@@ -318,6 +357,11 @@ function build(io: Io, finish: (code: number) => void): Command {
     .action(action((context: Context) => members(context)))
 
   program
+    .command('share')
+    .description('print how a teammate joins this board')
+    .action(action((context: Context) => share(context)))
+
+  program
     .command('invite <who>')
     .description('invite someone by email or @handle')
     .option('--role <role>', 'viewer, member (default) or owner')
@@ -366,7 +410,24 @@ function build(io: Io, finish: (code: number) => void): Command {
   // `yuzie` with no command opens the board (§7.1). Under a pipe there is no
   // screen to draw on, so it prints help instead. YUZIE_FORCE_TUI draws anyway
   // (the first-paint timing test uses it).
+  // Unknown words reach this action as arguments; say so plainly rather than
+  // Commander's "too many arguments".
+  program.allowExcessArguments(true)
   program.action(async (...raw: unknown[]) => {
+    const [word] = program.args
+    if (word !== undefined) {
+      const suggestion = closest(
+        word,
+        program.commands.map((command) => command.name()),
+      )
+      await action(async () => {
+        throw new UsageError(
+          `Unknown command "${word}".${suggestion === null ? '' : ` Did you mean \`yuzie ${suggestion}\`?`}`,
+          'Run `yuzie --help` to see the commands.',
+        )
+      })(...raw)
+      return
+    }
     const terminal = io.stdout.isTTY === true || io.env.YUZIE_FORCE_TUI === '1'
     if (!terminal) {
       io.stdout.write(`${program.helpInformation()}\n`)

@@ -5,7 +5,7 @@
 import { render } from 'ink-testing-library'
 import { createElement } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { FIXTURES, mount, SIZES, staticSource, tick } from './__tests__/fixtures.js'
+import { FIXTURES, mount, SIZES, settled, staticSource, tick } from './__tests__/fixtures.js'
 import { App } from './App.js'
 import { renderPlain } from './frame.js'
 import type { BoardView } from './layout.js'
@@ -93,6 +93,36 @@ describe('keys through Ink', () => {
       { type: 'move', cardNo: 15, column: 'done' },
       { type: 'open', cardNo: 15 },
     ])
+  })
+
+  it('keys that arrive together are each acted on', async () => {
+    // Typed fast, over a slow link, or while the app was still starting.
+    const { keyboard, terminal } = open('three columns', 160, 50)
+    await settled(terminal)
+    keyboard.write('lj')
+    await settled(terminal)
+    expect(terminal.lastFrame()).toContain('▸#18')
+  })
+
+  it('a bracketed paste is text in an input, and nothing at all on the board', async () => {
+    const { keyboard, terminal, effects } = open('three columns', 160, 50)
+    await settled(terminal)
+    // On the board: "qD" pasted must not quit or delete anything.
+    keyboard.write('\u001b[200~qDy\u001b[201~')
+    await settled(terminal)
+    expect(effects).toEqual([])
+    expect(terminal.lastFrame()).toContain('▸#12')
+
+    keyboard.write('C')
+    await settled(terminal)
+    keyboard.write('\u001b[200~first line\nsecond q line\u001b[201~')
+    await settled(terminal)
+    const frame = terminal.lastFrame()
+    expect(frame).toContain('first line')
+    expect(frame).toContain('second q line')
+    keyboard.write('\u0004')
+    await settled(terminal)
+    expect(effects).toEqual([{ type: 'comment', cardNo: 12, body: 'first line\nsecond q line' }])
   })
 
   it('turns a lone g into "open branch" after the gg window', async () => {

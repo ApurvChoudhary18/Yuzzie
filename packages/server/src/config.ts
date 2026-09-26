@@ -102,6 +102,11 @@ export function loadConfig(
   for (const [key, value] of Object.entries(overrides)) {
     if (value !== undefined) merged[key] = value
   }
+  // Unset, the device page is on this server: follow its port, so `PORT=8788`
+  // does not send people to a verification URL on 8787.
+  if (merged.publicUrl === undefined && typeof merged.port === 'number' && merged.port > 0) {
+    merged.publicUrl = `http://localhost:${merged.port}`
+  }
 
   const parsed = ConfigSchema.safeParse(merged)
   if (!parsed.success) {
