@@ -3,7 +3,7 @@
  * re-clamp the selection, resizes re-lay it out, and the frame is printed line
  * by line. Nothing here decides layout or behaviour.
  */
-import { Box, Text, useApp, useInput, useStdout } from 'ink'
+import { Box, Text, useApp, useInput, usePaste, useStdout } from 'ink'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { frameLines } from './frame.js'
 import type { BoardView } from './layout.js'
@@ -50,8 +50,31 @@ interface InkKey {
   tab: boolean
 }
 
-/** Ink's key event as a reducer action: a named key, a character, or a paste. */
-export function keyAction(input: string, key: InkKey): NavAction | null {
+/**
+ * Ink's key event as reducer actions. Several characters at once are keys that
+ * arrived together (typed fast, over a slow link, or while the app started) —
+ * one action each. Real pastes arrive separately, through `usePaste`.
+ */
+export function keyActions(input: string, key: InkKey): NavAction[] {
+  const plain =
+    !key.leftArrow &&
+    !key.rightArrow &&
+    !key.upArrow &&
+    !key.downArrow &&
+    !key.return &&
+    !key.escape &&
+    !key.backspace &&
+    !key.delete &&
+    !key.tab &&
+    !key.ctrl
+  if (plain && [...input].length > 1)
+    return [...input].map((character): NavAction => ({ type: 'key', key: character }))
+  const action = keyAction(input, key)
+  return action === null ? [] : [action]
+}
+
+/** One Ink key event as a reducer action: a named key or a character. */
+function keyAction(input: string, key: InkKey): NavAction | null {
   if (key.leftArrow) return { type: 'key', key: 'left' }
   if (key.rightArrow) return { type: 'key', key: 'right' }
   if (key.upArrow) return { type: 'key', key: 'up' }
@@ -62,8 +85,6 @@ export function keyAction(input: string, key: InkKey): NavAction | null {
   if (key.tab) return { type: 'key', key: 'tab' }
   if (key.ctrl) return input.length === 1 ? { type: 'key', key: `ctrl-${input}` } : null
   if (input.length === 0) return null
-  // More than one character at once is a paste, never a key name.
-  if ([...input].length > 1) return { type: 'paste', text: input }
   return { type: 'key', key: input }
 }
 
@@ -146,11 +167,12 @@ export function App({
 
   useInput(
     (input, key) => {
-      const action = keyAction(input, key)
-      if (action !== null) dispatch(action)
+      for (const action of keyActions(input, key)) dispatch(action)
     },
     { isActive: interactive },
   )
+  // Bracketed paste: pasted text is text, whatever keys it happens to contain.
+  usePaste((text) => dispatch({ type: 'paste', text }), { isActive: interactive })
 
   const lines = frameLines(view, nav, theme).map((line) => paintLine(line, theme))
   return (

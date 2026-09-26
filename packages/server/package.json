@@ -23,6 +23,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "start": "node --input-type=module -e \"import('./dist/index.js').then((server) => server.start())\"",
     "test": "vitest run",
     "lint": "biome check --error-on-warnings .",
     "typecheck": "tsc --noEmit -p tsconfig.json",

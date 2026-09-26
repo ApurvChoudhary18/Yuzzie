@@ -112,7 +112,7 @@ export async function runEffect(effect: Effect, context: EffectContext): Promise
       return
     case 'create': {
       const card = await board.cards.create({ title: effect.title, column: effect.column })
-      source.say(card.number > 0 ? `Created #${card.number}` : 'Created (queued)', 'event')
+      if (card.number > 0) source.say(`Created #${card.number}`, 'event')
       return
     }
     case 'check':
@@ -157,9 +157,16 @@ export async function runEffect(effect: Effect, context: EffectContext): Promise
 
 /** Run an effect in the background; failures become a toast, never a crash. */
 export function perform(effect: Effect, context: EffectContext): void {
-  runEffect(effect, context).catch((error: unknown) => {
-    // The SDK has already rolled the change back and the source said so.
-    if (error instanceof ConflictError) return
-    context.source.say(message(error), 'warn')
-  })
+  const queuedBefore = context.board.queued
+  runEffect(effect, context)
+    .then(() => {
+      // Offline, a write waits in the outbox: say so, since no event will confirm it.
+      if (context.board.queued > queuedBefore)
+        context.source.say('Saved offline; it will be sent when the server is back', 'info')
+    })
+    .catch((error: unknown) => {
+      // The SDK has already rolled the change back and the source said so.
+      if (error instanceof ConflictError) return
+      context.source.say(message(error), 'warn')
+    })
 }

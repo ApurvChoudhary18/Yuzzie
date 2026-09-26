@@ -97,7 +97,14 @@ export async function startTui(context: Context): Promise<number> {
   const first = source.view()
   const nav = reduce(initialNav(width, height, first.columns.length), { type: 'data' }, first).state
   stdout.write(`${ENTER_ALT_SCREEN}${renderFrame(first, nav, theme)}${HOME}`)
-  const restore = () => stdout.write(LEAVE_ALT_SCREEN)
+  // Raw mode now, not when Ink gets to it: keys typed while it loads would
+  // otherwise echo over this frame and be lost. They wait in stdin for Ink.
+  const raw = interactive && typeof stdin.setRawMode === 'function'
+  if (raw) stdin.setRawMode(true)
+  const restore = () => {
+    if (raw) stdin.setRawMode(false)
+    stdout.write(LEAVE_ALT_SCREEN)
+  }
 
   let quitting = false
   finish = () => {

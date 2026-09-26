@@ -74,8 +74,15 @@ pnpm turbo bench --concurrency=1        # timing budgets, run alone
 Local service dependencies for the server (from Session 3 onwards):
 
 ```sh
-docker compose up -d                    # postgres 16 + redis 7
+docker compose up -d postgres           # postgres 16 (add redis for multi-node)
+DATABASE_URL=postgres://yuzie:yuzie@127.0.0.1:5432/yuzie \
+  pnpm --filter @yuzie/server start     # http://127.0.0.1:8787, after a build
+YUZIE_SERVER=http://127.0.0.1:8787/v1 node packages/cli/dist/index.js login
 ```
+
+With no GitHub app configured, sign-in is approved by posting the code and a handle to
+`POST /v1/auth/device/approve`; `YUZIE_PUBLIC_URL` sets the address the device page is
+advertised at (it defaults to this server's own port).
 
 Redis is optional. Without `REDIS_URL` the realtime gateway fans out in-process, which is all
 a single node needs; set it when running more than one server node behind a load balancer.

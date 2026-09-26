@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { getPath, loadConfig, parseValue, setPath } from './config.js'
 import { exitCodeFor, UsageError } from './exit.js'
 import { colorEnabled, Output, type Stream } from './output.js'
-import { run } from './program.js'
+import { closest, run } from './program.js'
 import { Prompter } from './prompt.js'
 import { VERSION } from './version.js'
 
@@ -234,6 +234,28 @@ describe('run', () => {
   it('exits 2 for an unknown command or flag', async () => {
     expect(await run(['teleport'], io().io)).toBe(2)
     expect(await run(['whoami', '--frobnicate'], io().io)).toBe(2)
+    expect(await run(['card', '1', '2'], io().io)).toBe(2)
+  })
+
+  it('names an unknown command and suggests the one that was meant', async () => {
+    const typo = io()
+    expect(await run(['lsit'], typo.io)).toBe(2)
+    expect(typo.stderr.text).toContain('Unknown command "lsit". Did you mean `yuzie list`?')
+    expect(typo.stderr.text).not.toContain('too many arguments')
+    const nonsense = io()
+    expect(await run(['teleport'], nonsense.io)).toBe(2)
+    expect(nonsense.stderr.text).toContain('Unknown command "teleport".')
+    expect(nonsense.stderr.text).not.toContain('Did you mean')
+  })
+
+  it('closest: a swap, a slip or a unique prefix', () => {
+    const names = ['list', 'init', 'login', 'logout', 'share', 'move', 'members']
+    expect(closest('lsit', names)).toBe('list')
+    expect(closest('shar', names)).toBe('share')
+    expect(closest('mvoe', names)).toBe('move')
+    expect(closest('memb', names)).toBe('members')
+    expect(closest('lo', names)).toBeNull()
+    expect(closest('xyzzy', names)).toBeNull()
   })
 
   it('never fails a git hook, whatever it is given', async () => {

@@ -359,6 +359,21 @@ describe('boards, columns and people', () => {
     await fails(['invite', '@x', '--role', 'boss'], 2)
   })
 
+  it('share', async () => {
+    const human = await run(['share'])
+    expect(human.code).toBe(0)
+    expect(human.stdout).toContain('Share commands with your team:')
+    expect(human.stdout).toContain('git clone git@github.com:acme/commands.git')
+    expect(human.stdout).toContain('yuzie login')
+    const document = await json(['share'], 'Share')
+    expect(document.data).toEqual({
+      boardSlug: 'commands',
+      server: world.baseUrl,
+      repo: 'git@github.com:acme/commands.git',
+      steps: ['git clone git@github.com:acme/commands.git', 'cd commands', 'yuzie login', 'yuzie'],
+    })
+  })
+
   it('who', async () => {
     // Presence exists while someone is connected: a live feed is.
     const feed = start(['feed'], { cwd: repo, env: computer.env })
@@ -439,5 +454,7 @@ describe('without a sign-in or a board', () => {
     const result = await yuzie(['list'], { cwd: computer.home, env: computer.env })
     expect(result.code).toBe(2)
     expect(result.stderr).toContain('yuzie init')
+    const share = await yuzie(['share'], { cwd: computer.home, env: computer.env })
+    expect(share.code).toBe(2)
   })
 })

@@ -329,7 +329,7 @@ function helpLines(nav: NavState, theme: Theme): Line[] {
           ['r', 'refresh'],
         ]
       : [
-          [`${g.left}${g.right}  h l`, 'columns'],
+          [`${g.arrowLeft}${g.arrowRight}  h l`, 'columns'],
           [`${g.up}${g.down}  j k`, 'cards'],
           ['gg  G', 'first / last card'],
           ['1-9', 'jump to column'],
@@ -346,7 +346,7 @@ function helpLines(nav: NavState, theme: Theme): Line[] {
   return [
     [seg('Keys', 'title'), seg('  (any key to close)', 'dim')],
     [],
-    ...rows.map(([keys, what]): Line => [seg(`  ${keys.padEnd(10)}`, 'accent'), seg(what)]),
+    ...rows.map(([keys, what]): Line => [seg(`  ${keys.padEnd(12)}`, 'accent'), seg(what)]),
   ]
 }
 
@@ -519,8 +519,13 @@ function listLines(view: BoardView, nav: NavState, theme: Theme): Line[] {
 
 // ---------------------------------------------------------------------------
 
-function centred(lines: Line[], rows: number, width: number, theme: Theme): Line[] {
+/**
+ * `lines` in the middle of `rows`. Each line is centred on its own, or, as a
+ * `block`, all share the widest line's left edge — so columns line up (help).
+ */
+function centred(lines: Line[], rows: number, width: number, theme: Theme, block = false): Line[] {
   const top = Math.max(0, Math.floor((rows - lines.length) / 2))
+  const widest = Math.max(0, ...lines.map((line) => lineWidth(line)))
   const out: Line[] = []
   for (let row = 0; row < rows; row += 1) {
     const line = lines[row - top]
@@ -528,7 +533,7 @@ function centred(lines: Line[], rows: number, width: number, theme: Theme): Line
       out.push(framed([], width, theme))
       continue
     }
-    const pad = Math.max(0, Math.floor((width - 4 - lineWidth(line)) / 2))
+    const pad = Math.max(0, Math.floor((width - 4 - (block ? widest : lineWidth(line))) / 2))
     out.push(framed([seg(' '.repeat(pad)), ...line], width, theme))
   }
   return out
@@ -757,7 +762,10 @@ export function frameLines(view: BoardView, nav: NavState, theme: Theme): Line[]
   const bodyRows = height - 5
   let body: Line[]
   if (nav.help) {
-    body = [header(view, width, theme), ...centred(helpLines(nav, theme), bodyRows, width, theme)]
+    body = [
+      header(view, width, theme),
+      ...centred(helpLines(nav, theme), bodyRows, width, theme, true),
+    ]
   } else if (card !== undefined) {
     body = cardLines(card, view, nav, theme)
   } else if (everything) {

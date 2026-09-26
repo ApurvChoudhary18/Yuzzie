@@ -21,6 +21,16 @@ describe('loadConfig', () => {
     expect(config.port).toBe(9999)
   })
 
+  it('points the device page at the port the server listens on, unless told otherwise', () => {
+    const db = 'postgres://localhost/yuzie'
+    expect(loadConfig({ DATABASE_URL: db }).publicUrl).toBe('http://localhost:8787')
+    expect(loadConfig({ DATABASE_URL: db, PORT: '8788' }).publicUrl).toBe('http://localhost:8788')
+    expect(
+      loadConfig({ DATABASE_URL: db, PORT: '8788', YUZIE_PUBLIC_URL: 'https://yuzie.acme.dev' })
+        .publicUrl,
+    ).toBe('https://yuzie.acme.dev')
+  })
+
   it('explains what is wrong instead of failing cryptically', () => {
     expect(() => loadConfig({})).toThrow(/Set DATABASE_URL/)
     expect(() => loadConfig({})).toThrow(/databaseUrl/)

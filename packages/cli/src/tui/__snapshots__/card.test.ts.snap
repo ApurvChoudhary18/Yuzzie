@@ -1010,17 +1010,17 @@ exports[`overlays > help over the card view 1`] = `
 │                                                                                                  │
 │                                                                                                  │
 │                                                                                                  │
-│                                     Keys  (any key to close)                                     │
+│                             Keys  (any key to close)                                             │
 │                                                                                                  │
-│                                          ↑↓  j k   scroll                                        │
-│                                    esc  q    back to the board                                   │
-│                                       m  a      move, assign                                     │
-│                                  C         comment (Ctrl-D sends)                                │
-│                                x  +      check off an item, add one                              │
-│                                     e         edit in $EDITOR                                    │
-│                                c  w  d  Dclaim, watch, done, delete                              │
-│                                  o  g      open code, open branch                                │
-│                                         r         refresh                                        │
+│                               ↑↓  j k     scroll                                                 │
+│                               esc  q      back to the board                                      │
+│                               m  a        move, assign                                           │
+│                               C           comment (Ctrl-D sends)                                 │
+│                               x  +        check off an item, add one                             │
+│                               e           edit in $EDITOR                                        │
+│                               c  w  d  D  claim, watch, done, delete                             │
+│                               o  g        open code, open branch                                 │
+│                               r           refresh                                                │
 │                                                                                                  │
 │                                                                                                  │
 │                                                                                                  │
