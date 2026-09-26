@@ -23,6 +23,8 @@ export interface EffectContext {
   /** Hand the terminal to a child process, then take it back (Ink's `suspendTerminal`). */
   readonly suspend: (run: () => Promise<void>) => Promise<void>
   readonly quit: () => void
+  /** Tells the board which card is open (§8.5 presence). */
+  readonly presence: { view(cardNo: number | null): void }
 }
 
 /** What a key does until its feature exists: how to do it from the CLI instead. */
@@ -90,11 +92,11 @@ export async function runEffect(effect: Effect, context: EffectContext): Promise
       source.say('Refreshed', 'info')
       return
     case 'open':
-      board.setPresence({ state: 'viewing', cardNo: effect.cardNo })
+      context.presence.view(effect.cardNo)
       await source.loadActivity(effect.cardNo)
       return
     case 'close':
-      board.setPresence({ state: 'viewing' })
+      context.presence.view(null)
       return
     case 'move':
       await board.cards.move(effect.cardNo, effect.column)

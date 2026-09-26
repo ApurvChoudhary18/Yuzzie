@@ -103,6 +103,9 @@ export function view(
     me: 'rahul',
     pending: new Set(),
     conflicts: new Map(),
+    touched: new Map(),
+    flashes: new Map(),
+    pushes: new Map(),
     activity: new Map(),
     ...extra,
   }

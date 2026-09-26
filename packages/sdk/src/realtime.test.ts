@@ -211,6 +211,42 @@ describe('RealtimeClient', () => {
     expect(statuses).toEqual(['reconnecting', 'live', 'reconnecting'])
   })
 
+  it('keeps retrying when a refused connection reports an error and never a close', () => {
+    // Node's WebSocket does this for ECONNREFUSED: a restarted server was never
+    // reconnected to, because the retry waited for a close that did not come.
+    const { client, sockets, statuses } = harness()
+    client.start()
+    sockets[0]?.open()
+    sockets[0]?.drop(1001, 'Server shutting down')
+    vi.advanceTimersByTime(500)
+    expect(sockets).toHaveLength(2)
+
+    sockets[1]?.onerror?.({})
+    expect(sockets[1]?.closedWith).not.toBeNull()
+    vi.advanceTimersByTime(1_000)
+    expect(sockets).toHaveLength(3)
+
+    // A late close from the abandoned socket changes nothing.
+    sockets[1]?.drop()
+    vi.advanceTimersByTime(10_000)
+    expect(sockets).toHaveLength(3)
+
+    sockets[2]?.open()
+    sockets[2]?.frame({ t: 'welcome', seq: 4, presence: [], resumed: true })
+    expect(statuses).toEqual(['reconnecting', 'live'])
+  })
+
+  it('ignores an error on an open socket: its close does the recovering', () => {
+    const { client, sockets } = harness()
+    client.start()
+    sockets[0]?.open()
+    sockets[0]?.onerror?.({})
+    expect(sockets[0]?.closedWith).toBeNull()
+    sockets[0]?.drop()
+    vi.advanceTimersByTime(500)
+    expect(sockets).toHaveLength(2)
+  })
+
   it('treats 45 s of silence as a dead link, without waiting for the socket to notice', () => {
     const { client, sockets, statuses } = harness()
     client.start()

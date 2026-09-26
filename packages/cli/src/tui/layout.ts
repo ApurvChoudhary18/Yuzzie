@@ -59,9 +59,11 @@ export interface BoardView {
     readonly at: number
     /**
      * `event`: something happened (✓); `info`: a hint about a key (→);
-     * `warn`: something failed or was undone (⚠).
+     * `warn`: something failed (⚠); `conflict`: your change was undone (⟳).
      */
-    readonly kind?: 'event' | 'info' | 'warn'
+    readonly kind?: 'event' | 'info' | 'warn' | 'conflict'
+    /** Toasts waiting behind this one (the queue holds at most 3). */
+    readonly waiting?: number
   } | null
   readonly now: number
   /** Board members' handles, for the member picker. */
@@ -70,14 +72,32 @@ export interface BoardView {
   readonly me: string | null
   /** Cards with a write painted optimistically and not yet confirmed. */
   readonly pending: ReadonlySet<number>
-  /** Cards whose last write was refused by the server, and when (§8, rollback). */
-  readonly conflicts: ReadonlyMap<number, number>
+  /** Cards whose last write was refused by the server: when, and who changed it first. */
+  readonly conflicts: ReadonlyMap<number, Touch>
+  /** Cards someone else just changed, for `⟳ updated by @x` in the card view. */
+  readonly touched: ReadonlyMap<number, Touch>
+  /** Cards that just moved, and when: they flash once (§18 Session 10). */
+  readonly flashes: ReadonlyMap<number, number>
+  /** Commits recently pushed to a card's branch: the `↑3` badge for 10 minutes (§8.5). */
+  readonly pushes: ReadonlyMap<number, { readonly count: number; readonly at: number }>
   /** Loaded activity per card; `null` while it is loading. */
   readonly activity: ReadonlyMap<number, readonly ActivityEntry[] | null>
 }
 
+/** Something that happened to a card, and who did it (`null` when not known). */
+export interface Touch {
+  readonly at: number
+  readonly by: string | null
+}
+
 /** How long a card keeps its conflict marker. */
 export const CONFLICT_MS = 10_000
+/** How long `⟳ updated by @x` stays on an open card. */
+export const TOUCH_MS = 5_000
+/** A moved card's single flash. */
+export const FLASH_MS = 700
+/** How long the `↑3` pushed badge stays (§8.5). */
+export const PUSH_MS = 10 * 60_000
 
 /** What `f` can narrow the board to (§8.4). */
 export type Filter =

@@ -290,7 +290,7 @@ exports[`card view snapshots > 50 activity entries at 100×40 2`] = `
 
 exports[`card view snapshots > a full card at 80×24 1`] = `
 "
-┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 2 online · synced ─┐
+┌ #18 Fix GitHub OAuth ────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                              │
 │ STATUS     Doing                      ASSIGNEE  @rahul ● working             │
 │ PRIORITY   p1                         WATCHERS  @priya, @adarsh              │
@@ -318,7 +318,7 @@ exports[`card view snapshots > a full card at 80×24 1`] = `
 
 exports[`card view snapshots > a full card at 80×24 2`] = `
 "
-┌ #18 Fix GitHub OAuth ────────────────────────────────── ● 2 online · synced ─┐
+┌ #18 Fix GitHub OAuth ────────────────────── ● 2 online · 1 working · synced ─┐
 │ DESCRIPTION                                                                 ↑│
 │ OAuth callback drops the \`state\` param on redirect, so token exchange fails  │
 │ intermittently. Also needs refresh-token handling.                           │
@@ -346,7 +346,7 @@ exports[`card view snapshots > a full card at 80×24 2`] = `
 
 exports[`card view snapshots > a full card at 100×40 1`] = `
 "
-┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                                                  │
 │ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
 │ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
@@ -390,7 +390,7 @@ exports[`card view snapshots > a full card at 100×40 1`] = `
 
 exports[`card view snapshots > a full card at 100×40 2`] = `
 "
-┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                                                  │
 │ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
 │ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
@@ -866,7 +866,7 @@ exports[`card view snapshots > no git link at 100×40 2`] = `
 
 exports[`overlays > checklist over the card view 1`] = `
 "
-┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                                                  │
 │ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
 │ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
@@ -900,7 +900,7 @@ exports[`overlays > checklist over the card view 1`] = `
 
 exports[`overlays > column picker over the card view 1`] = `
 "
-┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                                                  │
 │ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
 │ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
@@ -934,7 +934,7 @@ exports[`overlays > column picker over the card view 1`] = `
 
 exports[`overlays > comment composer over the card view 1`] = `
 "
-┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                                                  │
 │ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
 │ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
@@ -968,7 +968,7 @@ exports[`overlays > comment composer over the card view 1`] = `
 
 exports[`overlays > delete confirmation over the card view 1`] = `
 "
-┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                                                  │
 │ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
 │ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
@@ -1002,7 +1002,7 @@ exports[`overlays > delete confirmation over the card view 1`] = `
 
 exports[`overlays > help over the card view 1`] = `
 "
-┌ yuzie · yuzie-dev ───────────────────────────────────────────────────────── ● 2 online · synced ─┐
+┌ yuzie · yuzie-dev ───────────────────────────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                                                  │
 │                                                                                                  │
 │                                                                                                  │
@@ -1036,7 +1036,7 @@ exports[`overlays > help over the card view 1`] = `
 
 exports[`overlays > member picker over the card view 1`] = `
 "
-┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                                                  │
 │ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
 │ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │
@@ -1070,7 +1070,7 @@ exports[`overlays > member picker over the card view 1`] = `
 
 exports[`overlays > new card prompt, search and filter over the board 1`] = `
 "
-┌ yuzie · yuzie-dev ───────────────────────────────────────────────────────── ● 2 online · synced ─┐
+┌ yuzie · yuzie-dev ───────────────────────────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                                                  │
 │ ┌────────── TODO (0) ───────────┬────────── DOING (1) ──────────┬────────── DONE (0) ──────────┐ │
 │ │                               │                               │                              │ │
@@ -1104,7 +1104,7 @@ exports[`overlays > new card prompt, search and filter over the board 1`] = `
 
 exports[`overlays > new card prompt, search and filter over the board 2`] = `
 "
-┌ yuzie · yuzie-dev ─────────────────────────────────── /oauth  esc clears  ─ ● 2 online · synced ─┐
+┌ yuzie · yuzie-dev ─────────────────────── /oauth  esc clears  ─ ● 2 online · 1 working · synced ─┐
 │                                                                                                  │
 │ ┌────────── TODO (0) ───────────┬────────── DOING (1) ──────────┬────────── DONE (0) ──────────┐ │
 │ │                               │                               │                              │ │
@@ -1138,7 +1138,7 @@ exports[`overlays > new card prompt, search and filter over the board 2`] = `
 
 exports[`overlays > new checklist item over the card view 1`] = `
 "
-┌ #18 Fix GitHub OAuth ────────────────────────────────────────────────────── ● 2 online · synced ─┐
+┌ #18 Fix GitHub OAuth ────────────────────────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                                                  │
 │ STATUS     Doing                                ASSIGNEE  @rahul ● working                       │
 │ PRIORITY   p1                                   WATCHERS  @priya, @adarsh                        │

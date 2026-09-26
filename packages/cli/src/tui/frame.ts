@@ -14,12 +14,16 @@ import {
   boardGeometry,
   CONFLICT_MS,
   describeFilter,
+  FLASH_MS,
   findCard,
   isNarrow,
   isTooSmall,
   type ListEntry,
   listEntries,
   listRows,
+  PUSH_MS,
+  TOUCH_MS,
+  type Touch,
   type ViewColumn,
   visibleView,
 } from './layout.js'
@@ -70,6 +74,9 @@ function metaLine(card: Card, column: ViewColumn, view: BoardView, theme: Theme)
 
   if (card.git?.branch)
     parts.push(seg(' '), seg(`${card.git.commits}c/${card.git.filesChanged}f`, 'dim'))
+  const pushed = view.pushes.get(card.number)
+  if (pushed !== undefined && view.now - pushed.at < PUSH_MS)
+    parts.push(seg(' '), seg(`${g.up}${pushed.count}`, 'green'))
 
   const idleDays = Math.floor((view.now - lastActivity(card)) / DAY)
   const active = column.semantics !== 'terminal' && column.semantics !== 'backlog'
@@ -84,11 +91,25 @@ function metaLine(card: Card, column: ViewColumn, view: BoardView, theme: Theme)
   return parts
 }
 
-/** `◌` while a write is unconfirmed; `⚠` for a while after the server refused one. */
+function recent(touch: Touch | undefined, now: number, window: number): touch is Touch {
+  return touch !== undefined && now - touch.at < window
+}
+
+/** Someone else's name for a conflict or an update: `@priya`, or `someone`. */
+function byWhom(touch: Touch): string {
+  return touch.by ?? 'someone'
+}
+
+/** A card that just moved flashes once (§18 Session 10). */
+function flashing(card: Card, view: BoardView): boolean {
+  const at = view.flashes.get(card.number)
+  return at !== undefined && view.now - at < FLASH_MS
+}
+
+/** `◌` while a write is unconfirmed; `⟳` for a while after the server refused one. */
 function markers(card: Card, view: BoardView, theme: Theme): Line {
   const g = theme.glyphs
-  const conflict = view.conflicts.get(card.number)
-  if (conflict !== undefined && view.now - conflict < CONFLICT_MS) return [seg(g.warn, 'red')]
+  if (recent(view.conflicts.get(card.number), view.now, CONFLICT_MS)) return [seg(g.updated, 'red')]
   if (view.pending.has(card.number) || card.number < 0) return [seg(g.pending, 'dim')]
   return []
 }
@@ -118,11 +139,19 @@ function statusText(view: BoardView, theme: Theme): Line {
       return [seg(`${g.warn} reconnecting${g.ellipsis}`, 'yellow')]
     case 'connecting':
       return [seg(`${g.dot} `, 'dim'), seg(`connecting${g.ellipsis}`, 'dim')]
-    case 'live':
+    case 'live': {
+      const working = view.presence.filter((person) => person.state === 'working').length
       return [
         seg(`${g.dot} `, 'green'),
-        seg(`${online} online · ${view.queued > 0 ? `${view.queued} queued` : 'synced'}`),
+        seg(
+          [
+            `${online} online`,
+            ...(working > 0 ? [`${working} working`] : []),
+            view.queued > 0 ? `${view.queued} queued` : 'synced',
+          ].join(' · '),
+        ),
       ]
+    }
   }
 }
 
@@ -255,11 +284,16 @@ function toastLine(view: BoardView, nav: NavState, theme: Theme): Line {
   if (overlay?.kind === 'input' && overlay.purpose === 'search') {
     return [seg('/', 'accent'), seg(overlay.text), seg('▏', 'accent')]
   }
-  if (view.toast === null || view.now - view.toast.at > TOAST_MS) return []
-  if (view.toast.kind === 'info') return [seg('→ ', 'accent'), seg(view.toast.text, 'dim')]
-  if (view.toast.kind === 'warn')
-    return [seg(`${theme.glyphs.warn} `, 'red'), seg(view.toast.text, 'yellow')]
-  return [seg(`${theme.glyphs.check} `, 'green'), seg(view.toast.text)]
+  const toast = view.toast
+  if (toast === null || view.now - toast.at > TOAST_MS) return []
+  const more: Line =
+    toast.waiting !== undefined && toast.waiting > 0 ? [seg(`  +${toast.waiting}`, 'dim')] : []
+  if (toast.kind === 'info') return [seg('→ ', 'accent'), seg(toast.text, 'dim'), ...more]
+  if (toast.kind === 'warn')
+    return [seg(`${theme.glyphs.warn} `, 'red'), seg(toast.text, 'yellow'), ...more]
+  if (toast.kind === 'conflict')
+    return [seg(`${theme.glyphs.updated} `, 'red'), seg(toast.text, 'yellow'), ...more]
+  return [seg(`${theme.glyphs.check} `, 'green'), seg(toast.text), ...more]
 }
 
 /** `│ content │` — a row of the outer frame. */
@@ -355,9 +389,10 @@ function columnRows(
   const visible = column.cards.slice(first, first + slots)
   visible.forEach((card, offset) => {
     const selected = nav.column === index && nav.selected[index] === first + offset
+    const lit = selected || flashing(card, view)
     const title = fitLine(titleLine(card, selected, view, theme), width, g.ellipsis)
     const meta = fitLine([seg('     '), ...metaLine(card, column, view, theme)], width, g.ellipsis)
-    lines.push(selected ? invert(title) : title, selected ? invert(meta) : meta, [])
+    lines.push(lit ? invert(title) : title, lit ? invert(meta) : meta, [])
   })
 
   const hidden = column.cards.length - first - visible.length
@@ -457,7 +492,7 @@ function listLine(
     width,
     g.ellipsis,
   )
-  return selected ? invert(line) : line
+  return selected || flashing(card, view) ? invert(line) : line
 }
 
 function listLines(view: BoardView, nav: NavState, theme: Theme): Line[] {
@@ -508,14 +543,14 @@ function cardLines(card: Card, view: BoardView, nav: NavState, theme: Theme): Li
   const g = theme.glyphs
   const pending = view.pending.has(card.number) || card.number < 0
   const conflict = view.conflicts.get(card.number)
-  const marker: Line =
-    conflict !== undefined && view.now - conflict < CONFLICT_MS
-      ? [
-          seg(`${g.warn} changed on the server; your edit was undone`, 'red'),
-          seg(`  ${g.h} `, 'border'),
-        ]
-      : pending
-        ? [seg(`${g.pending} saving${g.ellipsis}`, 'dim'), seg(`  ${g.h} `, 'border')]
+  const touched = view.touched.get(card.number)
+  const rule = seg(`  ${g.h} `, 'border')
+  const marker: Line = recent(conflict, view.now, CONFLICT_MS)
+    ? [seg(`${g.updated} updated by ${byWhom(conflict)} · your edit was undone`, 'red'), rule]
+    : pending
+      ? [seg(`${g.pending} saving${g.ellipsis}`, 'dim'), rule]
+      : recent(touched, view.now, TOUCH_MS)
+        ? [seg(`${g.updated} updated by ${byWhom(touched)}`, 'yellow'), rule]
         : []
   const title: Line = [
     seg(card.number < 0 ? '#new' : `#${card.number}`, 'dim'),
@@ -544,14 +579,18 @@ function presenceLine(card: Card, view: BoardView, theme: Theme): Line {
       person.cardNo === card.number && person.state !== 'online' && person.handle !== view.me,
   )
   if (here.length === 0) return []
-  const names = here.map((person) => `@${person.handle}`).join(', ')
   const working = here.some((person) => person.state === 'working')
-  return [
-    seg(`${theme.glyphs.dot} `, working ? 'green' : 'accent'),
-    seg(
-      `${names} ${here.length === 1 ? 'is' : 'are'} ${working ? 'working on' : 'viewing'} this card`,
-    ),
-  ]
+  const line: Line = [seg(`${theme.glyphs.dot} `, working ? 'green' : 'accent')]
+  here.forEach((person, index) => {
+    if (index > 0) line.push(seg(', '))
+    // Agents are always marked, so people know who is who (§8.5, §14).
+    if (person.kind === 'agent') line.push(seg(`@${person.handle} (agent)`, 'agent'))
+    else line.push(seg(`@${person.handle}`))
+  })
+  line.push(
+    seg(` ${here.length === 1 ? 'is' : 'are'} ${working ? 'working on' : 'viewing'} this card`),
+  )
+  return line
 }
 
 // ---------------------------------------------------------------------------

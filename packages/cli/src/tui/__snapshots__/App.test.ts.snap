@@ -234,7 +234,7 @@ exports[`snapshots > empty at 160×50 1`] = `
 
 exports[`snapshots > three columns at 80×24 1`] = `
 "
-┌ yuzie · yuzie-dev ───────────────────────────────────── ● 2 online · synced ─┐
+┌ yuzie · yuzie-dev ───────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                              │
 │ TODO (2)                                                                     │
 │ ▸#12 Fix login redirect loop                                  —  p1 bug auth │
@@ -262,7 +262,7 @@ exports[`snapshots > three columns at 80×24 1`] = `
 
 exports[`snapshots > three columns at 100×30 1`] = `
 "
-┌ yuzie · yuzie-dev ───────────────────────────────────────────────────────── ● 2 online · synced ─┐
+┌ yuzie · yuzie-dev ───────────────────────────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                                                  │
 │ ┌────────── TODO (2) ───────────┬───────── DOING (2/2) ─────────┬────────── DONE (1) ──────────┐ │
 │ │                               │                               │                              │ │
@@ -296,7 +296,7 @@ exports[`snapshots > three columns at 100×30 1`] = `
 
 exports[`snapshots > three columns at 160×50 1`] = `
 "
-┌ yuzie · yuzie-dev ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ● 2 online · synced ─┐
+┌ yuzie · yuzie-dev ───────────────────────────────────────────────────────────────────────────────────────────────────────── ● 2 online · 1 working · synced ─┐
 │                                                                                                                                                              │
 │ ┌──────────────────── TODO (2) ─────────────────────┬─────────────────── DOING (2/2) ───────────────────┬──────────────────── DONE (1) ────────────────────┐ │
 │ │                                                   │                                                   │                                                  │ │

@@ -13,6 +13,7 @@
     "@testcontainers/postgresql": "^11.14.0",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^22.10.0",
+    "@xterm/headless": "^6.0.0",
     "@yuzie/cli": "workspace:^",
     "@yuzie/core": "workspace:^",
     "@yuzie/git": "workspace:^",

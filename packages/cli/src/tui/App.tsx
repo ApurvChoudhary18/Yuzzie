@@ -80,8 +80,8 @@ export function App({
   const { suspendTerminal } = useApp()
   const view = useSyncExternalStore(source.subscribe, source.view)
   const size = () => ({
-    width: width ?? stdout.columns ?? 80,
-    height: height ?? stdout.rows ?? 24,
+    width: width ?? (stdout.columns || 80),
+    height: height ?? (stdout.rows || 24),
   })
 
   const [nav, setNav] = useState<NavState>(() => {
@@ -110,11 +110,15 @@ export function App({
     [onEffect],
   )
 
-  // The board changed under us (cache → server, a live event): keep the selection valid.
-  useEffect(() => {
-    viewRef.current = view
-    dispatch({ type: 'data' })
-  }, [view, dispatch])
+  // The board changed under us (cache → server, a live event): keep the
+  // selection valid in the same render, so each change costs one frame, not two.
+  const [settledFor, setSettledFor] = useState(view)
+  if (settledFor !== view) {
+    setSettledFor(view)
+    const next = reduce(navRef.current, { type: 'data' }, view).state
+    navRef.current = next
+    setNav(next)
+  }
 
   useEffect(() => {
     if (width !== undefined && height !== undefined) {
@@ -122,7 +126,7 @@ export function App({
       return
     }
     const onResize = () =>
-      dispatch({ type: 'resize', width: stdout.columns ?? 80, height: stdout.rows ?? 24 })
+      dispatch({ type: 'resize', width: stdout.columns || 80, height: stdout.rows || 24 })
     stdout.on('resize', onResize)
     return () => {
       stdout.off('resize', onResize)
