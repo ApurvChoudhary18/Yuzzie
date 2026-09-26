@@ -47,17 +47,18 @@ export async function resolveCard(resolver: Resolver, reference: string): Promis
   }
 
   const list = found.map((card) => `#${card.number} ${card.title}`)
-  if (resolver.prompter === null) {
-    throw new NotFoundError(
+  const ambiguous = () =>
+    new NotFoundError(
       'card_not_found',
       `"${reference}" matches ${found.length} cards: ${list.join(', ')}. Use the number.`,
       { details: { boardSlug: slug, query: reference, candidates: found.map((c) => c.number) } },
     )
-  }
+  if (resolver.prompter === null) throw ambiguous()
 
   const choice = await resolver.prompter.choose(
     `"${reference}" matches ${found.length} cards. Which one?`,
     list,
+    { fallback: 0, none: ambiguous },
   )
   return found[choice] as Card
 }

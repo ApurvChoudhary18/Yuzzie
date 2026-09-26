@@ -10,11 +10,14 @@ import type { Board } from '@yuzie/sdk'
 import { openCache, type YuzieCache } from '@yuzie/store'
 import type { Context } from './context.js'
 import { UsageError } from './exit.js'
+import { knownHandle, rememberHandle } from './identity.js'
 import { resolveCard } from './resolve.js'
 
 export interface BoardSession {
   readonly board: Board
   readonly slug: string
+  /** You: from the server when it answered, else remembered from last time. */
+  readonly me: string | null
   /** Whether the server was reachable when the board opened. */
   readonly online: boolean
   card(reference: string): Promise<Card>
@@ -37,7 +40,14 @@ export async function currentSlug(context: Context): Promise<string> {
 
 export async function openBoard(
   context: Context,
-  options: { live?: boolean } = {},
+  options: {
+    live?: boolean
+    /**
+     * Queue writes the server cannot take right now, instead of failing (§9.3
+     * step 8: a claim still creates its branch, and syncs later).
+     */
+    queue?: boolean
+  } = {},
 ): Promise<BoardSession> {
   const slug = await currentSlug(context)
   const client = await context.client()
@@ -60,13 +70,32 @@ export async function openBoard(
   const offline = context.options.offline === true
   const board = await client.connect(slug, {
     realtime: options.live === true && !offline,
-    offline: offline ? 'queue' : 'fail',
+    offline: offline || options.queue === true ? 'queue' : 'fail',
     ...(cache === undefined ? {} : { cache }),
   })
+
+  const server = await context.server()
+  let me = board.handle
+  if (me !== null) await rememberHandle(context.home, server, me)
+  else me = await knownHandle(context.home, server)
+
+  // Writes queue in order: anything already waiting (a git hook that ran out
+  // of time, an earlier offline command) must go first, or every write made
+  // now would queue behind it even with the server right there.
+  if (options.queue === true && board.handle !== null && board.queued > 0) {
+    try {
+      await board.sync()
+    } catch (error) {
+      context.output.debug(
+        `could not send queued writes: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
 
   return {
     board,
     slug,
+    me,
     online: !offline,
     card: (reference) =>
       resolveCard(
@@ -100,7 +129,7 @@ export async function openBoard(
 export async function withBoard<T>(
   context: Context,
   run: (session: BoardSession) => Promise<T>,
-  options: { live?: boolean } = {},
+  options: { live?: boolean; queue?: boolean } = {},
 ): Promise<T> {
   const session = await openBoard(context, options)
   try {

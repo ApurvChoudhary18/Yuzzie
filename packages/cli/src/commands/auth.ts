@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process'
 import { AuthenticationError, type User } from '@yuzie/core'
 import { deleteToken, saveToken } from '@yuzie/sdk/node'
 import type { Context } from '../context.js'
+import { rememberHandle } from '../identity.js'
 
 export interface SignedIn {
   readonly user: User
@@ -79,6 +80,7 @@ export async function signIn(context: Context): Promise<SignedIn> {
 
 export async function login(context: Context): Promise<void> {
   const { user, storedIn } = await signIn(context)
+  await rememberHandle(context.home, await context.server(), user.handle)
   context.output.success(`Signed in as @${user.handle}`)
   context.output.result('Login', { user, storedIn })
 }

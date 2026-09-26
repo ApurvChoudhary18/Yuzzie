@@ -3,7 +3,7 @@
  * script does: real argv, real env, real stdin and stdout.
  */
 import { type ChildProcessWithoutNullStreams, execFileSync, spawn } from 'node:child_process'
-import { mkdtempSync, realpathSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -115,4 +115,17 @@ export function yuzie(
   options: { cwd: string; env: NodeJS.ProcessEnv; input?: string },
 ): Promise<CliResult> {
   return start(args, options).done
+}
+
+/**
+ * Put a `yuzie` on the machine's PATH that runs the built CLI — what the Git
+ * hooks call (`command -v yuzie`), as an installed binary would be found.
+ */
+export function withYuzieOnPath(target: Machine): Machine {
+  const bin = join(target.home, 'bin')
+  mkdirSync(bin, { recursive: true })
+  const shim = join(bin, 'yuzie')
+  writeFileSync(shim, `#!/bin/sh\nexec "${process.execPath}" "${CLI}" "$@"\n`)
+  chmodSync(shim, 0o755)
+  return { ...target, env: { ...target.env, PATH: `${bin}:${target.env.PATH ?? ''}` } }
 }
