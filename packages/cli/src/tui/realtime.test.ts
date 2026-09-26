@@ -4,7 +4,7 @@
  * driven by a hand-held board, rendered through the real app where it shows.
  */
 import type { EventEnvelope } from '@yuzie/core'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FakeBoard, moved } from './__tests__/fake-board.js'
 import { card, column, mountSource, person, settled, tick } from './__tests__/fixtures.js'
 import { PresenceReporter } from './presence.js'
@@ -51,41 +51,65 @@ function move(board: FakeBoard, cardNo: number, to: string, actor = 'priya'): Ev
 }
 
 describe('frame budget', () => {
+  // Counted in simulated time, so a busy machine cannot change the answer:
+  // only timers and the clock are faked; React and Ink run for real.
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  /** Let Ink draw what React committed, without moving the clock. */
+  const flush = () => vi.advanceTimersByTimeAsync(0)
+
   it('100 events in one second cause at most 20 renders', async () => {
     const { board, source } = setup()
     const app = render(source)
-    await settled(app.terminal)
+    await vi.advanceTimersByTimeAsync(200)
     const framesBefore = app.terminal.frames.length
     const notifiedBefore = source.notifications
 
-    const started = Date.now()
     for (let index = 0; index < 100; index += 1) {
       move(board, index % 2 === 0 ? 15 : 18, index % 3 === 0 ? 'done' : 'doing')
-      // 100 events spread over one second.
-      await sleep(Math.max(0, started + (index + 1) * 10 - Date.now()))
+      // 100 events, 10 ms apart: one second.
+      await vi.advanceTimersByTimeAsync(10)
     }
+    await flush()
     const renders = app.terminal.frames.length - framesBefore
     const notified = source.notifications - notifiedBefore
-    expect(Date.now() - started).toBeLessThan(1_300)
     expect(notified).toBeLessThanOrEqual(20)
     expect(renders).toBeLessThanOrEqual(20)
-    // …and the latest news is on screen once things settle.
-    await settled(app.terminal)
+    // Coalesced, not dropped: the screen shows the board as it ended up.
+    await vi.advanceTimersByTimeAsync(100)
     expect(app.terminal.lastFrame()).toMatch(/✓ @priya moved #1[58] /)
   })
 
-  it('a burst still reaches the screen within one frame', async () => {
+  it('a burst reaches the screen within one frame', async () => {
     const { board, source } = setup()
     const app = render(source)
-    await settled(app.terminal)
-    const at = Date.now()
+    await vi.advanceTimersByTimeAsync(200)
     move(board, 15, 'done')
-    while (!app.terminal.lastFrame().includes('@priya moved #15')) await sleep(5)
-    expect(Date.now() - at).toBeLessThan(200)
+    await vi.advanceTimersByTimeAsync(49)
+    expect(app.terminal.lastFrame()).not.toContain('@priya moved #15')
+    await vi.advanceTimersByTimeAsync(1)
+    await flush()
+    expect(app.terminal.lastFrame()).toContain('@priya moved #15')
   })
 })
 
 describe('toasts', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('queue at most three; each waiting one still gets a second on screen', async () => {
     const { board, source } = setup()
     for (const [index, to] of ['doing', 'done', 'todo', 'doing', 'done'].entries())
@@ -94,10 +118,12 @@ describe('toasts', () => {
     expect(first?.text).toContain('#15')
     expect(first?.waiting).toBe(TOAST_CAP - 1)
     // The oldest waiting ones gave way to the newest: e0 shows, e3 and e4 wait.
-    await sleep(1_050)
+    await vi.advanceTimersByTimeAsync(999)
+    expect(source.view().toast?.text).toContain('#15')
+    await vi.advanceTimersByTimeAsync(1)
     expect(source.view().toast?.text).toContain('Fix OAuth → Doing')
     expect(source.view().toast?.waiting).toBe(1)
-    await sleep(1_050)
+    await vi.advanceTimersByTimeAsync(1_000)
     expect(source.view().toast?.text).toContain('Login flow → Done')
     expect(source.view().toast?.waiting).toBe(0)
   })
@@ -105,9 +131,9 @@ describe('toasts', () => {
   it('a lone toast shows for three seconds', async () => {
     const { board, source } = setup()
     move(board, 15, 'done')
-    await sleep(2_500)
+    await vi.advanceTimersByTimeAsync(2_999)
     expect(source.view().toast?.text).toContain('moved #15')
-    await sleep(700)
+    await vi.advanceTimersByTimeAsync(1)
     expect(source.view().toast).toBeNull()
   })
 
@@ -116,7 +142,7 @@ describe('toasts', () => {
     const app = render(source)
     move(board, 15, 'done')
     move(board, 18, 'done')
-    await settled(app.terminal)
+    await vi.advanceTimersByTimeAsync(60)
     expect(app.terminal.lastFrame()).toMatch(/✓ @priya moved #15 Login flow → Done\s+\+1/)
   })
 })
