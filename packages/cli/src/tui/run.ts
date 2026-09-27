@@ -11,6 +11,7 @@ import { OfflineError } from '@yuzie/core'
 import { git } from '@yuzie/git'
 import { openCache, type YuzieCache } from '@yuzie/store'
 import type { Context } from '../context.js'
+import { canLaunch } from '../open.js'
 import { currentSlug } from '../session.js'
 import { type EffectContext, ENTER_ALT_SCREEN, LEAVE_ALT_SCREEN, perform } from './effects.js'
 import { renderFrame } from './frame.js'
@@ -82,6 +83,11 @@ export async function startTui(context: Context): Promise<number> {
     suspend: (run) => suspend(run),
     quit: () => finish(),
     presence,
+    repo: () => context.repo(),
+    baseBranch: async () => (await context.config()).config.git.baseBranch,
+    launchAllowed: canLaunch(env, stdout.isTTY === true),
+    cli: [process.execPath, ...(process.argv[1] === undefined ? [] : [process.argv[1]])],
+    cwd: context.io.cwd,
   }
   const onEffect = (effect: Effect) => perform(effect, effects)
   const onSuspend = (inkSuspend: EffectContext['suspend']) => {

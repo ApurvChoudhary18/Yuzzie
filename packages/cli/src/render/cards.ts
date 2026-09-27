@@ -115,6 +115,8 @@ export interface DetailContext {
   readonly presence: readonly Presence[]
   readonly now: Date
   readonly paint?: Paint
+  /** The anchor's file changed since it was made (§9.7); null or absent when unknown. */
+  readonly anchorStale?: boolean | null
 }
 
 /** `yuzie card <id>` — everything about one card, read-only (§7.2, §6.6). */
@@ -143,6 +145,16 @@ export function renderCardDetail(card: Card, context: DetailContext): string {
     )
   }
 
+  if (card.anchor !== null) {
+    const range =
+      card.anchor.line === null
+        ? ''
+        : card.anchor.endLine === null || card.anchor.endLine === card.anchor.line
+          ? `:${card.anchor.line}`
+          : `:${card.anchor.line}-${card.anchor.endLine}`
+    const stale = context.anchorStale === true ? `  ${paint('yellow', '⚠ may be stale')}` : ''
+    lines.push(`${label('Code')}${card.anchor.path}${range}${stale}`)
+  }
   if (card.git?.branch) {
     const stats = [
       plural(card.git.commits, 'commit'),
@@ -151,15 +163,6 @@ export function renderCardDetail(card: Card, context: DetailContext): string {
       ...(card.git.prUrl === null ? [] : [card.git.prUrl]),
     ]
     lines.push(`${label('Branch')}${card.git.branch}  ${paint('dim', `(${stats.join(' · ')})`)}`)
-  }
-  if (card.anchor !== null) {
-    const range =
-      card.anchor.line === null
-        ? ''
-        : card.anchor.endLine === null || card.anchor.endLine === card.anchor.line
-          ? `:${card.anchor.line}`
-          : `:${card.anchor.line}-${card.anchor.endLine}`
-    lines.push(`${label('Code')}${card.anchor.path}${range}`)
   }
   if (card.watchers.length > 0) {
     lines.push(`${label('Watch')}${card.watchers.map((h) => `@${h}`).join(', ')}`)

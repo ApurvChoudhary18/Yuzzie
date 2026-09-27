@@ -106,6 +106,7 @@ export function view(
     touched: new Map(),
     flashes: new Map(),
     pushes: new Map(),
+    staleAnchors: new Set(),
     activity: new Map(),
     ...extra,
   }

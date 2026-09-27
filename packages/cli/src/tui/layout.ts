@@ -80,6 +80,8 @@ export interface BoardView {
   readonly flashes: ReadonlyMap<number, number>
   /** Commits recently pushed to a card's branch: the `↑3` badge for 10 minutes (§8.5). */
   readonly pushes: ReadonlyMap<number, { readonly count: number; readonly at: number }>
+  /** Cards whose code anchor changed in this checkout since it was made (§9.7). */
+  readonly staleAnchors: ReadonlySet<number>
   /** Loaded activity per card; `null` while it is loading. */
   readonly activity: ReadonlyMap<number, readonly ActivityEntry[] | null>
 }

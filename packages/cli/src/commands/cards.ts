@@ -11,6 +11,7 @@ import type { Context } from '../context.js'
 import { parseDue, parseDuration, parsePriority } from '../dates.js'
 import { diffCard, editText, parseDocument, toDocument } from '../edit.js'
 import { UsageError } from '../exit.js'
+import { staleness } from '../open.js'
 import {
   columnName,
   isDoneColumn,
@@ -213,6 +214,7 @@ export async function show(context: Context, reference: string): Promise<void> {
           presence: await session.presence(),
           now: context.now(),
           paint: paintFor(context),
+          anchorStale: await staleness(await context.repo(), card),
         }).trimEnd(),
       )
     }

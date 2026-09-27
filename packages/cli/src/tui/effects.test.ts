@@ -7,10 +7,12 @@
  * - `e` suspends the app for `$EDITOR` and restores the terminal completely,
  *   whether the editor saves or exits non-zero.
  */
-import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Card } from '@yuzie/core'
+import { findRepo } from '@yuzie/git'
+import { fixtureRepo } from '@yuzie/git/testing'
 import type { Board } from '@yuzie/sdk'
 import { afterEach, describe, expect, it } from 'vitest'
 import { FakeApi, openBoard, problem, reply } from './__tests__/fake-api.js'
@@ -38,7 +40,11 @@ async function waitFor(check: () => boolean, what: string, ms = 8_000): Promise<
   }
 }
 
-async function start(cards: Card[], env: Record<string, string | undefined> = {}) {
+async function start(
+  cards: Card[],
+  env: Record<string, string | undefined> = {},
+  extra: Partial<Pick<EffectContext, 'repo' | 'launchAllowed'>> = {},
+) {
   const api = new FakeApi(COLUMNS, cards)
   const board: Board = await openBoard(api)
   const source = new SdkSource(board, 'b')
@@ -55,6 +61,12 @@ async function start(cards: Card[], env: Record<string, string | undefined> = {}
     suspend: (run) => suspend(run),
     quit: () => {},
     presence: { view: () => {} },
+    repo: async () => null,
+    baseBranch: async () => 'main',
+    launchAllowed: true,
+    cli: [],
+    cwd: process.cwd(),
+    ...extra,
   }
   const app = mountSource(source, 100, 30, {
     onEffect: (effect) => perform(effect, context),
@@ -285,5 +297,82 @@ describe('$EDITOR suspend and resume', () => {
     // Still responsive afterwards.
     await t.press('\r')
     expect(t.frame()).toContain('esc back')
+  })
+})
+
+describe('o and g: the same path as yuzie open (§18 Session 12)', () => {
+  function anchoredRepo() {
+    const repo = fixtureRepo({ remote: false })
+    repo.commit('code', { 'src/auth/oauth.ts': 'a\nb\nc\n' })
+    repo.git('remote', 'add', 'origin', 'git@github.com:acme/payments-api.git')
+    cleanup.push(() => repo.remove())
+    return repo
+  }
+
+  it('o opens the editor at the anchor, suspending the app around it', async () => {
+    const repo = anchoredRepo()
+    const log = join(repo.root, 'editor.log')
+    const editor = join(repo.root, 'editor.sh')
+    writeFileSync(editor, `#!/bin/sh\necho "$@" > "${log}"\n`)
+    chmodSync(editor, 0o755)
+    const anchored = card(1, {
+      title: 'Fix login redirect',
+      anchor: { path: 'src/auth/oauth.ts', line: 2, endLine: null, commitSha: null, primary: true },
+    })
+    const t = await start([anchored], { EDITOR: editor }, { repo: async () => findRepo(repo.root) })
+    await t.press('o')
+    await waitFor(() => existsSync(log), 'the editor to run')
+    expect(readFileSync(log, 'utf8').trim()).toBe(`+2 ${repo.root}/src/auth/oauth.ts`)
+    await waitFor(() => t.written.includes(ENTER_ALT_SCREEN), 'the app to come back')
+    expect(t.written.indexOf(LEAVE_ALT_SCREEN)).toBeLessThan(
+      t.written.lastIndexOf(ENTER_ALT_SCREEN),
+    )
+  })
+
+  it('o on a card with no anchor says how to add one', async () => {
+    const t = await start([card(1, { title: 'Fix login redirect' })])
+    await t.press('o')
+    await waitFor(() => t.frame().includes('has no code anchor'), 'the hint')
+    expect(t.frame()).toContain('yuzie anchor 1')
+  })
+
+  it('g, where launching is not allowed (CI), shows the compare view instead of opening it', async () => {
+    const repo = anchoredRepo()
+    const branched = card(1, {
+      title: 'Fix login redirect',
+      git: {
+        branch: 'task/1-fix-login',
+        baseBranch: 'main',
+        commits: 0,
+        filesChanged: 0,
+        additions: 0,
+        deletions: 0,
+        pushed: false,
+        prUrl: null,
+        prState: null,
+        lastActivityAt: null,
+      },
+    })
+    const t = await start(
+      [branched],
+      { PATH: '/nonexistent', GH_TOKEN: '' },
+      { repo: async () => findRepo(repo.root), launchAllowed: false },
+    )
+    await t.press('g')
+    await waitFor(() => t.frame().includes('Would open:'), 'the target')
+    expect(t.frame()).toContain('github.com/acme/payments-api/compare/main...task/1-fix-login')
+  })
+
+  it('opening a card flags an anchor whose file changed since', async () => {
+    const repo = anchoredRepo()
+    const sha = repo.git('rev-parse', 'HEAD')
+    repo.write('src/auth/oauth.ts', 'changed\n')
+    const anchored = card(1, {
+      title: 'Fix login redirect',
+      anchor: { path: 'src/auth/oauth.ts', line: 1, endLine: null, commitSha: sha, primary: true },
+    })
+    const t = await start([anchored], {}, { repo: async () => findRepo(repo.root) })
+    await t.press('\r')
+    await waitFor(() => t.frame().includes('⚠ may be stale'), 'the stale marker')
   })
 })
