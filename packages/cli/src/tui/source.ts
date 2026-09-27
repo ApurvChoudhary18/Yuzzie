@@ -56,6 +56,7 @@ export class SdkSource implements BoardSource {
   private readonly flashes = new Map<number, number>()
   private readonly pushes = new Map<number, { count: number; at: number }>()
   private readonly lastActor = new Map<number, string>()
+  private readonly staleAnchors = new Set<number>()
   private readonly activity = new Map<number, readonly ActivityEntry[] | null>()
 
   private reconnectingSince: number | null = null
@@ -202,6 +203,14 @@ export class SdkSource implements BoardSource {
     }, FRAME_MS)
   }
 
+  /** Record whether a card's anchor is stale here (checked when its card view opens). */
+  setStale(cardNo: number, stale: boolean): void {
+    if (stale === this.staleAnchors.has(cardNo)) return
+    if (stale) this.staleAnchors.add(cardNo)
+    else this.staleAnchors.delete(cardNo)
+    this.invalidate()
+  }
+
   // -- activity ----------------------------------------------------------------
 
   private entry(event: EventEnvelope): ActivityEntry {
@@ -293,6 +302,7 @@ export class SdkSource implements BoardSource {
       touched: new Map(this.touched),
       flashes: new Map(this.flashes),
       pushes: new Map(this.pushes),
+      staleAnchors: new Set(this.staleAnchors),
       activity: new Map(this.activity),
     }
     return this.cached

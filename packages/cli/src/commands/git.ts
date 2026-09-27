@@ -23,7 +23,6 @@ import {
   dirtyFiles,
   head,
   localBranchExists,
-  onPath,
   pushBranch,
   type Repo,
   stash,
@@ -33,6 +32,7 @@ import {
 } from '@yuzie/git'
 import { matchColumn } from '@yuzie/sdk'
 import type { Context } from '../context.js'
+import { findPullRequest } from '../open.js'
 import { ago, plural } from '../render/text.js'
 import { type BoardSession, withBoard } from '../session.js'
 
@@ -381,42 +381,6 @@ function runTests(command: string, cwd: string, context: Context): Promise<numbe
   })
 }
 
-/** The PR for `branch`, through `gh` when it is installed (§9.1). */
-function findPullRequest(
-  branch: string,
-  cwd: string,
-  env: Readonly<Record<string, string | undefined>>,
-): Promise<{ url: string; state: string } | null> {
-  if (!onPath('gh', env)) return Promise.resolve(null)
-  return new Promise((resolve) => {
-    const child = spawn('gh', ['pr', 'view', branch, '--json', 'url,state'], {
-      cwd,
-      env: env as NodeJS.ProcessEnv,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-    let output = ''
-    const timer = setTimeout(() => child.kill(), 5_000)
-    child.stdout.on('data', (chunk: Buffer) => {
-      output += chunk.toString('utf8')
-    })
-    child.on('error', () => resolve(null))
-    child.on('close', (code) => {
-      clearTimeout(timer)
-      if (code !== 0) return resolve(null)
-      try {
-        const parsed = JSON.parse(output) as { url?: string; state?: string }
-        resolve(
-          parsed.url === undefined
-            ? null
-            : { url: parsed.url, state: (parsed.state ?? 'open').toLowerCase() },
-        )
-      } catch {
-        resolve(null)
-      }
-    })
-  })
-}
-
 export async function finish(
   context: Context,
   reference: string,
@@ -512,7 +476,7 @@ export async function finish(
 
         // 6. PR exists (informational).
         if (repo !== null && branchName !== null) {
-          const pr = await findPullRequest(branchName, repo.root, context.io.env)
+          const pr = await findPullRequest(branchName, repo, context.io.env)
           checks.push({
             name: 'pr',
             ok: pr === null ? null : true,

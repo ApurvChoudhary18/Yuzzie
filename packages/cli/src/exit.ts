@@ -28,6 +28,18 @@ export class UsageError extends Error {
   }
 }
 
+/** Something outside our control failed (an editor that will not start): exit 1, with advice. */
+export class RuntimeError extends Error {
+  readonly exitCode = EXIT_RUNTIME
+  constructor(
+    message: string,
+    readonly fix?: string,
+  ) {
+    super(message)
+    this.name = 'RuntimeError'
+  }
+}
+
 export function exitCodeFor(error: unknown): number {
   if (isBoardError(error)) return error.exitCode
   if (error instanceof UsageError) return error.exitCode
@@ -38,5 +50,6 @@ export function exitCodeFor(error: unknown): number {
 export function fixFor(error: unknown): string | undefined {
   if (error instanceof BoardError) return error.suggestedFix
   if (error instanceof UsageError) return error.fix
+  if (error instanceof RuntimeError) return error.fix
   return undefined
 }

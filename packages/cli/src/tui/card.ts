@@ -97,15 +97,18 @@ function withHint(left: Line, hint: string, width: number, theme: Theme): Line {
   return [...fitLine(left, at, theme.glyphs.ellipsis), seg(hint, 'dim')]
 }
 
-function codeAndGit(card: Card, width: number, theme: Theme): Line[] {
+function codeAndGit(card: Card, view: BoardView, width: number, theme: Theme): Line[] {
   const lines: Line[] = []
   if (card.anchor !== null) {
     const { path, line, endLine } = card.anchor
     const range =
       line === null ? '' : endLine === null || endLine === line ? `:${line}` : `:${line}-${endLine}`
+    const stale: Line = view.staleAnchors.has(card.number)
+      ? [seg(`  ${theme.glyphs.warn} may be stale`, 'yellow')]
+      : []
     lines.push(
       withHint(
-        [...label('CODE', LEFT_LABEL), seg(`${path}${range}`)],
+        [...label('CODE', LEFT_LABEL), seg(`${path}${range}`), ...stale],
         '[o] open in editor',
         width,
         theme,
@@ -223,7 +226,7 @@ export function cardBody(card: Card, view: BoardView, width: number, theme: Them
     [seg('DESCRIPTION', 'title')],
     ...description,
     [],
-    ...codeAndGit(card, inner, theme),
+    ...codeAndGit(card, view, inner, theme),
     [],
     ...checklist(card, theme),
     [],

@@ -23,6 +23,7 @@ import {
   show,
   watch,
 } from './commands/cards.js'
+import { anchor, open } from './commands/code.js'
 import { doctor } from './commands/doctor.js'
 import { branch, claim, commits, finish as finishCard } from './commands/git.js'
 import { hook } from './commands/hooks.js'
@@ -220,6 +221,31 @@ function build(io: Io, finish: (code: number) => void): Command {
     .action(
       action((context: Context, reference: string, options: { create?: boolean; link?: string }) =>
         branch(context, reference, options),
+      ),
+    )
+
+  program
+    .command('anchor <id> <location>')
+    .description('attach a code location (file:line or file:start-end) to a card')
+    .action(
+      action((context: Context, reference: string, location: string) =>
+        anchor(context, reference, location),
+      ),
+    )
+
+  program
+    .command('open <id>')
+    .description('open the card’s code in $EDITOR, or its PR / branch / link in a browser')
+    .option('--github', 'the PR if there is one, else the branch compare view')
+    .option('--pr', 'the pull request (falls back to the compare view)')
+    .option('--browser', 'the link attached to the card')
+    .action(
+      action(
+        (
+          context: Context,
+          reference: string,
+          options: { github?: boolean; pr?: boolean; browser?: boolean },
+        ) => open(context, reference, options),
       ),
     )
 

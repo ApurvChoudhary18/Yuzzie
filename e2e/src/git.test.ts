@@ -5,7 +5,7 @@
  * `commits`, `finish`, and Journey B (§6.2) with its printed receipt.
  */
 import { execFileSync, spawnSync } from 'node:child_process'
-import { readFileSync, rmSync } from 'node:fs'
+import { chmodSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type OutputKind, parseOutput } from '@yuzie/core'
 import { type FixtureRepo, fixtureRepo, plainDirectory } from '@yuzie/git/testing'
@@ -451,5 +451,101 @@ describe('Journey B (§6.2)', () => {
     expect(finished.stdout).toContain('⚠ Branch task/18-fix-github-oauth has 2 uncommitted files')
     expect(finished.stdout).toContain('? Continue anyway? (y/N)')
     expect(finished.code).toBe(8)
+  })
+})
+
+describe('Journey F (§6.6): card to code, and to the forge (§18 Session 12)', () => {
+  /** A fake editor on the machine's PATH, so `open` has something real to resolve. */
+  function editor(): string {
+    const bin = join(computer.home, 'bin')
+    const path = join(bin, 'fake-editor')
+    writeFileSync(path, '#!/bin/sh\nexit 0\n')
+    chmodSync(path, 0o755)
+    return 'fake-editor'
+  }
+
+  beforeEach(() => {
+    repo.commit('code', {
+      'src/auth/oauth.ts': `${Array.from({ length: 60 }, (_, i) => `line ${i + 1}`).join('\n')}\n`,
+    })
+    // An unreachable forge: URLs are built from it, and no lookup reaches the internet.
+    repo.git('remote', 'set-url', 'origin', 'git@git.invalid:acme/payments-api.git')
+  })
+
+  it('anchor, then card shows Code before Branch, as in the spec', async () => {
+    await run(['claim', '1'])
+    const anchored = await run(['anchor', '1', 'src/auth/oauth.ts:42'])
+    expect(anchored.stdout).toBe('✓ #1 anchored at src/auth/oauth.ts:42\n')
+    const shown = (await run(['card', '1'])).stdout.split('\n')
+    const code = shown.findIndex((line) => line.startsWith('Code    src/auth/oauth.ts:42'))
+    const branch = shown.findIndex((line) => line.startsWith('Branch  task/1-fix-github-oauth'))
+    expect(code).toBeGreaterThan(-1)
+    expect(branch).toBe(code + 1)
+  })
+
+  it('anchors are stored relative to the root, from any directory, and checked', async () => {
+    const fromSrc = await run(['anchor', '2', 'auth/oauth.ts:10-20'], {
+      cwd: join(repo.root, 'src'),
+    })
+    expect(fromSrc.stdout).toContain('anchored at src/auth/oauth.ts:10-20')
+    const nope = await run(['anchor', '2', 'src/nope.ts:1'])
+    expect(nope.code).toBe(2)
+    expect(nope.stderr).toContain('src/nope.ts does not exist')
+    expect((await run(['anchor', '2', 'src/auth/oauth.ts:61'])).stderr).toContain('has 60 lines')
+    expect((await run(['anchor', '2', '../elsewhere.ts:1'])).stderr).toContain(
+      'outside the repository',
+    )
+  })
+
+  it('an anchor goes stale once its file changes', async () => {
+    await run(['anchor', '1', 'src/auth/oauth.ts:42'])
+    expect((await run(['card', '1'])).stdout).not.toContain('may be stale')
+    repo.commit('rework oauth', { 'src/auth/oauth.ts': 'rewritten\n' })
+    expect((await run(['card', '1'])).stdout).toMatch(
+      /Code {4}src\/auth\/oauth\.ts:42 {2}⚠ may be stale/,
+    )
+  })
+
+  it('open, with no terminal: prints the editor command instead of running it', async () => {
+    await run(['anchor', '1', 'src/auth/oauth.ts:42'])
+    const printed = await run(['open', '1'], { env: { EDITOR: editor() } })
+    expect(printed.code, printed.stderr).toBe(0)
+    expect(printed.stdout).toBe(`fake-editor +42 ${repo.root}/src/auth/oauth.ts\n`)
+    const document = await json(['open', '1'], 'Open')
+    expect(document).toMatchObject({ kind: 'editor', launched: false })
+  })
+
+  it('open in CI prints the target too, even with a terminal claimed', async () => {
+    await run(['anchor', '1', 'src/auth/oauth.ts:42'])
+    const printed = await run(['open', '1'], { env: { EDITOR: editor(), CI: 'true' } })
+    expect(printed.stdout).toContain('fake-editor +42')
+  })
+
+  it('open with an unknown $EDITOR fails helpfully, exit 1', async () => {
+    await run(['anchor', '1', 'src/auth/oauth.ts:42'])
+    const failed = await run(['open', '1'], { env: { EDITOR: 'no-such-editor-anywhere' } })
+    expect(failed.code).toBe(1)
+    expect(failed.stderr).toContain('"no-such-editor-anywhere" (from $EDITOR) is not installed')
+    expect(failed.stderr).toContain('$YUZIE_EDITOR')
+  })
+
+  it('open --github: no PR to be found, so the branch compare view', async () => {
+    await run(['claim', '1'])
+    const printed = await run(['open', '1', '--github'], { env: { GH_TOKEN: '' } })
+    expect(printed.code, printed.stderr).toBe(0)
+    expect(printed.stdout).toBe(
+      'https://git.invalid/acme/payments-api/compare/main...task/1-fix-github-oauth\n',
+    )
+    const pr = await run(['open', '1', '--pr'], { env: { GH_TOKEN: '' } })
+    expect(pr.stdout).toContain('No pull request for task/1-fix-github-oauth')
+  })
+
+  it('open without an anchor, or without a branch, says what to do (exit 2)', async () => {
+    const noAnchor = await run(['open', '3'], { env: { EDITOR: editor() } })
+    expect(noAnchor.code).toBe(2)
+    expect(noAnchor.stderr).toContain('yuzie anchor 3')
+    const noBranch = await run(['open', '3', '--github'])
+    expect(noBranch.code).toBe(2)
+    expect(noBranch.stderr).toContain('has no branch yet')
   })
 })

@@ -81,6 +81,15 @@ describe('start-up', () => {
     await tui.waitFor('⚠ offline · 1 queued', 'the queued write')
   })
 
+  it('c claims the selected card, through yuzie claim itself', async () => {
+    const tui = open()
+    await tui.waitFor('synced', 'synced')
+    await tui.press('c')
+    // Not in a repository here, so no branch — but assigned and moved to Doing.
+    await tui.waitFor('Claimed #1', 'the claim toast')
+    await tui.waitFor((screen) => /DOING \(2\)/.test(screen), 'the card in Doing')
+  })
+
   it('quits cleanly, leaving the terminal as it was', async () => {
     const tui = open()
     await tui.waitFor('synced', 'synced')

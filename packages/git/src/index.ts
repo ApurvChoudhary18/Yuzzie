@@ -7,6 +7,8 @@
  */
 export const PACKAGE_NAME = '@yuzie/git' as const
 
+export { AnchorError, anchorStale, type NormalisedAnchor, normaliseAnchor } from './anchor.js'
+
 export {
   type BranchAction,
   BranchError,
@@ -69,3 +71,11 @@ export {
   type Resolution,
   type ResolutionRule,
 } from './resolve.js'
+export {
+  branchUrl,
+  compareUrl,
+  type Forge,
+  pullsApiUrl,
+  type WebRepo,
+  webRepo,
+} from './web.js'

@@ -112,6 +112,19 @@ export const FinishEnvelopeSchema = jsonEnvelopeSchema(
   }),
 )
 
+/** `yuzie open` (§9.7): what it opened, or would have. */
+export const OpenEnvelopeSchema = jsonEnvelopeSchema(
+  'Open',
+  z.object({
+    number: CardNumberSchema,
+    kind: z.enum(['editor', 'pr', 'compare', 'link']),
+    /** The editor command line, or the URL. */
+    target: z.string().min(1),
+    /** False when there was no terminal (or CI): the target is printed instead. */
+    launched: z.boolean(),
+  }),
+)
+
 export const WatchEnvelopeSchema = jsonEnvelopeSchema(
   'Watch',
   z.object({ number: CardNumberSchema, watching: z.boolean() }),
@@ -136,6 +149,7 @@ export const OUTPUT_ENVELOPES = {
   Finish: FinishEnvelopeSchema,
   Invite: InviteEnvelopeSchema,
   MemberList: MemberListEnvelopeSchema,
+  Open: OpenEnvelopeSchema,
   Presence: PresenceEnvelopeSchema,
   Share: ShareEnvelopeSchema,
   Watch: WatchEnvelopeSchema,
