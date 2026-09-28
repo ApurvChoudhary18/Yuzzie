@@ -125,6 +125,47 @@ export const OpenEnvelopeSchema = jsonEnvelopeSchema(
   }),
 )
 
+/**
+ * A card created while offline (§18 Session 13): it has no number until the
+ * server gives it one, so it is not a `Card` yet — but it is not lost either.
+ */
+export const QueuedCardSchema = z.object({
+  queued: z.literal(true),
+  title: z.string().min(1),
+  column: z.string().min(1),
+  assignees: z.array(HandleSchema),
+  labels: z.array(z.string()),
+  priority: z.number().int().min(0).max(3).nullable(),
+  dueAt: z.string().nullable(),
+})
+export const QueuedCardEnvelopeSchema = jsonEnvelopeSchema('QueuedCard', QueuedCardSchema)
+
+const SyncProblemSchema = z.object({
+  cardNo: CardNumberSchema.nullable(),
+  change: z.string(),
+  message: z.string(),
+})
+
+/** `yuzie sync` (§18 Session 13): the reconciliation report. */
+export const SyncReportEnvelopeSchema = jsonEnvelopeSchema(
+  'SyncReport',
+  z.object({
+    sent: z.number().int().nonnegative(),
+    conflicts: z.array(SyncProblemSchema.extend({ by: z.string().nullable() })),
+    retrying: z.array(SyncProblemSchema.extend({ attempts: z.number().int().positive() })),
+    setAside: z.array(SyncProblemSchema.extend({ attempts: z.number().int().positive() })),
+    /** Still queued after this sync. */
+    remaining: z.number().int().nonnegative(),
+    /** The board's event seq after pulling. */
+    seq: z.number().int().nonnegative(),
+    /** Cards whose git summary was refreshed from the local branch. */
+    gitRefreshed: z.array(CardNumberSchema),
+    /** Buffered commits (§9.6 rule 5) now linked to a card. */
+    attributed: z.number().int().nonnegative(),
+    rebuilt: z.boolean(),
+  }),
+)
+
 export const WatchEnvelopeSchema = jsonEnvelopeSchema(
   'Watch',
   z.object({ number: CardNumberSchema, watching: z.boolean() }),
@@ -151,7 +192,9 @@ export const OUTPUT_ENVELOPES = {
   MemberList: MemberListEnvelopeSchema,
   Open: OpenEnvelopeSchema,
   Presence: PresenceEnvelopeSchema,
+  QueuedCard: QueuedCardEnvelopeSchema,
   Share: ShareEnvelopeSchema,
+  SyncReport: SyncReportEnvelopeSchema,
   Watch: WatchEnvelopeSchema,
 } as const
 

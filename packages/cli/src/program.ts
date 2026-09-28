@@ -29,6 +29,7 @@ import { branch, claim, commits, finish as finishCard } from './commands/git.js'
 import { hook } from './commands/hooks.js'
 import { init } from './commands/init.js'
 import { configGet, configSet, hooksInstall, hooksUninstall } from './commands/setup.js'
+import { sync } from './commands/sync.js'
 import {
   activity,
   boardsArchive,
@@ -131,6 +132,8 @@ function build(io: Io, finish: (code: number) => void): Command {
         finish(exitCodeFor(error))
       } finally {
         context.prompter.close()
+        // Nothing left in flight keeps the process alive after the command.
+        context.abortRequests()
       }
     }
 
@@ -221,6 +224,21 @@ function build(io: Io, finish: (code: number) => void): Command {
     .action(
       action((context: Context, reference: string, options: { create?: boolean; link?: string }) =>
         branch(context, reference, options),
+      ),
+    )
+
+  program
+    .command('sync')
+    .description('push queued changes, pull the board, re-scan git, and report what happened')
+    .option('--rebuild', 'clear the cached board first and rebuild it (queued changes are kept)')
+    .option('--retry-set-aside', 'put changes the server kept refusing back in the queue')
+    .option('--drop-set-aside', 'give up on changes the server kept refusing')
+    .action(
+      action(
+        (
+          context: Context,
+          options: { rebuild?: boolean; retrySetAside?: boolean; dropSetAside?: boolean },
+        ) => sync(context, options),
       ),
     )
 

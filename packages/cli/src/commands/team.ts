@@ -25,7 +25,12 @@ function table(context: Context, header: string[], rows: string[][]): string {
 }
 
 function meta(session: BoardSession, extra: Record<string, unknown> = {}) {
-  return { boardSlug: session.slug, synced: session.online, ...extra }
+  return {
+    boardSlug: session.slug,
+    synced: session.online && session.board.queued === 0,
+    queued: session.board.queued,
+    ...extra,
+  }
 }
 
 // ---------------------------------------------------------------------------

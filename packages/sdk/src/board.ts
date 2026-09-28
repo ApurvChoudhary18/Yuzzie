@@ -62,7 +62,13 @@ import {
   ValidationError,
 } from '@yuzie/core'
 import { z } from 'zod'
-import { type CacheLike, createMemoryOutbox, type OutboxLike, type OutboxOpLike } from './cache.js'
+import {
+  type CacheLike,
+  createMemoryOutbox,
+  type OutboxEntryLike,
+  type OutboxLike,
+  type OutboxOpLike,
+} from './cache.js'
 import { Emitter } from './emitter.js'
 import type { Http, HttpMethod } from './http.js'
 import type { WebSocketFactory } from './platform.js'
@@ -122,12 +128,57 @@ export interface CardFilter {
   readonly limit?: number
 }
 
+/** A refused write is tried this many times, then set aside (§18 Session 13). */
+export const QUARANTINE_AFTER = 3
+
+/** What happened to one queued write in a sync. */
+export type SyncOutcome =
+  | { readonly kind: 'sent'; readonly op: OutboxOpLike; readonly cardNo: number | null }
+  | {
+      readonly kind: 'conflict'
+      readonly op: OutboxOpLike
+      readonly cardNo: number | null
+      /** The card as the server has it: what replaced the local change. */
+      readonly current: Card | null
+      /** Who changed it first, when the event log says. */
+      readonly by: string | null
+    }
+  | {
+      /** Refused, and will be tried again (fewer than {@link QUARANTINE_AFTER} attempts). */
+      readonly kind: 'retry'
+      readonly op: OutboxOpLike
+      readonly cardNo: number | null
+      readonly attempts: number
+      readonly error: string
+    }
+  | {
+      /** Refused {@link QUARANTINE_AFTER} times: set aside so the rest of the queue moves. */
+      readonly kind: 'quarantined'
+      readonly op: OutboxOpLike
+      readonly cardNo: number | null
+      readonly attempts: number
+      readonly error: string
+    }
+  | {
+      /** Waiting behind a refused write to the same card, so that card's writes stay in order. */
+      readonly kind: 'held'
+      readonly op: OutboxOpLike
+      readonly cardNo: number | null
+    }
+
 export interface SyncReport {
   readonly sent: number
   readonly conflicts: number
+  /** Quarantined in this sync. */
   readonly rejected: number
-  /** Still queued because the server could not be reached. */
+  /** Refused this time, to be retried. */
+  readonly failed: number
+  /** Still queued: unreachable, held, or to be retried. */
   readonly remaining: number
+  /** Set aside altogether, including earlier syncs. */
+  readonly quarantined: number
+  readonly reachable: boolean
+  readonly outcomes: readonly SyncOutcome[]
 }
 
 export interface BoardOptions {
@@ -141,6 +192,11 @@ export interface BoardOptions {
   readonly client?: string
   readonly connectTimeoutMs: number
   readonly random?: () => number
+  /**
+   * A quick "is anybody there?" before any other request (§18 Session 13's
+   * 250 ms budget). False means offline: no request is even attempted.
+   */
+  readonly probe?: () => Promise<boolean>
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +215,41 @@ function applyLocally(state: BoardState, event: LocalEvent): BoardState {
     actor: null,
   } as EventEnvelope)
   return { ...next, seq: state.seq }
+}
+
+/** The cards a write changed, as a replayable overlay. */
+function shadowOf(
+  before: BoardState,
+  after: BoardState,
+): NonNullable<OutboxOpLike['shadow']> | undefined {
+  const upsert: Card[] = []
+  const remove: number[] = []
+  for (const [key, card] of Object.entries(after.cards)) {
+    if (before.cards[Number(key)] !== card) upsert.push(card)
+  }
+  for (const key of Object.keys(before.cards)) {
+    if (after.cards[Number(key)] === undefined) remove.push(Number(key))
+  }
+  return upsert.length === 0 && remove.length === 0 ? undefined : { upsert, remove }
+}
+
+function overlay(shadow: NonNullable<OutboxOpLike['shadow']>): (state: BoardState) => BoardState {
+  return (state) => {
+    const cards = { ...state.cards }
+    for (const card of shadow.upsert) cards[card.number] = card
+    for (const number of shadow.remove) delete cards[number]
+    return { ...state, cards }
+  }
+}
+
+function cardOf(path: string): number | null {
+  const match = CARD_PATH.exec(path)
+  return match === null ? null : Number(match[1])
+}
+
+function errorText(error: unknown): string {
+  if (error instanceof BoardError) return `${error.code}: ${error.message}`
+  return error instanceof Error ? error.message : String(error)
 }
 
 function withCard(state: BoardState, card: Card): BoardState {
@@ -272,6 +363,9 @@ export class Board {
   private syncWaiters: Array<() => void> = []
   private resumeTarget: number | null = null
   private closed = false
+  /** Whether the server answered last time we asked; null before the first try. */
+  private reachable: boolean | null = null
+  private drained: SyncReport | null = null
 
   constructor(private readonly options: BoardOptions) {
     this.slug = options.slug
@@ -304,6 +398,53 @@ export class Board {
   /** Writes waiting in the outbox for `sync()`. */
   get queued(): number {
     return this.outbox.size(this.slug)
+  }
+
+  /** Whether the server answered when last asked: null before the first request. */
+  get online(): boolean | null {
+    return this.reachable
+  }
+
+  /** What was sent when the board opened and found writes waiting (null if none were). */
+  get lastDrain(): SyncReport | null {
+    return this.drained
+  }
+
+  /** Writes that were refused too often and set aside (§18 Session 13). */
+  get quarantine(): readonly OutboxEntryLike[] {
+    return this.outbox.quarantined(this.slug)
+  }
+
+  /** Put every set-aside write back in the queue, for another three tries. */
+  retryQuarantined(): number {
+    let released = 0
+    for (const entry of this.outbox.quarantined(this.slug)) {
+      if (this.outbox.release(entry.id)) released += 1
+    }
+    this.replayQueued()
+    // Released writes were not in the drain done at open: the next sync sends them.
+    if (released > 0) this.drained = null
+    return released
+  }
+
+  /** Give up on every set-aside write for good. */
+  discardQuarantined(): number {
+    let removed = 0
+    for (const entry of this.outbox.quarantined(this.slug)) {
+      if (this.outbox.remove(entry.id)) removed += 1
+    }
+    return removed
+  }
+
+  /** Cards with a queued write: what `yuzie list` marks as not yet on the server. */
+  get queuedCards(): ReadonlySet<number> {
+    const cards = new Set<number>()
+    for (const entry of this.outbox.list(this.slug)) {
+      const number = cardOf(entry.op.path)
+      if (number !== null) cards.add(number)
+      for (const card of entry.op.shadow?.upsert ?? []) cards.add(card.number)
+    }
+    return cards
   }
 
   /** Writes applied optimistically and not yet confirmed or rejected. */
@@ -342,19 +483,36 @@ export class Board {
   /** Load cached state, then the server's, then start streaming. Used by `Yuzie.connect`. */
   async open(): Promise<void> {
     this.hydrateFromCache()
+    this.replayQueued()
 
-    let reachable = true
-    try {
-      await this.boards.get()
-      const me = await this.options.http.request({
-        method: 'GET',
-        path: '/me',
-        schema: z.object({ user: z.object({ handle: z.string() }) }),
-      })
-      this.me = me.user.handle
-    } catch (error) {
-      if (!(error instanceof OfflineError) || this.options.offline === 'fail') throw error
-      reachable = false
+    let reachable = this.options.probe === undefined ? true : await this.options.probe()
+    if (!reachable && this.options.offline === 'fail') {
+      throw new OfflineError('offline_network_required', 'Cannot reach the server', { status: 0 })
+    }
+    if (reachable) {
+      try {
+        await this.boards.get()
+        const me = await this.options.http.request({
+          method: 'GET',
+          path: '/me',
+          schema: z.object({ user: z.object({ handle: z.string() }) }),
+        })
+        this.me = me.user.handle
+      } catch (error) {
+        if (!(error instanceof OfflineError) || this.options.offline === 'fail') throw error
+        reachable = false
+      }
+    }
+    this.reachable = reachable
+
+    // Back online with writes waiting: send them before anything else is read
+    // or written, so they reach the server in the order they were made.
+    if (reachable && this.outbox.size(this.slug) > 0) {
+      try {
+        this.drained = await this.annotate(await this.drain(), this.confirmed.seq)
+      } catch {
+        // Left queued; `sync()` reports what went wrong.
+      }
     }
 
     if (this.options.realtime && this.options.socket !== undefined) {
@@ -386,17 +544,84 @@ export class Board {
   }
 
   /**
-   * Send every queued write, oldest first, each with its original idempotency
-   * key so a write that did reach the server before the link dropped is not
-   * applied twice (§12.1).
+   * Push, then pull (§18 Session 13): send every queued write in order, each
+   * with its original idempotency key so a write that did reach the server
+   * before the link dropped is not applied twice (§12.1); then reload the
+   * board, so whatever the server decided replaces what was assumed locally.
    */
   async sync(): Promise<SyncReport> {
-    let sent = 0
-    let conflicts = 0
-    let rejected = 0
+    // Opening already sent the queue in this process: one attempt per run, so
+    // a refused write is not counted twice by a single `yuzie sync`.
+    let pushed = this.drained
+    this.drained = null
+    if (pushed === null) {
+      if (this.options.probe !== undefined && !(await this.options.probe())) {
+        this.reachable = false
+        return this.report([], false)
+      }
+      pushed = await this.annotate(await this.drain(), this.confirmed.seq)
+    }
+    if (!pushed.reachable) return pushed
+    try {
+      await this.refresh()
+    } catch (error) {
+      if (!(error instanceof OfflineError)) throw error
+    }
+    return {
+      ...pushed,
+      remaining: this.outbox.size(this.slug),
+      quarantined: this.outbox.quarantined(this.slug).length,
+    }
+  }
+
+  /** Who changed each conflicted card first, from the event log since `since`. */
+  private async annotate(report: SyncReport, since: number): Promise<SyncReport> {
+    if (report.conflicts === 0) return report
+    try {
+      const log = (await this.boards.events(since, 500)).events
+      return {
+        ...report,
+        outcomes: report.outcomes.map((outcome) => {
+          if (outcome.kind !== 'conflict' || outcome.cardNo === null) return outcome
+          const last = log.filter((event) => event.cardNo === outcome.cardNo).at(-1)
+          return { ...outcome, by: last?.actor ?? null }
+        }),
+      }
+    } catch {
+      // Who is a nicety; what is already known.
+      return report
+    }
+  }
+
+  /**
+   * Send what is queued, in order. A network failure stops at once, keeping
+   * everything queued. A 409 is a conflict: the local change is dropped and
+   * the server's card kept. Any other refusal counts an attempt; the third
+   * sets the write aside, and meanwhile later writes to the same card wait so
+   * a card's changes never arrive out of order — writes to other cards go on.
+   */
+  private async drain(): Promise<SyncReport> {
+    const outcomes: SyncOutcome[] = []
+    const held = new Set<number>()
+    /** Cards an earlier write in this drain already changed on the server. */
+    const touched = new Set<number>()
+    let reachable = true
 
     for (const entry of this.outbox.list(this.slug)) {
       const { op } = entry
+      const cardNo = cardOf(op.path)
+      if (cardNo !== null && held.has(cardNo)) {
+        outcomes.push({ kind: 'held', op, cardNo })
+        continue
+      }
+      // Queued writes to one card all carry the version seen before going
+      // offline. Once our own earlier write has moved that card on, the next
+      // one's check is against where we left it, not where we started: our
+      // own changes are not a conflict with ourselves.
+      const ifMatch =
+        op.ifMatch !== undefined && cardNo !== null && touched.has(cardNo)
+          ? (this.confirmedCard(cardNo)?.version ?? op.ifMatch)
+          : op.ifMatch
       try {
         const result = await this.options.http.request({
           method: op.method,
@@ -404,36 +629,82 @@ export class Board {
           schema: UnknownBody,
           idempotencyKey: op.idempotencyKey,
           ...(op.body === undefined ? {} : { body: op.body }),
-          ...(op.ifMatch === undefined ? {} : { ifMatch: op.ifMatch }),
+          ...(ifMatch === undefined ? {} : { ifMatch }),
         })
         this.outbox.remove(entry.id)
         await this.settleQueued(op, result)
         this.dropPending(op.idempotencyKey)
-        sent += 1
+        if (cardNo !== null) touched.add(cardNo)
+        outcomes.push({ kind: 'sent', op, cardNo })
       } catch (error) {
         if (isRetryableFailure(error)) {
-          this.outbox.recordFailure(
-            entry.id,
-            error instanceof Error ? error.message : String(error),
-          )
+          this.outbox.recordFailure(entry.id, errorText(error))
+          if (error instanceof OfflineError) reachable = false
           break
         }
-        this.outbox.remove(entry.id)
-        this.dropPending(op.idempotencyKey)
         if (error instanceof ConflictError) {
-          conflicts += 1
+          this.outbox.remove(entry.id)
+          this.dropPending(op.idempotencyKey)
           this.handleConflict(error)
-        } else if (error instanceof BoardError) {
-          rejected += 1
+          const current = CardSchema.safeParse(error.details.current)
+          outcomes.push({
+            kind: 'conflict',
+            op,
+            cardNo,
+            current: current.success ? current.data : null,
+            by: null,
+          })
+          continue
+        }
+        if (!(error instanceof BoardError)) throw error
+        const attempts = entry.attempts + 1
+        if (attempts >= QUARANTINE_AFTER) {
+          this.outbox.quarantine(entry.id, errorText(error))
+          this.dropPending(op.idempotencyKey)
           this.emitter.emit('rejected', { op, error })
+          outcomes.push({ kind: 'quarantined', op, cardNo, attempts, error: errorText(error) })
         } else {
-          throw error
+          this.outbox.recordFailure(entry.id, errorText(error))
+          if (cardNo !== null) held.add(cardNo)
+          outcomes.push({ kind: 'retry', op, cardNo, attempts, error: errorText(error) })
         }
       }
     }
 
+    this.reachable = reachable
     this.changed()
-    return { sent, conflicts, rejected, remaining: this.outbox.size(this.slug) }
+    return this.report(outcomes, reachable)
+  }
+
+  private report(outcomes: readonly SyncOutcome[], reachable: boolean): SyncReport {
+    const count = (kind: SyncOutcome['kind']) => outcomes.filter((o) => o.kind === kind).length
+    return {
+      sent: count('sent'),
+      conflicts: count('conflict'),
+      rejected: count('quarantined'),
+      failed: count('retry'),
+      remaining: this.outbox.size(this.slug),
+      quarantined: this.outbox.quarantined(this.slug).length,
+      reachable,
+      outcomes,
+    }
+  }
+
+  /** Writes queued by earlier runs, replayed over the cached state (their shadows). */
+  private replayQueued(): void {
+    const known = new Set(this.pending.map((write) => write.key))
+    for (const entry of this.outbox.list(this.slug)) {
+      const { op } = entry
+      if (op.shadow === undefined || known.has(op.idempotencyKey)) continue
+      this.pending.push({
+        key: op.idempotencyKey,
+        apply: overlay(op.shadow),
+        cardNo: cardOf(op.path) ?? op.shadow.upsert[0]?.number ?? null,
+      })
+      for (const card of op.shadow.upsert)
+        this.provisional = Math.min(this.provisional, card.number)
+    }
+    this.changed()
   }
 
   async close(): Promise<void> {
@@ -500,6 +771,7 @@ export class Board {
   /** @internal Run one write through the optimistic pipeline. */
   async write<T>(spec: WriteSpec<T>): Promise<T> {
     const key = newId()
+    const before = this.state
     if (spec.optimistic !== undefined) {
       const match = CARD_PATH.exec(spec.path)
       this.pending.push({
@@ -510,17 +782,23 @@ export class Board {
       this.changed()
     }
 
+    const shadow = spec.optimistic === undefined ? undefined : shadowOf(before, this.state)
     const op: OutboxOpLike = {
       method: spec.method as OutboxOpLike['method'],
       path: spec.path,
       idempotencyKey: key,
       ...(spec.body === undefined ? {} : { body: spec.body }),
       ...(spec.ifMatch === undefined ? {} : { ifMatch: spec.ifMatch }),
+      ...(shadow === undefined ? {} : { shadow }),
     }
 
     // Writes must reach the server in the order they were made, so once
-    // anything is queued, everything after it queues too.
-    if (this.options.offline === 'queue' && this.outbox.size(this.slug) > 0) {
+    // anything is queued, everything after it queues too. And a server known
+    // to be unreachable is not waited on at all (§18 Session 13).
+    if (
+      this.options.offline === 'queue' &&
+      (this.outbox.size(this.slug) > 0 || this.reachable === false)
+    ) {
       return this.enqueue(op, spec)
     }
 
@@ -538,6 +816,7 @@ export class Board {
       return result
     } catch (error) {
       if (error instanceof OfflineError && this.options.offline === 'queue') {
+        this.reachable = false
         return this.enqueue(op, spec)
       }
       this.dropPending(key)
@@ -1031,6 +1310,20 @@ export class CardsResource {
       path: cardPath(board.slug, number, '/checklist'),
       body: { text, ...(position === undefined ? {} : { position }) },
       schema: UnknownBody,
+      // Shown at once, and kept while queued offline: the item where it will land.
+      optimistic: (state) => {
+        const card = state.cards[number]
+        if (card === undefined) return state
+        const at =
+          position === undefined
+            ? card.checklist.length + 1
+            : Math.min(Math.max(1, position), card.checklist.length + 1)
+        const shifted = card.checklist.map((item) =>
+          item.position >= at ? { ...item, position: item.position + 1 } : item,
+        )
+        const added = { id: newId(), position: at, text, doneAt: null, doneBy: null }
+        return withCard(state, { ...card, checklist: [...shifted, added] })
+      },
       settle: async () => {
         await this.get(number)
       },

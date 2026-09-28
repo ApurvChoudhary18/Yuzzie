@@ -4,10 +4,17 @@
  * only the ones that are not fine.
  */
 import { existsSync } from 'node:fs'
-import { EXIT_OFFLINE, EXIT_RUNTIME, EXIT_UNAUTHENTICATED, isBoardError } from '@yuzie/core'
+import {
+  EXIT_OFFLINE,
+  EXIT_RUNTIME,
+  EXIT_UNAUTHENTICATED,
+  initialState,
+  isBoardError,
+} from '@yuzie/core'
 import { gitVersion, type HookName, hookStatus } from '@yuzie/git'
 import { openCache, resolveCacheLocation } from '@yuzie/store'
 import type { Context } from '../context.js'
+import { describeOp } from '../reconcile.js'
 
 export type CheckStatus = 'ok' | 'warn' | 'fail' | 'skip'
 
@@ -169,6 +176,31 @@ export async function runChecks(context: Context): Promise<Check[]> {
             status: 'ok',
             detail: `cache healthy (${cards} cards, ${synced === null ? 'never synced' : `last sync ${ago(Date.now() - synced)}`})`,
           })
+
+          // The outbox (§18 Session 13): what is waiting, and what was set aside.
+          const queued = cache.outbox.size(config.board)
+          const aside = cache.outbox.quarantined(config.board)
+          const state = initialState({
+            columns: cache.columns.list(config.board),
+            cards: Object.fromEntries(cache.cards.list(config.board).map((c) => [c.number, c])),
+          })
+          if (queued > 0) {
+            checks.push({
+              name: 'outbox',
+              status: 'warn',
+              detail: `${queued} change${queued === 1 ? '' : 's'} queued, not on the server yet → run \`yuzie sync\``,
+            })
+          } else if (aside.length === 0) {
+            checks.push({ name: 'outbox', status: 'ok', detail: 'nothing queued' })
+          }
+          for (const entry of aside) {
+            const card = /\/cards\/(\d+)/.exec(entry.op.path)?.[1]
+            checks.push({
+              name: 'outbox',
+              status: 'warn',
+              detail: `set aside: ${card === undefined ? '' : `#${card} `}${describeOp(entry.op, state)} — refused ${entry.attempts}× (${entry.lastError ?? 'no reason given'}) → \`yuzie sync --retry-set-aside\` or \`--drop-set-aside\``,
+            })
+          }
         } finally {
           cache.close()
         }

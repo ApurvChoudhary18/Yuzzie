@@ -228,7 +228,7 @@ describe('offline (acceptance)', () => {
 
     link.restore()
     const report = await board.sync()
-    expect(report).toEqual({ sent: 5, conflicts: 0, rejected: 0, remaining: 0 })
+    expect(report).toMatchObject({ sent: 5, conflicts: 0, rejected: 0, remaining: 0 })
     expect(cache.outbox.size(slug)).toBe(0)
 
     // The server now holds exactly what the client showed, and nothing twice.
@@ -388,7 +388,7 @@ describe('conflicts (acceptance)', () => {
     link.restore()
     const report = await bobBoard.sync()
 
-    expect(report).toEqual({ sent: 1, conflicts: 1, rejected: 0, remaining: 0 })
+    expect(report).toMatchObject({ sent: 1, conflicts: 1, rejected: 0, remaining: 0 })
     expect(conflicts.map((c) => c.cardNo)).toEqual([card.number])
     expect(bobBoard.state.cards[card.number]?.title).toBe('Alice, online')
     // The write queued after the conflict still went through.

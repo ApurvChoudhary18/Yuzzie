@@ -12,7 +12,7 @@
  */
 
 /** Bumped whenever a migration is appended. Stored in `PRAGMA user_version`. */
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 export interface Migration {
   readonly version: number
@@ -132,5 +132,10 @@ export const MIGRATIONS: readonly Migration[] = [
       // rather than by every caller remembering to check first.
       `CREATE UNIQUE INDEX outbox_idempotency ON outbox (board_slug, idempotency_key)`,
     ],
+  },
+  {
+    // §18 Session 13: a poison op is set aside, not deleted, so it can be reported.
+    version: 2,
+    statements: [`ALTER TABLE outbox ADD COLUMN quarantined_at INTEGER`],
   },
 ]

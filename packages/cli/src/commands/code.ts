@@ -11,7 +11,12 @@ import { type BoardSession, withBoard } from '../session.js'
 import { parseAnchor } from './cards.js'
 
 function meta(session: BoardSession, extra: Record<string, unknown> = {}) {
-  return { boardSlug: session.slug, synced: session.online && session.board.queued === 0, ...extra }
+  return {
+    boardSlug: session.slug,
+    synced: session.online && session.board.queued === 0,
+    queued: session.board.queued,
+    ...extra,
+  }
 }
 
 /** `yuzie anchor <id> <file:line[-endLine]>` */

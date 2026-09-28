@@ -31,7 +31,9 @@ export {
   type MoveOptions,
   matchColumn,
   type OfflineMode,
+  QUARANTINE_AFTER,
   type RejectedEvent,
+  type SyncOutcome,
   type SyncReport,
   stateFromSnapshot,
 } from './board.js'

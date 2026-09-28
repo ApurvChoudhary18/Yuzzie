@@ -49,6 +49,15 @@ export async function readUnattributed(root: string): Promise<BufferedCommit[]> 
   }
 }
 
+/** Replace the buffer (what `yuzie sync` could not attribute stays). */
+export async function writeUnattributed(
+  root: string,
+  commits: readonly BufferedCommit[],
+): Promise<void> {
+  await mkdir(dirname(unattributedPath(root)), { recursive: true })
+  await writeFile(unattributedPath(root), `${JSON.stringify(commits, null, 2)}\n`)
+}
+
 async function bufferCommit(root: string, commit: BufferedCommit): Promise<void> {
   const existing = await readUnattributed(root)
   if (existing.some((entry) => entry.sha === commit.sha)) return

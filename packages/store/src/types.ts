@@ -109,6 +109,11 @@ export interface OutboxEntry {
   readonly lastError: string | null
   /** Epoch milliseconds before which this entry should not be retried. */
   readonly nextAttemptAt: number | null
+  /**
+   * When it was set aside after failing too often (§18 Session 13): a poison op
+   * that no longer blocks the queue, kept so `yuzie doctor` can report it.
+   */
+  readonly quarantinedAt: number | null
 }
 
 export interface DrainReport {
@@ -140,13 +145,19 @@ export interface Outbox {
   /**
    * Send due entries in queue order. A handler that throws records the failure
    * with backoff and stops the drain, so writes never reach the server out of
-   * order. Session 13 adds the poison-op quarantine that lets it skip ahead.
+   * order. Quarantined entries are never sent.
    */
   drain(
     handler: (entry: OutboxEntry) => void | Promise<void>,
     options?: DrainOptions,
   ): Promise<DrainReport>
   recordFailure(id: number, error: string, now?: number): void
+  /** Set an entry aside: out of `list`/`due`/`size`, into `quarantined`. */
+  quarantine(id: number, error: string, now?: number): void
+  /** Entries set aside, oldest first. */
+  quarantined(boardSlug?: string): OutboxEntry[]
+  /** Put a quarantined entry back in the queue, attempts reset. */
+  release(id: number): boolean
   remove(id: number): boolean
   clear(boardSlug?: string): void
 }

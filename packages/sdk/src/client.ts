@@ -65,6 +65,12 @@ export interface ConnectOptions extends ClientOptions {
   readonly webSocket?: WebSocketFactory
   /** How long `connect` waits for the first sync before resolving from cache. Defaults to 10 s. */
   readonly connectTimeoutMs?: number
+  /**
+   * Ask `/healthz` first and treat no answer within this many milliseconds as
+   * offline, so a dead or black-holed network costs this, not a timeout
+   * (§18 Session 13: 250 ms). Off by default.
+   */
+  readonly reachabilityTimeoutMs?: number
 }
 
 export interface DevicePollResult {
@@ -231,6 +237,23 @@ export function createClient(options: ClientOptions = {}): YuzieClient {
 
     board(slug, connectOptions = {}) {
       const socket = connectOptions.webSocket ?? defaultWebSocket()
+      const budget = connectOptions.reachabilityTimeoutMs
+      const probe =
+        budget === undefined
+          ? undefined
+          : async () => {
+              const origin = baseUrl.replace(/\/+$/, '').replace(/\/v\d+$/, '')
+              try {
+                const response = await fetch(`${origin}/healthz`, {
+                  method: 'GET',
+                  headers: {},
+                  signal: AbortSignal.timeout(budget),
+                })
+                return response.ok
+              } catch {
+                return false
+              }
+            }
       return new Board({
         slug,
         http,
@@ -241,6 +264,7 @@ export function createClient(options: ClientOptions = {}): YuzieClient {
         ...(connectOptions.cache === undefined ? {} : { cache: connectOptions.cache }),
         ...(socket === undefined ? {} : { socket }),
         ...(options.client === undefined ? {} : { client: options.client }),
+        ...(probe === undefined ? {} : { probe }),
       })
     },
 
@@ -260,13 +284,22 @@ export function createClient(options: ClientOptions = {}): YuzieClient {
 export const Yuzie = {
   /** Open a board: load cached state, fetch the server's, start streaming (§13.1). */
   connect(slug: string, options: ConnectOptions = {}): Promise<Board> {
-    const { offline, cache, realtime, webSocket, connectTimeoutMs, ...clientOptions } = options
+    const {
+      offline,
+      cache,
+      realtime,
+      webSocket,
+      connectTimeoutMs,
+      reachabilityTimeoutMs,
+      ...clientOptions
+    } = options
     return createClient(clientOptions).connect(slug, {
       ...(offline === undefined ? {} : { offline }),
       ...(cache === undefined ? {} : { cache }),
       ...(realtime === undefined ? {} : { realtime }),
       ...(webSocket === undefined ? {} : { webSocket }),
       ...(connectTimeoutMs === undefined ? {} : { connectTimeoutMs }),
+      ...(reachabilityTimeoutMs === undefined ? {} : { reachabilityTimeoutMs }),
     })
   },
 

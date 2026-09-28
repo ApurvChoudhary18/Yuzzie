@@ -60,6 +60,7 @@ interface OutboxRecord {
   attempts: number
   lastError: string | null
   nextAttemptAt: number | null
+  quarantinedAt?: number | null
 }
 
 interface CacheModel {
@@ -446,7 +447,8 @@ export function openJsonCache(options: JsonCacheOptions): YuzieCache {
   }
 
   function toEntry(record: OutboxRecord): OutboxEntry {
-    return structuredClone(record)
+    // Files from before schema 2 have no quarantine field.
+    return { ...structuredClone(record), quarantinedAt: record.quarantinedAt ?? null }
   }
 
   const outbox: Outbox = {
@@ -466,6 +468,7 @@ export function openJsonCache(options: JsonCacheOptions): YuzieCache {
           attempts: 0,
           lastError: null,
           nextAttemptAt: null,
+          quarantinedAt: null,
         }
         model.nextOutboxId += 1
         model.outbox.push(record)
@@ -475,9 +478,45 @@ export function openJsonCache(options: JsonCacheOptions): YuzieCache {
 
     list(boardSlug) {
       return model.outbox
-        .filter((record) => boardSlug === undefined || record.boardSlug === boardSlug)
+        .filter(
+          (record) =>
+            (boardSlug === undefined || record.boardSlug === boardSlug) &&
+            (record.quarantinedAt ?? null) === null,
+        )
         .sort((a, b) => a.id - b.id)
         .map(toEntry)
+    },
+
+    quarantined(boardSlug) {
+      return model.outbox
+        .filter(
+          (record) =>
+            (boardSlug === undefined || record.boardSlug === boardSlug) &&
+            (record.quarantinedAt ?? null) !== null,
+        )
+        .sort((a, b) => a.id - b.id)
+        .map(toEntry)
+    },
+
+    quarantine(id, error, now = Date.now()) {
+      write(() => {
+        const record = model.outbox.find((entry) => entry.id === id)
+        if (record === undefined) return
+        record.attempts += 1
+        record.lastError = error
+        record.quarantinedAt = now
+      })
+    },
+
+    release(id) {
+      return write(() => {
+        const record = model.outbox.find((entry) => entry.id === id)
+        if (record === undefined || (record.quarantinedAt ?? null) === null) return false
+        record.quarantinedAt = null
+        record.attempts = 0
+        record.nextAttemptAt = null
+        return true
+      })
     },
 
     due(now = Date.now(), boardSlug) {

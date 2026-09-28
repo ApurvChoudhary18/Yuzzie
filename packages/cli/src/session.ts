@@ -11,6 +11,12 @@ import { openCache, type YuzieCache } from '@yuzie/store'
 import type { Context } from './context.js'
 import { UsageError } from './exit.js'
 import { knownHandle, rememberHandle } from './identity.js'
+import { printReconciliation, reconcile } from './reconcile.js'
+import { ago } from './render/text.js'
+
+/** No answer from /healthz in this long reads as offline (§18 Session 13). */
+export const REACHABILITY_MS = 250
+
 import { resolveCard } from './resolve.js'
 
 export interface BoardSession {
@@ -20,6 +26,8 @@ export interface BoardSession {
   readonly me: string | null
   /** Whether the server was reachable when the board opened. */
   readonly online: boolean
+  /** Writes already queued when the command started. */
+  readonly queuedAtOpen: number
   card(reference: string): Promise<Card>
   presence(): Promise<readonly Presence[]>
   /** `synced`, or `offline · 2 queued`, for footers (§7.3). */
@@ -47,6 +55,8 @@ export async function openBoard(
      * step 8: a claim still creates its branch, and syncs later).
      */
     queue?: boolean
+    /** Do not report what opening sent: the caller reports it (`yuzie sync`). */
+    quiet?: boolean
   } = {},
 ): Promise<BoardSession> {
   const slug = await currentSlug(context)
@@ -68,35 +78,45 @@ export async function openBoard(
   }
 
   const offline = context.options.offline === true
+  // Never blocked by the network (§18 Session 13): reads fall back to the
+  // cache, writes queue, and a server that does not answer /healthz within the
+  // budget is not waited on at all.
+  const budget = Number(context.io.env.YUZIE_REACHABILITY_MS)
   const board = await client.connect(slug, {
     realtime: options.live === true && !offline,
-    offline: offline || options.queue === true ? 'queue' : 'fail',
+    offline: 'queue',
+    ...(offline
+      ? {}
+      : {
+          reachabilityTimeoutMs: Number.isFinite(budget) && budget > 0 ? budget : REACHABILITY_MS,
+        }),
     ...(cache === undefined ? {} : { cache }),
   })
+  const online = !offline && board.online !== false
 
   const server = await context.server()
   let me = board.handle
   if (me !== null) await rememberHandle(context.home, server, me)
   else me = await knownHandle(context.home, server)
 
-  // Writes queue in order: anything already waiting (a git hook that ran out
-  // of time, an earlier offline command) must go first, or every write made
-  // now would queue behind it even with the server right there.
-  if (options.queue === true && board.handle !== null && board.queued > 0) {
-    try {
-      await board.sync()
-    } catch (error) {
-      context.output.debug(
-        `could not send queued writes: ${error instanceof Error ? error.message : String(error)}`,
-      )
-    }
+  // Opening sent what was queued before this command: say what came of it.
+  const drained = board.lastDrain
+  if (
+    drained !== null &&
+    drained.outcomes.length > 0 &&
+    !context.output.json &&
+    options.quiet !== true
+  ) {
+    printReconciliation(context.output, reconcile(drained, board.state))
   }
+  const queuedAtOpen = board.queued
 
   return {
     board,
     slug,
     me,
-    online: !offline,
+    online,
+    queuedAtOpen,
     card: (reference) =>
       resolveCard(
         {
@@ -107,7 +127,7 @@ export async function openBoard(
         reference,
       ),
     async presence() {
-      if (offline) return []
+      if (!online) return []
       try {
         return await board.boards.presence()
       } catch {
@@ -115,8 +135,12 @@ export async function openBoard(
       }
     },
     status() {
-      if (!offline) return board.queued > 0 ? `${board.queued} queued` : 'synced'
-      return board.queued > 0 ? `offline · ${board.queued} queued` : 'offline · cached'
+      const queued = board.queued > 0 ? `${board.queued} queued` : null
+      if (online) return queued ?? 'synced'
+      const syncedAt = cache?.sync.get(slug).syncedAt ?? null
+      const age =
+        syncedAt === null ? 'never synced' : `cached ${ago(context.now().getTime() - syncedAt)}`
+      return ['offline', age, ...(queued === null ? [] : [queued])].join(' · ')
     },
     async close() {
       await board.close()
@@ -129,11 +153,19 @@ export async function openBoard(
 export async function withBoard<T>(
   context: Context,
   run: (session: BoardSession) => Promise<T>,
-  options: { live?: boolean; queue?: boolean } = {},
+  options: { live?: boolean; queue?: boolean; quiet?: boolean } = {},
 ): Promise<T> {
   const session = await openBoard(context, options)
   try {
-    return await run(session)
+    const result = await run(session)
+    // Every write that could not reach the server says so (§18 Session 13).
+    const added = session.board.queued - session.queuedAtOpen
+    if (added > 0 && !context.output.json) {
+      context.output.warn(
+        `queued (offline): ${added === 1 ? 'this change' : `${added} changes`} will sync when the server is back — \`yuzie sync\``,
+      )
+    }
+    return result
   } finally {
     await session.close()
   }

@@ -37,7 +37,12 @@ import { ago, plural } from '../render/text.js'
 import { type BoardSession, withBoard } from '../session.js'
 
 function meta(session: BoardSession, extra: Record<string, unknown> = {}) {
-  return { boardSlug: session.slug, synced: session.online && session.board.queued === 0, ...extra }
+  return {
+    boardSlug: session.slug,
+    synced: session.online && session.board.queued === 0,
+    queued: session.board.queued,
+    ...extra,
+  }
 }
 
 function precondition(message: string): GitPreconditionError {

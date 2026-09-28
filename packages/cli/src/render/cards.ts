@@ -28,6 +28,10 @@ export interface ListContext {
   /** e.g. `synced`, `offline · 2 queued`. */
   readonly status: string
   readonly paint?: Paint
+  /** Cards with changes not on the server yet: marked `◌` (§18 Session 13). */
+  readonly queued?: ReadonlySet<number>
+  /** Offline: the footer says who is online is unknown, not zero. */
+  readonly offline?: boolean
 }
 
 /** The last time anything happened to a card, for ACT and for `--stale`. */
@@ -95,8 +99,10 @@ export function renderCardList(cards: readonly Card[], context: ListContext): st
   for (const card of cards) {
     const assignee = `${pad(assigneeLabel(card), 8)}${stateSymbol(card, context, paint)}  `
     const branch = card.git?.branch ?? '—'
+    const number = card.number < 0 ? 'new' : String(card.number)
+    const mark = context.queued?.has(card.number) === true ? paint('yellow', '◌') : ''
     lines.push(
-      pad(String(card.number), widths.number) +
+      pad(number + (mark === '' ? '' : '◌'), widths.number).replace('◌', mark) +
         pad(truncate(card.title, widths.title - 2), widths.title) +
         assignee +
         pad(truncate(columnName(context.columns, card.column), widths.column - 1), widths.column) +
@@ -105,8 +111,11 @@ export function renderCardList(cards: readonly Card[], context: ListContext): st
     )
   }
 
-  const online = context.presence.length
-  lines.push('', `${plural(cards.length, 'card')} · ${online} online · ${context.status}`)
+  const online = context.offline === true ? '' : `${context.presence.length} online · `
+  const queued = [...(context.queued ?? [])].length
+  lines.push('', `${plural(cards.length, 'card')} · ${online}${context.status}`)
+  if (queued > 0)
+    lines.push(paint('dim', '◌ changed here, not on the server yet — `yuzie sync` sends it'))
   return `${lines.join('\n')}\n`
 }
 
