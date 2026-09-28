@@ -168,6 +168,7 @@ interface OutboxRow {
   attempts: number
   last_error: string | null
   next_attempt_at: number | null
+  quarantined_at: number | null
 }
 
 function parseJsonArray<T>(raw: string): T[] {
@@ -602,6 +603,7 @@ export function openSqliteCache(options: SqliteCacheOptions): YuzieCache {
       attempts: row.attempts,
       lastError: row.last_error,
       nextAttemptAt: row.next_attempt_at,
+      quarantinedAt: row.quarantined_at,
     }
   }
 
@@ -937,12 +939,47 @@ export function openSqliteCache(options: SqliteCacheOptions): YuzieCache {
     list(boardSlug) {
       const rows =
         boardSlug === undefined
-          ? allRows<OutboxRow>(db.prepare('SELECT * FROM outbox ORDER BY id'))
+          ? allRows<OutboxRow>(
+              db.prepare('SELECT * FROM outbox WHERE quarantined_at IS NULL ORDER BY id'),
+            )
           : allRows<OutboxRow>(
-              db.prepare('SELECT * FROM outbox WHERE board_slug = ? ORDER BY id'),
+              db.prepare(
+                'SELECT * FROM outbox WHERE board_slug = ? AND quarantined_at IS NULL ORDER BY id',
+              ),
               boardSlug,
             )
       return rows.map(outboxFromRow)
+    },
+
+    quarantined(boardSlug) {
+      const rows =
+        boardSlug === undefined
+          ? allRows<OutboxRow>(
+              db.prepare('SELECT * FROM outbox WHERE quarantined_at IS NOT NULL ORDER BY id'),
+            )
+          : allRows<OutboxRow>(
+              db.prepare(
+                'SELECT * FROM outbox WHERE board_slug = ? AND quarantined_at IS NOT NULL ORDER BY id',
+              ),
+              boardSlug,
+            )
+      return rows.map(outboxFromRow)
+    },
+
+    quarantine(id, error, now = Date.now()) {
+      db.prepare(
+        'UPDATE outbox SET attempts = attempts + 1, last_error = ?, quarantined_at = ? WHERE id = ?',
+      ).run(error, now, id)
+    },
+
+    release(id) {
+      return (
+        db
+          .prepare(
+            'UPDATE outbox SET quarantined_at = NULL, attempts = 0, next_attempt_at = NULL WHERE id = ? AND quarantined_at IS NOT NULL',
+          )
+          .run(id).changes > 0
+      )
     },
 
     due(now = Date.now(), boardSlug) {

@@ -161,12 +161,13 @@ describe('resize', () => {
   for (const name of Object.keys(FIXTURES)) {
     it(`${name}: every frame fits the terminal it was drawn for`, async () => {
       const { terminal, keyboard } = open(name, 120, 40)
-      await tick()
+      await settled(terminal)
       keyboard.write('G')
-      await tick()
+      await settled(terminal)
       for (const [columns, rows] of sizes) {
         terminal.resize(columns, rows)
-        await tick()
+        // Wait for the redraw itself, not a guess at how long it takes.
+        await settled(terminal)
         const output = lines(terminal.lastFrame())
         expect(output, `${columns}×${rows}`).toHaveLength(rows)
         for (const line of output) expect(textWidth(line)).toBeLessThanOrEqual(columns)

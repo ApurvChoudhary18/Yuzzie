@@ -17,6 +17,8 @@ export interface RequestInitLike {
   method: string
   headers: Record<string, string>
   body?: string
+  /** Cancels the request (a connectivity probe's time budget). */
+  signal?: AbortSignal
 }
 
 export type FetchLike = (url: string, init: RequestInitLike) => Promise<ResponseLike>

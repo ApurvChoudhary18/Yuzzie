@@ -15,10 +15,11 @@ import {
   ValidationError,
 } from '@yuzie/core'
 import { describe, expect, it } from 'vitest'
-import { type Board, type ConflictEvent, matchColumn, type RejectedEvent } from './board.js'
+import { Board, type ConflictEvent, matchColumn, type RejectedEvent } from './board.js'
 import { createMemoryOutbox } from './cache.js'
 import { createClient } from './client.js'
 import { Emitter } from './emitter.js'
+import { createHttp } from './http.js'
 import { Yuzie as NodeYuzie } from './node.js'
 import type { FetchLike, RequestInitLike, ResponseLike, WebSocketLike } from './platform.js'
 
@@ -394,7 +395,7 @@ describe('the offline queue', () => {
     expect(api.writes()).toEqual(['POST /boards/b/cards/1/move'])
 
     const report = await board.sync()
-    expect(report).toEqual({ sent: 2, conflicts: 0, rejected: 0, remaining: 0 })
+    expect(report).toMatchObject({ sent: 2, conflicts: 0, rejected: 0, remaining: 0 })
     const keys = api.calls
       .filter((c) => c.method === 'POST')
       .map((c) => c.init.headers['idempotency-key'])
@@ -421,25 +422,189 @@ describe('the offline queue', () => {
     await board.cards.move(1, 'done')
     api.offline = false
 
-    expect(await board.sync()).toEqual({ sent: 0, conflicts: 0, rejected: 0, remaining: 2 })
-    expect(await board.sync()).toEqual({ sent: 2, conflicts: 0, rejected: 0, remaining: 0 })
+    expect(await board.sync()).toMatchObject({ sent: 0, conflicts: 0, rejected: 0, remaining: 2 })
+    expect(await board.sync()).toMatchObject({ sent: 2, conflicts: 0, rejected: 0, remaining: 0 })
   })
 
-  it('drops and reports a queued write the server refuses outright', async () => {
+  it('retries a refused write, then sets it aside after three tries without blocking the rest', async () => {
     const api = new FakeApi()
+    api.cards.set(2, card(2))
     api.on('POST', /^\/boards\/b\/cards\/1\/move$/, () =>
-      reply(404, problem('column_not_found', 404)),
+      reply(404, problem('card_not_found', 404)),
     )
+    api.on('POST', /^\/boards\/b\/cards\/1\/assign$/, () => reply(200, card(1)))
+    api.on('POST', /^\/boards\/b\/cards\/2\/move$/, () => reply(200, card(2, { column: 'done' })))
     const board = await connectHttpOnly(api, 'queue')
     api.offline = true
     await board.cards.move(1, 'done')
+    await board.cards.assign(1, ['priya'])
+    await board.cards.move(2, 'done')
     api.offline = false
     const rejected: RejectedEvent[] = []
     board.on('rejected', (event) => rejected.push(event))
 
-    expect(await board.sync()).toEqual({ sent: 0, conflicts: 0, rejected: 1, remaining: 0 })
-    expect(rejected[0]?.error.code).toBe('column_not_found')
+    // 1st try: refused. #1's later write waits behind it; #2 goes ahead.
+    const first = await board.sync()
+    expect(first).toMatchObject({ sent: 1, failed: 1, rejected: 0, remaining: 2, quarantined: 0 })
+    expect(first.outcomes.map((o) => `${o.kind} #${o.cardNo}`)).toEqual([
+      'retry #1',
+      'held #1',
+      'sent #2',
+    ])
+    expect(board.state.cards[1]?.column).toBe('done') // still assumed, still queued
+
+    expect((await board.sync()).failed).toBe(1)
+    // 3rd try: set aside, reported, and the rest of #1's queue moves again.
+    const third = await board.sync()
+    expect(third).toMatchObject({ rejected: 1, quarantined: 1, remaining: 0 })
+    expect(third.outcomes.map((o) => o.kind)).toEqual(['quarantined', 'sent'])
+    expect(third.outcomes[0]).toMatchObject({
+      attempts: 3,
+      error: expect.stringContaining('card_not_found'),
+    })
+    expect(rejected[0]?.error.code).toBe('card_not_found')
+    expect(board.quarantine).toHaveLength(1)
     expect(board.state.cards[1]?.column).toBe('todo')
+  })
+
+  it('two offline edits to one card are not a conflict with each other', async () => {
+    const api = new FakeApi()
+    let serverVersion = 1
+    const seen: Array<string | undefined> = []
+    api.on('PATCH', /^\/boards\/b\/cards\/1$/, (init) => {
+      const ifMatch = init.headers['if-match']
+      seen.push(ifMatch)
+      if (Number(ifMatch) !== serverVersion)
+        return reply(
+          409,
+          problem('version_conflict', 409, {
+            number: 1,
+            current: card(1, { version: serverVersion }),
+          }),
+        )
+      serverVersion += 1
+      api.cards.set(1, card(1, { version: serverVersion }))
+      return reply(200, api.cards.get(1))
+    })
+    const board = await connectHttpOnly(api, 'queue')
+    api.offline = true
+    await board.cards.update(1, { title: 'First' })
+    await board.cards.update(1, { priority: 1 })
+    api.offline = false
+    const report = await board.sync()
+    expect(report).toMatchObject({ sent: 2, conflicts: 0, remaining: 0 })
+    // The second was checked against the version the first one left.
+    expect(seen).toEqual(['1', '2'])
+  })
+
+  it('reports a conflict with the card that replaced the local change', async () => {
+    const api = new FakeApi()
+    const winner = card(1, { title: 'Theirs', version: 3 })
+    api.on('PATCH', /^\/boards\/b\/cards\/1$/, () =>
+      reply(409, problem('version_conflict', 409, { number: 1, current: winner })),
+    )
+    const board = await connectHttpOnly(api, 'queue')
+    api.offline = true
+    await board.cards.update(1, { title: 'Mine' })
+    expect(board.state.cards[1]?.title).toBe('Mine')
+    api.offline = false
+    const report = await board.sync()
+    expect(report).toMatchObject({ conflicts: 1, remaining: 0 })
+    expect(report.outcomes[0]).toMatchObject({
+      kind: 'conflict',
+      cardNo: 1,
+      current: { title: 'Theirs' },
+    })
+    expect(board.state.cards[1]?.title).not.toBe('Mine')
+  })
+
+  it('a queued write shows in the next process too, until it is sent (shadows)', async () => {
+    const { openCache } = await import('@yuzie/store')
+    const cache = openCache({ boardSlug: 'b', location: ':memory:' })
+    const api = new FakeApi()
+    const open = () =>
+      createClient({
+        baseUrl: 'https://api.test/v1',
+        token: 'yz_t',
+        fetch: api.fetch,
+        retries: 0,
+      }).connect('b', { realtime: false, offline: 'queue', cache })
+    const first = await open()
+    api.offline = true
+    await first.cards.move(1, 'done')
+    const created = await first.cards.create({ title: 'Made offline' })
+    expect(created.number).toBeLessThan(0)
+    await first.close()
+
+    // A new process, still offline: the cache holds the server's truth, and
+    // the queue replays on top of it.
+    const second = await open()
+    expect(second.online).toBe(false)
+    expect(second.state.cards[1]?.column).toBe('done')
+    expect(Object.values(second.state.cards).map((c) => c.title)).toContain('Made offline')
+    expect([...second.queuedCards].sort()).toEqual([created.number, 1].sort())
+    // Another offline create does not reuse the first one's provisional number.
+    const again = await second.cards.create({ title: 'Also offline' })
+    expect(again.number).toBeLessThan(created.number)
+    await second.close()
+
+    // Back online: opening sends the queue first, and the overlay gives way to the truth.
+    api.offline = false
+    api.on('POST', /^\/boards\/b\/cards\/1\/move$/, () => {
+      api.cards.set(1, card(1, { column: 'done', version: 2 }))
+      return reply(200, api.cards.get(1))
+    })
+    api.on('POST', /^\/boards\/b\/cards$/, (init) => {
+      const title = (JSON.parse(String(init.body)) as { title: string }).title
+      const number = api.cards.size + 1
+      api.cards.set(number, card(number, { title }))
+      return reply(201, api.cards.get(number))
+    })
+    const third = await open()
+    expect(third.lastDrain).toMatchObject({ sent: 3, remaining: 0 })
+    expect(third.queuedCards.size).toBe(0)
+    expect(Object.values(third.state.cards).every((c) => c.number > 0)).toBe(true)
+    expect(
+      Object.values(third.state.cards)
+        .map((c) => c.title)
+        .sort(),
+    ).toEqual(['Also offline', 'Card 1', 'Made offline'])
+    await third.close()
+    cache.close()
+  })
+
+  it('a probe that fails means nothing waits on the network', async () => {
+    const { openCache } = await import('@yuzie/store')
+    const cache = openCache({ boardSlug: 'b', location: ':memory:' })
+    cache.columns.putMany('b', COLUMNS)
+    cache.cards.put('b', card(1))
+    const api = new FakeApi()
+    let requests = 0
+    const counting: typeof api.fetch = async (url, init) => {
+      requests += 1
+      return api.fetch(url, init)
+    }
+    const board = new Board({
+      slug: 'b',
+      http: createHttp({ baseUrl: 'https://api.test/v1', fetch: counting, retries: 0 }),
+      offline: 'queue',
+      realtime: false,
+      token: () => 'yz_t',
+      connectTimeoutMs: 1_000,
+      cache,
+      probe: async () => false,
+    })
+    await board.open()
+    expect(board.online).toBe(false)
+    expect(board.state.cards[1]).toBeDefined()
+    await board.cards.move(1, 'done')
+    expect(board.state.cards[1]?.column).toBe('done')
+    expect(requests).toBe(0)
+    expect(board.queued).toBe(1)
+    expect((await board.sync()).reachable).toBe(false)
+    expect(requests).toBe(0)
+    await board.close()
+    cache.close()
   })
 
   it('throws OfflineError instead when offline is "fail"', async () => {

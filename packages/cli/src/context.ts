@@ -152,7 +152,14 @@ export class Context {
           }
         : {
             fetch: (url: string, init: RequestInit) =>
-              fetch(url, { ...init, signal: this.requests.signal }),
+              fetch(url, {
+                ...init,
+                // Both: the caller's own budget (a probe), and ours for the whole command.
+                signal:
+                  init.signal === undefined || init.signal === null
+                    ? this.requests.signal
+                    : AbortSignal.any([init.signal, this.requests.signal]),
+              }),
           }),
     })
   }

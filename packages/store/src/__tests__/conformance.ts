@@ -342,8 +342,42 @@ export function describeCacheConformance(harness: ConformanceHarness): void {
 
     // -----------------------------------------------------------------------
     describe('outbox', () => {
+      it('sets a poison op aside, out of the queue, until released (§18 Session 13)', async () => {
+        for (const key of ['a', 'b', 'c']) cache.outbox.enqueue(BOARD, op(key))
+        const poison = cache.outbox.list(BOARD)[1]
+        if (poison === undefined) throw new Error('no entry')
+        cache.outbox.quarantine(poison.id, 'card_not_found: #18 was deleted', 5_000)
+
+        expect(cache.outbox.list(BOARD).map((e) => e.op.idempotencyKey)).toEqual(['a', 'c'])
+        expect(cache.outbox.size(BOARD)).toBe(2)
+        const [aside] = cache.outbox.quarantined(BOARD)
+        expect(aside).toMatchObject({
+          id: poison.id,
+          quarantinedAt: 5_000,
+          lastError: 'card_not_found: #18 was deleted',
+          attempts: 1,
+        })
+        expect(cache.outbox.quarantined('other-board')).toEqual([])
+
+        // Never drained while aside.
+        const seen: string[] = []
+        await cache.outbox.drain((entry) => {
+          seen.push(entry.op.idempotencyKey)
+        })
+        expect(seen).toEqual(['a', 'c'])
+
+        expect(cache.outbox.release(poison.id)).toBe(true)
+        expect(cache.outbox.release(poison.id)).toBe(false)
+        expect(cache.outbox.list(BOARD)).toMatchObject([
+          { id: poison.id, attempts: 0, quarantinedAt: null },
+        ])
+        expect(cache.outbox.quarantined()).toEqual([])
+        expect(cache.outbox.remove(poison.id)).toBe(true)
+      })
+
       it('queues a write and reports the queue size', () => {
         const entry = cache.outbox.enqueue(BOARD, op('write-1'))
+        expect(entry.quarantinedAt).toBeNull()
         expect(entry.attempts).toBe(0)
         expect(entry.lastError).toBeNull()
         expect(entry.nextAttemptAt).toBeNull()

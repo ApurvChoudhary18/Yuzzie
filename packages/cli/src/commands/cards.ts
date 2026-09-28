@@ -28,7 +28,12 @@ function paintFor(context: Context) {
 }
 
 function meta(session: BoardSession, extra: Record<string, unknown> = {}) {
-  return { boardSlug: session.slug, synced: session.online && session.board.queued === 0, ...extra }
+  return {
+    boardSlug: session.slug,
+    synced: session.online && session.board.queued === 0,
+    queued: session.board.queued,
+    ...extra,
+  }
 }
 
 function stripHandle(handle: string): string {
@@ -48,6 +53,19 @@ function requireColumn(session: BoardSession, reference: string): Column {
     )
   }
   return column
+}
+
+/** A card created offline, as `--json` shows it until it has a number. */
+function queuedCard(card: Card) {
+  return {
+    queued: true as const,
+    title: card.title,
+    column: card.column,
+    assignees: card.assignees,
+    labels: card.labels,
+    priority: card.priority,
+    dueAt: card.dueAt,
+  }
 }
 
 function label(card: Card): string {
@@ -108,7 +126,9 @@ export async function add(context: Context, words: string[], options: AddOptions
         `Queued "${card.title}" in ${where} (offline; it gets a number when synced)`,
       )
     else context.output.success(`Created ${label(card)} in ${where}`)
-    context.output.result('Card', card, meta(session, card.number < 0 ? { queued: true } : {}))
+    if (card.number < 0) {
+      context.output.result('QueuedCard', queuedCard(card), meta(session))
+    } else context.output.result('Card', card, meta(session))
   })
 }
 
@@ -197,10 +217,23 @@ export async function list(context: Context, options: ListOptions): Promise<void
           width: context.width,
           status: session.status(),
           paint: paintFor(context),
+          queued: session.board.queuedCards,
+          offline: !session.online,
         }).trimEnd(),
       )
     }
-    context.output.result('CardList', cards, meta(session, { count: cards.length }))
+    // Cards created offline have no number yet: they travel in meta, not as Cards.
+    const numbered = cards.filter((card) => card.number > 0)
+    const provisional = cards.filter((card) => card.number < 0).map(queuedCard)
+    context.output.result(
+      'CardList',
+      numbered,
+      meta(session, {
+        count: numbered.length,
+        ...(provisional.length === 0 ? {} : { provisional }),
+        queuedCards: [...session.board.queuedCards].filter((n) => n > 0).sort((a, b) => a - b),
+      }),
+    )
   })
 }
 

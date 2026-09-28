@@ -139,10 +139,18 @@ export class Link {
   private readonly server: Server
   private readonly sockets = new Set<Socket>()
   private up = true
+  private swallowing = false
   port = 0
 
   private constructor(private readonly target: number) {
     this.server = createServer((client) => {
+      if (this.swallowing) {
+        // A black hole: the connection is accepted and never answered.
+        this.sockets.add(client)
+        client.on('error', () => {})
+        client.on('close', () => this.sockets.delete(client))
+        return
+      }
       if (!this.up) {
         client.destroy()
         return
@@ -185,7 +193,19 @@ export class Link {
     this.sockets.clear()
   }
 
+  /**
+   * Drop every connection, then accept new ones and never answer them — the
+   * network that hangs rather than refuses (§18 Session 13's blackhole).
+   */
+  blackhole(): void {
+    this.cut()
+    this.swallowing = true
+  }
+
   restore(): void {
+    this.swallowing = false
+    for (const socket of this.sockets) socket.destroy()
+    this.sockets.clear()
     this.up = true
   }
 

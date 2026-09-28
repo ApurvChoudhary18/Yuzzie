@@ -21,6 +21,12 @@ export interface OutboxOpLike {
   readonly body?: unknown
   readonly idempotencyKey: string
   readonly ifMatch?: number
+  /**
+   * What the write looked like locally when it was queued: the cards it
+   * changed and the ones it removed. Replayed as an overlay by every later
+   * process until the write is sent, refused or superseded (§18 Session 13).
+   */
+  readonly shadow?: { readonly upsert: readonly Card[]; readonly remove: readonly number[] }
 }
 
 export interface OutboxEntryLike {
@@ -30,14 +36,20 @@ export interface OutboxEntryLike {
   readonly createdAt: number
   readonly attempts: number
   readonly lastError: string | null
+  /** Set aside after too many refusals (a poison op); null while queued. */
+  readonly quarantinedAt?: number | null
 }
 
 export interface OutboxLike {
   enqueue(boardSlug: string, op: OutboxOpLike): OutboxEntryLike
+  /** Queued entries, oldest first; quarantined ones are not included. */
   list(boardSlug?: string): OutboxEntryLike[]
   size(boardSlug?: string): number
   remove(id: number): boolean
   recordFailure(id: number, error: string, now?: number): void
+  quarantine(id: number, error: string, now?: number): void
+  quarantined(boardSlug?: string): OutboxEntryLike[]
+  release(id: number): boolean
 }
 
 export interface CacheLike {
@@ -77,13 +89,41 @@ export function createMemoryOutbox(now: () => number = Date.now): OutboxLike {
         createdAt: now(),
         attempts: 0,
         lastError: null,
+        quarantinedAt: null,
       }
       nextId += 1
       entries.push(entry)
       return entry
     },
     list(boardSlug) {
-      return entries.filter((entry) => boardSlug === undefined || entry.boardSlug === boardSlug)
+      return entries.filter(
+        (entry) =>
+          (boardSlug === undefined || entry.boardSlug === boardSlug) &&
+          (entry.quarantinedAt ?? null) === null,
+      )
+    },
+    quarantined(boardSlug) {
+      return entries.filter(
+        (entry) =>
+          (boardSlug === undefined || entry.boardSlug === boardSlug) &&
+          (entry.quarantinedAt ?? null) !== null,
+      )
+    },
+    quarantine(id, error, at = now()) {
+      entries = entries.map((entry) =>
+        entry.id === id
+          ? { ...entry, attempts: entry.attempts + 1, lastError: error, quarantinedAt: at }
+          : entry,
+      )
+    },
+    release(id) {
+      let released = false
+      entries = entries.map((entry) => {
+        if (entry.id !== id || (entry.quarantinedAt ?? null) === null) return entry
+        released = true
+        return { ...entry, attempts: 0, quarantinedAt: null }
+      })
+      return released
     },
     size(boardSlug) {
       return this.list(boardSlug).length
