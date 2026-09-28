@@ -15,6 +15,9 @@
  * winner's card from the conflict into `confirmed`.
  */
 import {
+  type ActivityPage,
+  ActivityPageSchema,
+  type ActivityQuery,
   type Anchor,
   AnchorSchema,
   type AnchorSetRequest,
@@ -41,6 +44,7 @@ import {
   CommentSchema,
   type Commit,
   ConflictError,
+  durationMs,
   type EventEnvelope,
   type EventOf,
   type EventsReplayResponse,
@@ -51,8 +55,10 @@ import {
   type GitSummaryUpsertRequest,
   type InviteCreateRequest,
   initialState,
+  isStale,
   type Member,
   MembersResponseSchema,
+  matchesSearch,
   NotFoundError,
   newId,
   OfflineError,
@@ -124,7 +130,14 @@ export interface CardFilter {
   readonly column?: string
   readonly assignee?: string
   readonly label?: string
+  /** Every word, in the title, description, a comment, a label or an assignee. */
   readonly search?: string
+  /** Assigned to the signed-in user. */
+  readonly mine?: boolean
+  /** Watched by the signed-in user. */
+  readonly watching?: boolean
+  /** A duration such as `2d`: claimed that long ago with no commits since, or untouched. */
+  readonly stale?: string
   readonly limit?: number
 }
 
@@ -1047,6 +1060,9 @@ export class CardsResource {
           assignee: filter.assignee,
           label: filter.label,
           search: filter.search,
+          mine: filter.mine,
+          watching: filter.watching,
+          stale: filter.stale,
           limit: filter.limit,
         },
         schema: CardListResponseSchema,
@@ -1059,18 +1075,22 @@ export class CardsResource {
   }
 
   /** The same filters, answered from `board.state` without the network. */
-  listLocal(filter: CardFilter = {}): Card[] {
-    const needle = filter.search?.toLowerCase()
+  listLocal(filter: CardFilter = {}, now: number = Date.now()): Card[] {
+    const state = this.board.state
     const assignee = filter.assignee?.replace(/^@/, '')
-    const cards = Object.values(this.board.state.cards)
+    const me = this.board.handle
+    // Offline there is no log to say when a card was claimed, so staleness
+    // falls back to the card's own last change (or last commit).
+    const threshold = filter.stale === undefined ? null : durationMs(filter.stale)
+    const cards = Object.values(state.cards)
       .filter((card) => filter.column === undefined || card.column === filter.column)
       .filter((card) => assignee === undefined || card.assignees.includes(assignee))
       .filter((card) => filter.label === undefined || card.labels.includes(filter.label))
+      .filter((card) => filter.search === undefined || matchesSearch(card, filter.search))
+      .filter((card) => filter.mine !== true || (me !== null && card.assignees.includes(me)))
+      .filter((card) => filter.watching !== true || (me !== null && card.watchers.includes(me)))
       .filter(
-        (card) =>
-          needle === undefined ||
-          card.title.toLowerCase().includes(needle) ||
-          (card.description ?? '').toLowerCase().includes(needle),
+        (card) => threshold === null || isStale(card, threshold, { now, columns: state.columns }),
       )
       .sort((a, b) => (a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : a.number - b.number))
     return filter.limit === undefined ? cards : cards.slice(0, filter.limit)
@@ -1513,6 +1533,16 @@ export class BoardsResource {
       path: `/boards/${encodeURIComponent(this.board.slug)}/events`,
       query: { since, limit },
       schema: EventsReplayResponseSchema,
+    })
+  }
+
+  /** A page of the log, newest first by page and in order within it (§18 Session 14). */
+  async activity(query: ActivityQuery = {}): Promise<ActivityPage> {
+    return this.board.http.request({
+      method: 'GET',
+      path: `/boards/${encodeURIComponent(this.board.slug)}/activity`,
+      query: { ...query },
+      schema: ActivityPageSchema,
     })
   }
 

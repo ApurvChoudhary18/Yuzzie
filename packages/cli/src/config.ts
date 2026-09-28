@@ -47,6 +47,8 @@ const UiSchema = z.object({
   theme: z.enum(['dark', 'light', 'auto']),
   compact: z.boolean(),
   showGitBadges: z.boolean(),
+  /** OS notifications for watched cards while the board is open (§18 Session 14). */
+  notifications: z.boolean(),
 })
 
 /** One file's worth: everything optional, nothing unknown. */
@@ -86,7 +88,7 @@ export const DEFAULTS: ResolvedConfig = {
   },
   flow: { startColumn: 'doing', finishColumn: 'review', doneColumn: 'done' },
   checks: { requireCleanTree: true, requirePushed: false },
-  ui: { theme: 'dark', compact: false, showGitBadges: true },
+  ui: { theme: 'dark', compact: false, showGitBadges: true, notifications: false },
 }
 
 export interface LoadOptions {

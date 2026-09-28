@@ -264,4 +264,23 @@ describe('overlays', () => {
     expect(harness.terminal.lastFrame()).toContain('Assigned to @rahul')
     expect(`\n${harness.terminal.lastFrame()}`).toMatchSnapshot()
   })
+
+  it('the board activity drawer (A), newest at the bottom', async () => {
+    const entries: ActivityEntry[] = Array.from({ length: 30 }, (_, index) => ({
+      at: board.now - (30 - index) * 60_000,
+      who: index % 2 === 0 ? '@priya' : '@sam',
+      text: `moved #${index + 1} → Review`,
+    }))
+    const harness = mount({ ...board, boardActivity: entries }, 100, 30)
+    mounted.push(harness.instance)
+    await tick()
+    await keys(harness, 'A')
+    const frame = harness.terminal.lastFrame() ?? ''
+    expect(frame).toContain('Activity')
+    expect(frame).toContain('moved #30 → Review')
+    expect(frame).toMatch(/↑ \d+ older/)
+    expect(`\n${frame}`).toMatchSnapshot()
+    await keys(harness, 'k')
+    expect(harness.terminal.lastFrame()).not.toContain('moved #30 → Review')
+  })
 })

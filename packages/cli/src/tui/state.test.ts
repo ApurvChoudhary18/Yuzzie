@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { card, column, view, viewOf } from './__tests__/fixtures.js'
-import type { BoardView } from './layout.js'
+import { type BoardView, visibleView } from './layout.js'
 import { type Effect, initialNav, type NavState, type Numbers, reduce } from './state.js'
 
 /** Three columns: #1 #2 #3 | #4 #5 | (empty). A wide terminal, so board mode. */
@@ -494,12 +494,15 @@ describe('search and filter', () => {
     expect(state).toMatchObject({ overlay: null, query: '' })
   })
 
-  it('f filters to mine, an assignee or a label', () => {
+  it('f filters to mine, watching, stale, an assignee or a label', () => {
     const picker = press(start(120, 30, DETAIL), ['f'], DETAIL).state
     expect(picker.overlay).toMatchObject({
       options: [
         { value: 'all', current: true },
         { value: 'mine' },
+        { value: 'watching' },
+        { value: 'stale:2' },
+        { value: 'stale:7' },
         { value: '@priya' },
         { value: '@rahul' },
         { value: '#auth' },
@@ -511,8 +514,60 @@ describe('search and filter', () => {
     expect(mine.filter).toEqual({ kind: 'mine' })
     // Only #9 (in Doing) is mine: enter in Doing opens it.
     expect(press(mine, ['l', 'enter'], DETAIL).effects).toEqual([{ type: 'open', cardNo: 9 }])
-    const label = press(picker, ['j', 'j', 'j', 'j', 'j', 'j', 'enter'], DETAIL).state
+    const watching = press(picker, ['j', 'j', 'enter'], DETAIL).state
+    expect(watching.filter).toEqual({ kind: 'watching' })
+    expect(press(picker, ['j', 'j', 'j', 'enter'], DETAIL).state.filter).toEqual({
+      kind: 'stale',
+      days: 2,
+    })
+    const label = press(picker, [...Array(9).fill('j'), 'enter'], DETAIL).state
     expect(label.filter).toEqual({ kind: 'label', label: 'docs' })
     expect(press(label, ['escape'], DETAIL).state.filter).toBeNull()
+  })
+})
+
+describe('watching, activity and search (§18 Session 14)', () => {
+  const NOW = DETAIL.now
+  const DAY = 86_400_000
+  const board = view(
+    [column('todo', 'Todo', 0, 'backlog'), column('done', 'Done', 1, 'terminal')],
+    [
+      card(1, {
+        title: 'Watched',
+        watchers: ['rahul'],
+        updatedAt: new Date(NOW).toISOString(),
+      }),
+      card(2, {
+        title: 'Quiet',
+        description: 'mentions the webhook retry',
+        updatedAt: new Date(NOW - 3 * DAY).toISOString(),
+      }),
+      card(3, { column: 'done', title: 'Old', updatedAt: new Date(NOW - 30 * DAY).toISOString() }),
+    ],
+    [],
+    { now: NOW },
+  )
+
+  it('filters to watched cards and to stale ones', () => {
+    const shown = (filter: NavState['filter'], query = '') =>
+      visibleView(board, query, filter).columns.flatMap((c) => c.cards.map((x) => x.number))
+    expect(shown({ kind: 'watching' })).toEqual([1])
+    // Finished cards are never stale; #2 has been quiet for three days.
+    expect(shown({ kind: 'stale', days: 2 })).toEqual([2])
+    expect(shown({ kind: 'stale', days: 7 })).toEqual([])
+    // Search reaches the description too.
+    expect(shown(null, 'webhook')).toEqual([2])
+  })
+
+  it('A opens the board activity drawer and loads it; k and j scroll; esc closes', () => {
+    const entries = Array.from({ length: 5 }, (_, i) => ({ at: NOW, who: '@priya', text: `${i}` }))
+    const withLog = { ...board, boardActivity: entries }
+    const opened = press(start(120, 30, withLog), ['A'], withLog)
+    expect(opened.state.overlay).toEqual({ kind: 'activity', back: 0 })
+    expect(opened.effects).toEqual([{ type: 'boardActivity' }])
+    const up = press(opened.state, ['k', 'k', 'k', 'k', 'k', 'k'], withLog).state
+    expect(up.overlay).toEqual({ kind: 'activity', back: 4 })
+    expect(press(up, ['j'], withLog).state.overlay).toEqual({ kind: 'activity', back: 3 })
+    expect(press(up, ['escape'], withLog).state.overlay).toBeNull()
   })
 })

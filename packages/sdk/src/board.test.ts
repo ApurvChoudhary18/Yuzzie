@@ -624,6 +624,51 @@ describe('the offline queue', () => {
     expect((await board.cards.get(1)).title).toBe('Card 1')
     await expect(board.cards.get(99)).rejects.toBeInstanceOf(OfflineError)
   })
+
+  it('searches comments, and filters watching and stale, from local state (§18 Session 14)', async () => {
+    const { openCache } = await import('@yuzie/store')
+    const cache = openCache({ boardSlug: 'b', location: ':memory:' })
+    const day = 86_400_000
+    const now = Date.parse('2026-08-20T09:00:00Z')
+    cache.columns.putMany('b', COLUMNS)
+    cache.cards.putMany('b', [
+      card(1, {
+        watchers: ['rahul'],
+        updatedAt: new Date(now).toISOString(),
+        comments: [
+          {
+            id: '55555555-5555-4555-8555-000000000001',
+            cardNumber: 1,
+            author: 'priya',
+            body: 'Only on Safari',
+            createdAt: new Date(now).toISOString(),
+            editedAt: null,
+          },
+        ],
+      }),
+      card(2, { updatedAt: new Date(now - 3 * day).toISOString() }),
+    ])
+    const board = new Board({
+      slug: 'b',
+      http: createHttp({ baseUrl: 'https://api.test/v1', fetch: new FakeApi().fetch, retries: 0 }),
+      offline: 'queue',
+      realtime: false,
+      token: () => 'yz_t',
+      connectTimeoutMs: 1_000,
+      cache,
+      probe: async () => false,
+    })
+    await board.open()
+    const numbers = (filter: Parameters<typeof board.cards.listLocal>[0]) =>
+      board.cards.listLocal(filter, now).map((c) => c.number)
+    expect(numbers({ search: 'safari' })).toEqual([1])
+    expect(numbers({ stale: '2d' })).toEqual([2])
+    expect(numbers({ stale: '4d' })).toEqual([])
+    // Who "me" is is not known without the network: nothing is mine or watched.
+    expect(numbers({ watching: true })).toEqual([])
+    await board.close()
+    cache.close()
+  })
 })
 
 describe('helpers', () => {

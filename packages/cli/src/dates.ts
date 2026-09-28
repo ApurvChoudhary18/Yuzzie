@@ -5,6 +5,7 @@
  * anything finished before Friday is over. A full ISO timestamp is taken as is.
  * `none` (or `clear`, `-`) removes the due date.
  */
+import { durationMs } from '@yuzie/core'
 import { UsageError } from './exit.js'
 
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -69,22 +70,11 @@ export function parseDue(input: string, now: Date = new Date()): string | null {
 
 /** `2d`, `36h`, `1w` → milliseconds, for `--stale` and `--since`. */
 export function parseDuration(input: string): number {
-  const match = /^(\d+)\s*(m|min|h|d|w)$/i.exec(input.trim())
-  if (match === null) {
+  const ms = durationMs(input)
+  if (ms === null) {
     throw new UsageError(`Cannot read "${input}" as a duration.`, 'Try `30m`, `12h`, `2d` or `1w`.')
   }
-  const amount = Number(match[1])
-  const unit = (match[2] as string).toLowerCase()
-  const minute = 60_000
-  const scale =
-    unit === 'm' || unit === 'min'
-      ? minute
-      : unit === 'h'
-        ? 60 * minute
-        : unit === 'd'
-          ? 1440 * minute
-          : 10_080 * minute
-  return amount * scale
+  return ms
 }
 
 /** `p0`…`p3`, `0`…`3`, or `none`. */

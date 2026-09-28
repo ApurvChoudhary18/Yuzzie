@@ -5,7 +5,7 @@
  * through here, so a client sees the same envelope whichever path delivered it.
  */
 import type { BoardSnapshot, EventEnvelope } from '@yuzie/core'
-import { and, asc, eq, gt, lte } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, gte, lt, lte } from 'drizzle-orm'
 import type { Database } from '../db/client.js'
 import { boards, columns, events, labels, users } from '../db/schema.js'
 import { currentSeq } from './mutate.js'
@@ -17,6 +17,47 @@ export interface LoadEventsOptions {
   /** Stop at this `seq`, inclusive. */
   readonly until?: number
   readonly limit?: number
+}
+
+export interface ActivityOptions {
+  /** Events with `seq` strictly below this; omitted means from the head. */
+  readonly before?: number
+  readonly cardNo?: number
+  readonly actor?: string
+  readonly from?: Date
+  readonly limit: number
+}
+
+/**
+ * A page of the log read backwards (§18 Session 14): the newest `limit`
+ * matching events below `before`, returned in `seq` order, and the cursor for
+ * the page before them.
+ */
+export async function loadActivity(
+  db: Database,
+  boardId: string,
+  options: ActivityOptions,
+): Promise<{ events: EventEnvelope[]; next: number | null }> {
+  const conditions = [eq(events.boardId, boardId)]
+  if (options.before !== undefined) conditions.push(lt(events.seq, options.before))
+  if (options.cardNo !== undefined) conditions.push(eq(events.cardNo, options.cardNo))
+  if (options.actor !== undefined) conditions.push(eq(users.handle, options.actor))
+  if (options.from !== undefined) conditions.push(gte(events.createdAt, options.from))
+
+  // One more than asked for says whether an older page exists.
+  const rows = await db
+    .select({ event: events, actor: users.handle })
+    .from(events)
+    .leftJoin(users, eq(events.actorId, users.id))
+    .where(and(...conditions))
+    .orderBy(desc(events.seq))
+    .limit(options.limit + 1)
+  const page = rows.slice(0, options.limit).reverse()
+  const oldest = page[0]
+  return {
+    events: page.map(toEnvelope),
+    next: rows.length > options.limit && oldest !== undefined ? Number(oldest.event.seq) : null,
+  }
 }
 
 export async function loadEvents(
@@ -35,22 +76,25 @@ export async function loadEvents(
     .orderBy(asc(events.seq))
   const rows = options.limit === undefined ? await query : await query.limit(options.limit)
 
-  // Every payload was validated against @yuzie/core before it was stored
-  // (services/mutate.ts), so it is not parsed a second time on the way out.
-  return rows.map(
-    ({ event, actor }) =>
-      ({
-        id: event.id,
-        seq: Number(event.seq),
-        type: event.type,
-        actor,
-        ...(event.cardNo === null ? {} : { cardNo: event.cardNo }),
-        ...(event.idempotencyKey === null ? {} : { idempotencyKey: event.idempotencyKey }),
-        ...(event.cardVersion === null ? {} : { version: event.cardVersion }),
-        payload: event.payload,
-        ts: toIsoRequired(event.createdAt),
-      }) as EventEnvelope,
-  )
+  return rows.map(toEnvelope)
+}
+
+type LogRow = { event: typeof events.$inferSelect; actor: string | null }
+
+// Every payload was validated against @yuzie/core before it was stored
+// (services/mutate.ts), so it is not parsed a second time on the way out.
+function toEnvelope({ event, actor }: LogRow): EventEnvelope {
+  return {
+    id: event.id,
+    seq: Number(event.seq),
+    type: event.type,
+    actor,
+    ...(event.cardNo === null ? {} : { cardNo: event.cardNo }),
+    ...(event.idempotencyKey === null ? {} : { idempotencyKey: event.idempotencyKey }),
+    ...(event.cardVersion === null ? {} : { version: event.cardVersion }),
+    payload: event.payload,
+    ts: toIsoRequired(event.createdAt),
+  } as EventEnvelope
 }
 
 export interface Snapshot {

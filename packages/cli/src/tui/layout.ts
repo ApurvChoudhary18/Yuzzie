@@ -17,7 +17,14 @@
  *
  * Under 100 columns it is a single list grouped by column (§8.6).
  */
-import type { Card, Column, ColumnSemantics, Presence } from '@yuzie/core'
+import {
+  type Card,
+  type Column,
+  type ColumnSemantics,
+  isStale,
+  matchesSearch,
+  type Presence,
+} from '@yuzie/core'
 
 export const NARROW_WIDTH = 100
 export const MIN_COLUMN_WIDTH = 24
@@ -59,9 +66,10 @@ export interface BoardView {
     readonly at: number
     /**
      * `event`: something happened (✓); `info`: a hint about a key (→);
-     * `warn`: something failed (⚠); `conflict`: your change was undone (⟳).
+     * `warn`: something failed (⚠); `conflict`: your change was undone (⟳);
+     * `watch`: news about a card you watch (★), first in the queue.
      */
-    readonly kind?: 'event' | 'info' | 'warn' | 'conflict'
+    readonly kind?: 'event' | 'info' | 'warn' | 'conflict' | 'watch'
     /** Toasts waiting behind this one (the queue holds at most 3). */
     readonly waiting?: number
   } | null
@@ -84,6 +92,8 @@ export interface BoardView {
   readonly staleAnchors: ReadonlySet<number>
   /** Loaded activity per card; `null` while it is loading. */
   readonly activity: ReadonlyMap<number, readonly ActivityEntry[] | null>
+  /** The board's recent activity, oldest first, for the `A` drawer; `null` while it loads. */
+  readonly boardActivity: readonly ActivityEntry[] | null
 }
 
 /** Something that happened to a card, and who did it (`null` when not known). */
@@ -104,13 +114,23 @@ export const PUSH_MS = 10 * 60_000
 /** What `f` can narrow the board to (§8.4). */
 export type Filter =
   | { readonly kind: 'mine' }
+  | { readonly kind: 'watching' }
+  | { readonly kind: 'stale'; readonly days: number }
   | { readonly kind: 'assignee'; readonly handle: string }
   | { readonly kind: 'label'; readonly label: string }
+
+/** The `f` picker's stale choices, in days. */
+export const STALE_DAYS = [2, 7] as const
+const DAY_MS = 86_400_000
 
 export function describeFilter(filter: Filter): string {
   switch (filter.kind) {
     case 'mine':
       return 'mine'
+    case 'watching':
+      return 'watching'
+    case 'stale':
+      return `stale ${filter.days}d`
     case 'assignee':
       return `@${filter.handle}`
     case 'label':
@@ -118,26 +138,16 @@ export function describeFilter(filter: Filter): string {
   }
 }
 
-function matchesQuery(card: Card, query: string): boolean {
-  const words = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((word) => word.length > 0)
-  const haystack = [
-    `#${card.number}`,
-    card.title,
-    ...card.labels,
-    ...card.assignees.map((handle) => `@${handle}`),
-  ]
-    .join(' ')
-    .toLowerCase()
-  return words.every((word) => haystack.includes(word))
-}
-
-function matchesFilter(card: Card, filter: Filter, me: string | null): boolean {
+function matchesFilter(card: Card, filter: Filter, view: BoardView): boolean {
+  const me = view.me
   switch (filter.kind) {
     case 'mine':
       return me !== null && card.assignees.includes(me)
+    case 'watching':
+      return me !== null && card.watchers.includes(me)
+    case 'stale':
+      // No log in the TUI: a claimed card goes by its last change or commit.
+      return isStale(card, filter.days * DAY_MS, { now: view.now, columns: view.columns })
     case 'assignee':
       return card.assignees.includes(filter.handle)
     case 'label':
@@ -154,7 +164,7 @@ export function visibleView(view: BoardView, query: string, filter: Filter | nul
       ...column,
       cards: column.cards.filter(
         (card) =>
-          matchesQuery(card, query) && (filter === null || matchesFilter(card, filter, view.me)),
+          matchesSearch(card, query) && (filter === null || matchesFilter(card, filter, view)),
       ),
     })),
   }

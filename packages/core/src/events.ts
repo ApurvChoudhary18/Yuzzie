@@ -74,12 +74,16 @@ export const CardMovedPayloadSchema = z.object({
 export const CardAssignedPayloadSchema = z.object({
   added: z.array(HandleSchema),
   removed: z.array(HandleSchema),
+  /** Who started watching the card because of this (auto-watch, §18 Session 14). */
+  watch: z.array(HandleSchema).optional(),
 })
 export const CardDeletedPayloadSchema = z.object({ number: CardNumberSchema })
 export const CommentCreatedPayloadSchema = z.object({
   commentId: UuidSchema,
   body: z.string().min(1),
   author: HandleSchema,
+  /** Who started watching the card because of this (auto-watch, §18 Session 14). */
+  watch: z.array(HandleSchema).optional(),
 })
 export const ChecklistUpdatedPayloadSchema = z.object({
   itemId: UuidSchema,
@@ -136,6 +140,7 @@ export const BoardUpdatedPayloadSchema = z.object({
     baseBranch: z.string().min(1).optional(),
     branchTemplate: z.string().min(1).optional(),
     repoRemote: z.string().nullable().optional(),
+    autoWatch: z.boolean().optional(),
     archivedAt: IsoDateTimeSchema.nullable().optional(),
   }),
 })
@@ -289,3 +294,27 @@ export const EventsReplayResponseSchema = z.object({
   seq: z.number().int().nonnegative(),
 })
 export type EventsReplayResponse = z.infer<typeof EventsReplayResponseSchema>
+
+/**
+ * `yuzie activity` (§18 Session 14): the log read backwards, a page at a time,
+ * narrowed to a card, an author or a window. Each page is in `seq` order; pass
+ * `next` as `before` for the page before it.
+ */
+export const ActivityQuerySchema = z.object({
+  /** Only events with `seq` below this; omitted means from the head. */
+  before: z.number().int().positive().optional(),
+  card: z.number().int().positive().optional(),
+  actor: HandleSchema.optional(),
+  /** Only events at or after this time. */
+  from: IsoDateTimeSchema.optional(),
+  limit: z.number().int().positive().max(500).optional(),
+})
+export type ActivityQuery = z.infer<typeof ActivityQuerySchema>
+
+export const ActivityPageSchema = z.object({
+  events: z.array(EventEnvelopeSchema),
+  seq: z.number().int().nonnegative(),
+  /** The `before` for the previous page, or null when this is the oldest. */
+  next: z.number().int().positive().nullable(),
+})
+export type ActivityPage = z.infer<typeof ActivityPageSchema>

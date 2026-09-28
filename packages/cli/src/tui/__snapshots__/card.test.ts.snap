@@ -1112,16 +1112,16 @@ exports[`overlays > new card prompt, search and filter over the board 2`] = `
 │ │                               │     @rahul ● 3c/7f  p1 bug au…│                              │ │
 │ │                               │                               │                              │ │
 │ │                               │                               │                              │ │
-│ │                               │                               │                              │ │
-│ │                               │                               │                              │ │
-│ │                             ┌─ Show ───────────────────────────┐                             │ │
-│ │                             │ ▸ ✓ Everything                   │                             │ │
-│ │                             │     Mine                         │                             │ │
-│ │                             │     Assigned to @rahul           │                             │ │
-│ │                             │     Label: auth                  │                             │ │
-│ │                             │     Label: bug                   │                             │ │
-│ │                             └──────────────────────────────────┘                             │ │
-│ │                               │                               │                              │ │
+│ │                            ┌─ Show ─────────────────────────────┐                            │ │
+│ │                            │ ▸ ✓ Everything                     │                            │ │
+│ │                            │     Mine                           │                            │ │
+│ │                            │     Watching                       │                            │ │
+│ │                            │     Stale: no progress in 2 days   │                            │ │
+│ │                            │     Stale: no progress in 7 days   │                            │ │
+│ │                            │     Assigned to @rahul             │                            │ │
+│ │                            │     Label: auth                    │                            │ │
+│ │                            │     Label: bug                     │                            │ │
+│ │                            └────────────────────────────────────┘                            │ │
 │ │                               │                               │                              │ │
 │ │                               │                               │                              │ │
 │ │                               │                               │                              │ │
@@ -1167,5 +1167,39 @@ exports[`overlays > new checklist item over the card view 1`] = `
 │ ● @adarsh is viewing this card                                                                   │
 │                                                                                                  │
 │ ↵ save  esc cancel                                                                               │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘"
+`;
+
+exports[`overlays > the board activity drawer (A), newest at the bottom 1`] = `
+"
+┌ yuzie · yuzie-dev ───────────────────────────────────────────── ● 2 online · 1 working · synced ─┐
+│   ┌─ Activity ───────────────────────────────────────────────────────────────────────────────┐   │
+│ ┌─│ ↑ 7 older                                                                                │─┐ │
+│ │ │  23m  @sam moved #8 → Review                                                             │ │ │
+│ │ │  22m  @priya moved #9 → Review                                                           │ │ │
+│ │ │  21m  @sam moved #10 → Review                                                            │ │ │
+│ │ │  20m  @priya moved #11 → Review                                                          │ │ │
+│ │ │  19m  @sam moved #12 → Review                                                            │ │ │
+│ │ │  18m  @priya moved #13 → Review                                                          │ │ │
+│ │ │  17m  @sam moved #14 → Review                                                            │ │ │
+│ │ │  16m  @priya moved #15 → Review                                                          │ │ │
+│ │ │  15m  @sam moved #16 → Review                                                            │ │ │
+│ │ │  14m  @priya moved #17 → Review                                                          │ │ │
+│ │ │  13m  @sam moved #18 → Review                                                            │ │ │
+│ │ │  12m  @priya moved #19 → Review                                                          │ │ │
+│ │ │  11m  @sam moved #20 → Review                                                            │ │ │
+│ │ │  10m  @priya moved #21 → Review                                                          │ │ │
+│ │ │   9m  @sam moved #22 → Review                                                            │ │ │
+│ │ │   8m  @priya moved #23 → Review                                                          │ │ │
+│ │ │   7m  @sam moved #24 → Review                                                            │ │ │
+│ │ │   6m  @priya moved #25 → Review                                                          │ │ │
+│ │ │   5m  @sam moved #26 → Review                                                            │ │ │
+│ │ │   4m  @priya moved #27 → Review                                                          │ │ │
+│ │ │   3m  @sam moved #28 → Review                                                            │ │ │
+│ │ │   2m  @priya moved #29 → Review                                                          │ │ │
+│ └─│   1m  @sam moved #30 → Review                                                            │─┘ │
+│   └──────────────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                                  │
+│ k j older / newer  esc close                                                                     │
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘"
 `;

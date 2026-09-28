@@ -174,6 +174,9 @@ export async function runEffect(effect: Effect, context: EffectContext): Promise
       await board.refresh()
       source.say('Refreshed', 'info')
       return
+    case 'boardActivity':
+      await source.loadBoardActivity()
+      return
     case 'open': {
       context.presence.view(effect.cardNo)
       const card = board.state.cards[effect.cardNo]

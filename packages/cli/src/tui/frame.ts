@@ -7,6 +7,7 @@
  * so the terminal never wraps or shears whatever size it is.
  */
 import type { Card, Presence } from '@yuzie/core'
+import { shortAge } from '../render/text.js'
 import { cardBody } from './card.js'
 import {
   BOARD_CHROME,
@@ -260,6 +261,11 @@ function overlayHints(overlay: Overlay): Hints {
         ['+', 'add'],
         ['ESC', 'close'],
       ]
+    case 'activity':
+      return [
+        ['k j', 'older / newer'],
+        ['ESC', 'close'],
+      ]
   }
 }
 
@@ -293,6 +299,8 @@ function toastLine(view: BoardView, nav: NavState, theme: Theme): Line {
     return [seg(`${theme.glyphs.warn} `, 'red'), seg(toast.text, 'yellow'), ...more]
   if (toast.kind === 'conflict')
     return [seg(`${theme.glyphs.updated} `, 'red'), seg(toast.text, 'yellow'), ...more]
+  if (toast.kind === 'watch')
+    return [seg(`${theme.glyphs.watched} `, 'yellow'), seg(toast.text), ...more]
   return [seg(`${theme.glyphs.check} `, 'green'), seg(toast.text), ...more]
 }
 
@@ -340,6 +348,7 @@ function helpLines(nav: NavState, theme: Theme): Line[] {
           ['w  d  D', 'watch, done, delete'],
           ['o  g', 'open code, open branch'],
           ['/  f', 'search, filter'],
+          ['A', 'board activity'],
           ['r', 'refresh'],
           ['q', 'quit'],
         ]
@@ -722,7 +731,39 @@ function overlayBox(
         theme,
       )
     }
+    case 'activity':
+      return activityBox(view, overlay.back, Math.max(3, rows - 2), Math.min(room, 96), theme)
   }
+}
+
+/** The board's activity drawer (`A`): the newest at the bottom, like a log. */
+function activityBox(
+  view: BoardView,
+  back: number,
+  rows: number,
+  width: number,
+  theme: Theme,
+): Line[] {
+  const entries = view.boardActivity
+  const inner = width - 4
+  let content: Line[]
+  if (entries === null) content = [[seg(`loading${theme.glyphs.ellipsis}`, 'dim')]]
+  else if (entries.length === 0) content = [[seg('Nothing has happened yet.', 'dim')]]
+  else {
+    const end = Math.max(1, entries.length - back)
+    const shown = entries.slice(Math.max(0, end - rows), end)
+    content = shown.map((entry): Line => {
+      const age = shortAge(view.now - entry.at).padStart(4)
+      return fitLine(
+        [seg(`${age}  `, 'dim'), seg(entry.who, 'accent'), seg(` ${entry.text}`)],
+        inner,
+        theme.glyphs.ellipsis,
+      )
+    })
+    const older = end - shown.length
+    if (older > 0) content.unshift([seg(`${theme.glyphs.up} ${older} older`, 'dim')])
+  }
+  return boxed('Activity', content, width, theme)
 }
 
 /** Draw `box` centred over rows `top`..`top + rows` of `lines`. */

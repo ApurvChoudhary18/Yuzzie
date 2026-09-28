@@ -15,6 +15,7 @@ import { canLaunch } from '../open.js'
 import { currentSlug } from '../session.js'
 import { type EffectContext, ENTER_ALT_SCREEN, LEAVE_ALT_SCREEN, perform } from './effects.js'
 import { renderFrame } from './frame.js'
+import { osNotifier } from './notify.js'
 import { PresenceReporter } from './presence.js'
 import { SdkSource } from './source.js'
 import { type Effect, initialNav, reduce } from './state.js'
@@ -42,7 +43,13 @@ export async function startTui(context: Context): Promise<number> {
     offline: 'queue',
     ...(cache === undefined ? {} : { cache }),
   })
-  const source = new SdkSource(board, slug)
+  const { config } = await context.config()
+  const source = new SdkSource(
+    board,
+    slug,
+    Date.now,
+    await osNotifier(config.ui.notifications, env),
+  )
   // Working = this checkout's branch belongs to a card you are on (§8.5).
   const presence = new PresenceReporter(board, async () => {
     const repo = await context.repo()

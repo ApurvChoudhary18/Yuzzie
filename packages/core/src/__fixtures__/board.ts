@@ -25,6 +25,7 @@ export function makeBoard(overrides: Partial<Board> = {}): Board {
     baseBranch: 'main',
     branchTemplate: 'task/{id}-{slug}',
     nextCardNo: 19,
+    autoWatch: true,
     archivedAt: null,
     createdAt: T0,
     ...overrides,

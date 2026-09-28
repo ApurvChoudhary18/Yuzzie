@@ -481,10 +481,21 @@ function build(io: Io, finish: (code: number) => void): Command {
     .description('what happened recently')
     .option('--since <duration>', 'only this far back, e.g. 2h, 1d')
     .option('--card <id>', 'only this card')
-    .option('--limit <n>', 'at most n events (default 50)')
+    .option('--author <handle>', 'only what this person did')
+    .option('--limit <n>', 'at most n events per page (default 50)')
+    .option('--before <seq>', 'the page before this one (the `next` a page printed)')
     .action(
-      action((context: Context, options: { since?: string; card?: string; limit?: string }) =>
-        activity(context, options),
+      action(
+        (
+          context: Context,
+          options: {
+            since?: string
+            card?: string
+            author?: string
+            before?: string
+            limit?: string
+          },
+        ) => activity(context, options),
       ),
     )
 

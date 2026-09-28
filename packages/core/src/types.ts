@@ -76,6 +76,8 @@ export interface Board {
   readonly baseBranch: string
   readonly branchTemplate: string
   readonly nextCardNo: number
+  /** Commenting on or being assigned to a card starts watching it (§18 Session 14). */
+  readonly autoWatch: boolean
   readonly archivedAt: IsoDateTime | null
   readonly createdAt: IsoDateTime
 }
