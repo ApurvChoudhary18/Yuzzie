@@ -396,7 +396,10 @@ describe('boards, columns and people', () => {
   it('activity', async () => {
     const human = await run(['activity', '--limit', '3'])
     expect(human.code).toBe(0)
-    expect(human.stdout.trim().split('\n')).toHaveLength(3)
+    // Three events, then where the older ones are (§18 Session 14 paging).
+    const lines = human.stdout.trim().split('\n')
+    expect(lines).toHaveLength(4)
+    expect(lines[3]).toMatch(/^Older: yuzie activity --limit 3 --before \d+$/)
     expect(human.stdout).toMatch(/@rahul/)
     const one = await json(['activity', '--card', '1'], 'EventList')
     const types = (one.data as Array<{ type: string; cardNo?: number }>).map((e) => e.type)

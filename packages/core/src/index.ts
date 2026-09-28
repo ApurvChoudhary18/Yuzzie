@@ -12,5 +12,14 @@ export * from './rank.js'
 export * from './realtime.js'
 export * from './reducer.js'
 export * from './schema.js'
+export { matchesSearch, searchFields, searchWords } from './search.js'
 export * from './slug.js'
+export {
+  claimTimes,
+  durationMs,
+  isStale,
+  lastProgressAt,
+  type StaleColumn,
+  type StaleContext,
+} from './stale.js'
 export * from './types.js'

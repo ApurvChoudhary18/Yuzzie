@@ -108,6 +108,7 @@ export function view(
     pushes: new Map(),
     staleAnchors: new Set(),
     activity: new Map(),
+    boardActivity: [],
     ...extra,
   }
 }

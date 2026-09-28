@@ -29,7 +29,7 @@ import {
   users,
   workspaces,
 } from '../db/schema.js'
-import { loadEvents } from '../services/log.js'
+import { loadActivity, loadEvents } from '../services/log.js'
 import { currentSeq, mutateBoard } from '../services/mutate.js'
 import {
   loadMembers,
@@ -210,6 +210,7 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
               ...(body.name === undefined ? {} : { name: body.name }),
               ...(body.baseBranch === undefined ? {} : { baseBranch: body.baseBranch }),
               ...(body.branchTemplate === undefined ? {} : { branchTemplate: body.branchTemplate }),
+              ...(body.autoWatch === undefined ? {} : { autoWatch: body.autoWatch }),
             })
             .where(eq(boards.id, access.board.id))
             .returning()
@@ -391,6 +392,36 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
         events: await loadEvents(db, access.board.id, { since, limit }),
         seq: await currentSeq(db, access.board.id),
       })
+    },
+  )
+
+  app.get<{ Params: { slug: string }; Querystring: Record<string, string | undefined> }>(
+    '/boards/:slug/activity',
+    async (request, reply) => {
+      const { access } = await requireBoard(context, request, request.params.slug)
+      const { before, card, actor, from, limit } = request.query
+      const number = (name: string, raw: string | undefined): number | undefined => {
+        if (raw === undefined) return undefined
+        const value = Number(raw)
+        if (!Number.isInteger(value) || value <= 0)
+          throw boardError('validation_failed', `\`${name}\` must be a positive integer`)
+        return value
+      }
+      const fromDate = from === undefined ? undefined : new Date(from)
+      if (fromDate !== undefined && Number.isNaN(fromDate.getTime()))
+        throw boardError('validation_failed', '`from` must be an ISO-8601 time')
+
+      const beforeSeq = number('before', before)
+      const cardNo = number('card', card)
+      const handle = actor?.replace(/^@/, '')
+      const page = await loadActivity(db, access.board.id, {
+        ...(beforeSeq === undefined ? {} : { before: beforeSeq }),
+        ...(cardNo === undefined ? {} : { cardNo }),
+        ...(handle === undefined ? {} : { actor: handle }),
+        ...(fromDate === undefined ? {} : { from: fromDate }),
+        limit: Math.min(number('limit', limit) ?? 50, 500),
+      })
+      return reply.send({ ...page, seq: await currentSeq(db, access.board.id) })
     },
   )
 

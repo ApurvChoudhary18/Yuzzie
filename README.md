@@ -41,8 +41,8 @@ job, or an AI agent can all drive the same board.
 | M1 — Server alive | 3–4 | Complete |
 | M2 — CLI usable | 5–7 | Complete |
 | M3 — TUI usable | 8–10 | Complete |
-| M4 — Git-aware | 11–12 | Not started |
-| M5 — Resilient | 13–14 | Not started |
+| M4 — Git-aware | 11–12 | Complete |
+| M5 — Resilient | 13–14 | Complete |
 | M6 — Agents | 15 | Not started |
 | M7 — Launch | 16–17 | Not started |
 

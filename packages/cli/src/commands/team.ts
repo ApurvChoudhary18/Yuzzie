@@ -2,7 +2,7 @@
  * Boards, columns and people (SPEC.md §7.2 "Boards", "Team & awareness"):
  * boards, columns, members, invite, who, activity, feed.
  */
-import { type EventEnvelope, NotFoundError, type Role, RoleSchema, slugify } from '@yuzie/core'
+import { NotFoundError, type Role, RoleSchema, slugify } from '@yuzie/core'
 import { matchColumn } from '@yuzie/sdk'
 import type { Context } from '../context.js'
 import { parseDuration } from '../dates.js'
@@ -316,54 +316,60 @@ export async function who(context: Context): Promise<void> {
 // Activity and the live feed
 // ---------------------------------------------------------------------------
 
+/**
+ * `yuzie activity` (§7.2, §18 Session 14): a projection over the event log,
+ * newest page first and oldest-first within a page, so the output is stable
+ * and each page picks up exactly where the last one ended (`--before`).
+ */
 export async function activity(
   context: Context,
-  options: { since?: string; card?: string; limit?: string },
+  options: { since?: string; card?: string; author?: string; before?: string; limit?: string },
 ): Promise<void> {
   const window = options.since === undefined ? undefined : parseDuration(options.since)
   const limit = options.limit === undefined ? 50 : Number(options.limit)
-  if (!Number.isInteger(limit) || limit <= 0)
-    throw new UsageError('--limit must be a positive whole number.')
+  if (!Number.isInteger(limit) || limit <= 0 || limit > 500)
+    throw new UsageError('--limit must be a whole number from 1 to 500.')
+  const before = options.before === undefined ? undefined : Number(options.before)
+  if (before !== undefined && (!Number.isInteger(before) || before <= 0))
+    throw new UsageError('--before takes the `next` number a previous page printed.')
   context.requireNetwork('Activity')
 
   await withBoard(context, async (session) => {
     const cardNo =
       options.card === undefined ? undefined : (await session.card(options.card)).number
     const now = context.now().getTime()
-    const cutoff = window === undefined ? undefined : now - window
-
-    // The log is read newest-first in pages of 500 until the window is covered.
-    const head = session.board.state.seq
-    const collected: EventEnvelope[] = []
-    for (let upTo = head; upTo > 0; upTo -= 500) {
-      const since = Math.max(0, upTo - 500)
-      const page = (await session.board.boards.events(since, 500)).events.filter(
-        (e) => e.seq <= upTo,
-      )
-      collected.unshift(...page)
-      const oldest = page[0]
-      const enough =
-        cutoff === undefined
-          ? collected.filter((e) => cardNo === undefined || e.cardNo === cardNo).length >= limit
-          : oldest !== undefined && Date.parse(oldest.ts) < cutoff
-      if (enough) break
-    }
-
-    let events = collected.filter(
-      (event) =>
-        (cardNo === undefined || event.cardNo === cardNo) &&
-        (cutoff === undefined || Date.parse(event.ts) >= cutoff),
-    )
-    events = events.slice(-limit)
+    const author = options.author === undefined ? undefined : options.author.replace(/^@/, '')
+    const page = await session.board.boards.activity({
+      limit,
+      ...(before === undefined ? {} : { before }),
+      ...(cardNo === undefined ? {} : { card: cardNo }),
+      ...(author === undefined ? {} : { actor: author }),
+      ...(window === undefined ? {} : { from: new Date(now - window).toISOString() }),
+    })
 
     const state = session.board.state
-    for (const event of events) {
+    for (const event of page.events) {
       context.output.line(
         `${context.output.paint('dim', pad(ago(now - Date.parse(event.ts)), 9))}${context.output.paint('cyan', actor(event))} ${describeEvent(event, state)}`,
       )
     }
-    if (events.length === 0) context.output.line('No activity in that window.')
-    context.output.result('EventList', events, meta(session, { count: events.length }))
+    if (page.events.length === 0) context.output.line('No activity in that window.')
+    if (page.next !== null) {
+      const again = [
+        'yuzie activity',
+        ...(options.card === undefined ? [] : [`--card ${options.card}`]),
+        ...(options.author === undefined ? [] : [`--author ${options.author}`]),
+        ...(options.since === undefined ? [] : [`--since ${options.since}`]),
+        ...(options.limit === undefined ? [] : [`--limit ${options.limit}`]),
+        `--before ${page.next}`,
+      ].join(' ')
+      context.output.line(context.output.paint('dim', `Older: ${again}`))
+    }
+    context.output.result(
+      'EventList',
+      page.events,
+      meta(session, { count: page.events.length, next: page.next }),
+    )
   })
 }
 

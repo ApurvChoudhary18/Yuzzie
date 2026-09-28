@@ -397,3 +397,68 @@ describe('presence emission', () => {
     expect(board.sentPresence.at(-1)).toEqual({ state: 'idle' })
   })
 })
+
+describe('watched cards (§18 Session 14)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function watchedSetup(notify: ((title: string, message: string) => void) | null = null) {
+    const board = new FakeBoard(COLUMNS, [
+      card(15, { title: 'Login flow' }),
+      card(18, { title: 'Fix OAuth', watchers: ['rahul'] }),
+    ])
+    const source = new SdkSource(board.asBoard(), 'b', Date.now, notify)
+    source.synced = true
+    cleanup.push(() => source.dispose())
+    return { board, source }
+  }
+
+  it('news about a watched card is a ★ toast, and an OS notification when enabled', () => {
+    const notified: Array<[string, string]> = []
+    const { board, source } = watchedSetup((title, message) => notified.push([title, message]))
+    move(board, 18, 'doing')
+    expect(source.view().toast).toMatchObject({ kind: 'watch' })
+    expect(notified).toEqual([['yuzie · b #18', expect.stringContaining('@priya moved #18')]])
+    move(board, 15, 'doing')
+    expect(notified).toHaveLength(1)
+  })
+
+  it('a broken notifier never disturbs the board', () => {
+    const { board, source } = watchedSetup(() => {
+      throw new Error('no notifier')
+    })
+    move(board, 18, 'doing')
+    expect(source.view().toast?.kind).toBe('watch')
+  })
+
+  it('when the queue is full, ordinary toasts give way before watched ones', async () => {
+    const { board, source } = watchedSetup()
+    move(board, 15, 'doing') // showing
+    move(board, 18, 'doing') // watched, waiting
+    move(board, 15, 'done') // ordinary, waiting
+    move(board, 15, 'todo') // pushes out the ordinary one, not the watched one
+    expect(source.view().toast?.waiting).toBe(TOAST_CAP - 1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(source.view().toast).toMatchObject({ kind: 'watch' })
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(source.view().toast?.text).toContain('Login flow → Todo')
+  })
+
+  it('the board activity drawer loads the log and keeps up with live events', async () => {
+    const { board, source } = watchedSetup()
+    board.log = [moved(15, 'doing'), moved(18, 'done', 'sam')]
+    expect(source.view().boardActivity).toEqual([])
+    const loading = source.loadBoardActivity()
+    expect(source.view().boardActivity).toBeNull()
+    await loading
+    expect(source.view().boardActivity?.map((entry) => entry.who)).toEqual(['@priya', '@sam'])
+    move(board, 15, 'done')
+    expect(source.view().boardActivity).toHaveLength(3)
+  })
+})

@@ -11,7 +11,12 @@ export default defineConfig({
     // isolate themselves by creating their own workspaces and boards.
     fileParallelism: false,
     // Wall-clock budgets run alone in the `bench` task; see vitest.bench.config.ts.
-    exclude: ['**/node_modules/**', '**/dist/**', 'src/realtime-timing.test.ts'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      'src/realtime-timing.test.ts',
+      'src/search-timing.test.ts',
+    ],
     coverage: {
       provider: 'v8',
       all: true,

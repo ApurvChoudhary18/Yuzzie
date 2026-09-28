@@ -19,6 +19,7 @@ import {
   CommitsAttachRequestSchema,
   cardNotFound,
   columnNotFound,
+  durationMs,
   GitSummaryUpsertRequestSchema,
   newId,
   rankBetween,
@@ -44,7 +45,8 @@ import {
   watchers,
 } from '../db/schema.js'
 import { type MutationContext, mutateBoard } from '../services/mutate.js'
-import { loadCard, loadCards } from '../services/serialize.js'
+import { loadClaimTimes, refineSearch, searchCandidates, staleCards } from '../services/search.js'
+import { loadCard, loadCards, toColumn } from '../services/serialize.js'
 import { type AppContext, created, mutation, ok, parseBody, requireBoard } from './helpers.js'
 
 type CardRow = typeof cards.$inferSelect
@@ -164,6 +166,33 @@ async function enforceWipLimit(
   }
 }
 
+/**
+ * Auto-watch (§18 Session 14): start `people` watching the card, and say which
+ * of them were not already, for the event's `watch`.
+ */
+async function autoWatch(
+  tx: Transaction,
+  cardId: string,
+  people: ReadonlyMap<string, string>,
+): Promise<string[]> {
+  if (people.size === 0) return []
+  const already = new Set(
+    (
+      await tx
+        .select({ userId: watchers.userId })
+        .from(watchers)
+        .where(and(eq(watchers.cardId, cardId), inArray(watchers.userId, [...people.values()])))
+    ).map((row) => row.userId),
+  )
+  const fresh = [...people].filter(([, userId]) => !already.has(userId))
+  if (fresh.length === 0) return []
+  await tx
+    .insert(watchers)
+    .values(fresh.map(([, userId]) => ({ cardId, userId })))
+    .onConflictDoNothing()
+  return fresh.map(([handle]) => handle).sort()
+}
+
 async function resolveUserIds(
   tx: Transaction,
   handles: readonly string[],
@@ -230,26 +259,44 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
   app.get<{ Params: { slug: string }; Querystring: Record<string, string | undefined> }>(
     '/boards/:slug/cards',
     async (request, reply) => {
-      const { access } = await board(request, request.params.slug)
+      const { auth, access } = await board(request, request.params.slug)
       const query = request.query
+      const { column, assignee, label, search, stale } = query
 
-      let list = await loadCards(db, access.board.id)
+      const threshold = stale === undefined ? null : durationMs(stale)
+      if (stale !== undefined && threshold === null)
+        throw boardError('validation_failed', `Cannot read "${stale}" as a duration; try 2d or 12h`)
 
-      const { column, assignee, label, search } = query
+      // The database narrows a search to its candidates; the rest is loaded whole.
+      const numbers =
+        search === undefined ? undefined : await searchCandidates(db, access.board.id, search)
+      let list =
+        numbers !== undefined && numbers.length === 0
+          ? []
+          : await loadCards(db, access.board.id, numbers === undefined ? {} : { numbers })
 
+      if (search !== undefined) list = refineSearch(list, search)
       if (column !== undefined) list = list.filter((card) => card.column === column)
       if (assignee !== undefined) {
         const handle = assignee.replace(/^@/, '')
         list = list.filter((card) => card.assignees.includes(handle))
       }
       if (label !== undefined) list = list.filter((card) => card.labels.includes(label))
-      if (search !== undefined) {
-        const needle = search.toLowerCase()
-        list = list.filter(
-          (card) =>
-            card.title.toLowerCase().includes(needle) ||
-            (card.description ?? '').toLowerCase().includes(needle),
+      if (query.mine === 'true')
+        list = list.filter((card) => card.assignees.includes(auth.user.handle))
+      if (query.watching === 'true')
+        list = list.filter((card) => card.watchers.includes(auth.user.handle))
+      if (threshold !== null) {
+        const boardColumns = (
+          await db.select().from(columns).where(eq(columns.boardId, access.board.id))
+        ).map(toColumn)
+        const claimed = await loadClaimTimes(
+          db,
+          access.board.id,
+          list.map((card) => card.number),
+          boardColumns,
         )
+        list = staleCards(list, threshold, boardColumns, claimed, Date.now())
       }
       const limit = Number.parseInt(query.limit ?? '', 10)
       if (Number.isInteger(limit) && limit > 0) list = list.slice(0, limit)
@@ -544,12 +591,14 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
                   ),
                 )
             }
+            let watch: string[] = []
             if (add.length > 0) {
               const ids = await resolveUserIds(ctx.tx, add)
               await ctx.tx
                 .insert(cardAssignees)
                 .values([...ids.values()].map((userId) => ({ cardId: row.id, userId })))
                 .onConflictDoNothing()
+              if (ctx.board.autoWatch) watch = await autoWatch(ctx.tx, row.id, ids)
             }
 
             await touchCard(ctx.tx, row.id, ctx.now)
@@ -557,7 +606,7 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               type: 'card.assigned',
               cardId: row.id,
               cardNo: number,
-              payload: { added: add, removed: remove },
+              payload: { added: add, removed: remove, ...(watch.length > 0 ? { watch } : {}) },
             })
 
             const card = await loadCard(asQueryable(ctx.tx), access.board.id, number)
@@ -598,11 +647,19 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               createdAt: ctx.now,
             })
 
+            const watch = ctx.board.autoWatch
+              ? await autoWatch(ctx.tx, row.id, new Map([[auth.user.handle, auth.user.id]]))
+              : []
             ctx.emit({
               type: 'comment.created',
               cardId: row.id,
               cardNo: number,
-              payload: { commentId, body: body.body, author: auth.user.handle },
+              payload: {
+                commentId,
+                body: body.body,
+                author: auth.user.handle,
+                ...(watch.length > 0 ? { watch } : {}),
+              },
             })
 
             const card = await loadCard(asQueryable(ctx.tx), access.board.id, number)

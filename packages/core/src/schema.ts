@@ -89,9 +89,11 @@ export const BoardSchema = z.object({
   baseBranch: z.string().min(1),
   branchTemplate: z.string().min(1),
   nextCardNo: z.number().int().positive(),
+  /** Commenting on or being assigned to a card starts watching it (§18 Session 14). */
+  autoWatch: z.boolean().default(true),
   archivedAt: isoDateTime().nullable(),
   createdAt: isoDateTime(),
-}) satisfies z.ZodType<Board>
+}) satisfies z.ZodType<Board, unknown>
 
 export const MembershipSchema = z.object({
   boardId: uuid(),
@@ -224,6 +226,8 @@ export const EnvelopeMetaSchema = z.looseObject({
   synced: z.boolean().optional(),
   /** Set when the payload came from cache while offline (SPEC.md §13 acceptance). */
   cachedAt: isoDateTime().optional(),
+  /** Where the next page starts (`yuzie activity --before <next>`), or null on the last one. */
+  next: z.number().int().positive().nullable().optional(),
 })
 
 /** Builds the stable `{ apiVersion, kind, data, meta }` wrapper for a payload. */
@@ -334,6 +338,7 @@ export const BoardUpdateRequestSchema = z
     name: z.string().min(1).optional(),
     baseBranch: z.string().min(1).optional(),
     branchTemplate: z.string().min(1).optional(),
+    autoWatch: z.boolean().optional(),
   })
   .refine((body) => Object.keys(body).length > 0, { message: 'No fields to update' })
 

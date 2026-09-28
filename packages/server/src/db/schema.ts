@@ -51,6 +51,7 @@ export const boards = pgTable(
     baseBranch: text('base_branch').notNull().default('main'),
     branchTemplate: text('branch_template').notNull().default('task/{id}-{slug}'),
     nextCardNo: integer('next_card_no').notNull().default(1),
+    autoWatch: boolean('auto_watch').notNull().default(true),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: createdAt(),
   },

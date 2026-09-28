@@ -7,7 +7,7 @@ import { defineConfig } from 'vitest/config'
  */
 export default defineConfig({
   test: {
-    include: ['src/realtime-timing.test.ts'],
+    include: ['src/realtime-timing.test.ts', 'src/search-timing.test.ts'],
     testTimeout: 60_000,
     hookTimeout: 120_000,
     setupFiles: ['./src/__tests__/docker-env.ts'],

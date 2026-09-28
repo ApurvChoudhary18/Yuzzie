@@ -5,20 +5,14 @@
  * Each one renders for people or as a `--json` envelope (§7.3), and fails
  * through the exit codes of §7.4.
  */
-import { type AnchorInput, type Card, type Column, NotFoundError } from '@yuzie/core'
+import { type AnchorInput, type Card, type Column, NotFoundError, OfflineError } from '@yuzie/core'
 import { matchColumn } from '@yuzie/sdk'
 import type { Context } from '../context.js'
 import { parseDue, parseDuration, parsePriority } from '../dates.js'
 import { diffCard, editText, parseDocument, toDocument } from '../edit.js'
 import { UsageError } from '../exit.js'
 import { staleness } from '../open.js'
-import {
-  columnName,
-  isDoneColumn,
-  lastActivity,
-  renderCardDetail,
-  renderCardList,
-} from '../render/cards.js'
+import { columnName, lastActivity, renderCardDetail, renderCardList } from '../render/cards.js'
 import { shortDate } from '../render/text.js'
 import { type BoardSession, withBoard } from '../session.js'
 
@@ -149,6 +143,38 @@ export interface ListOptions {
 
 const SORTS = ['updated', 'rank', 'created', 'due', 'priority'] as const
 
+/**
+ * Search and staleness (§18 Session 14): the server answers for the cards it
+ * knows — it can search every comment and knows when each card was claimed —
+ * and the local matcher answers offline, and for cards still queued.
+ */
+async function narrow(
+  session: BoardSession,
+  cards: Card[],
+  filter: { search: string | undefined; stale: string | undefined; now: number },
+): Promise<Card[]> {
+  const wanted = {
+    ...(filter.search === undefined ? {} : { search: filter.search }),
+    ...(filter.stale === undefined ? {} : { stale: filter.stale }),
+  }
+  const local = new Set(
+    session.board.cards.listLocal(wanted, filter.now).map((card) => card.number),
+  )
+  if (!session.online) return cards.filter((card) => local.has(card.number))
+  try {
+    const server = new Set((await session.board.cards.list(wanted)).map((card) => card.number))
+    const queued = session.board.queuedCards
+    return cards.filter((card) =>
+      card.number < 0 || queued.has(card.number)
+        ? local.has(card.number) || server.has(card.number)
+        : server.has(card.number),
+    )
+  } catch (error) {
+    if (!(error instanceof OfflineError)) throw error
+    return cards.filter((card) => local.has(card.number))
+  }
+}
+
 export async function list(context: Context, options: ListOptions): Promise<void> {
   const sort = options.sort ?? 'updated'
   if (!(SORTS as readonly string[]).includes(sort)) {
@@ -158,7 +184,8 @@ export async function list(context: Context, options: ListOptions): Promise<void
   if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
     throw new UsageError('--limit must be a positive whole number.')
   }
-  const stale = options.stale === undefined ? undefined : parseDuration(options.stale)
+  // Read early so a bad duration is a usage error before any network.
+  if (options.stale !== undefined) parseDuration(options.stale)
 
   await withBoard(context, async (session) => {
     const state = session.board.state
@@ -182,20 +209,12 @@ export async function list(context: Context, options: ListOptions): Promise<void
       cards = cards.filter((card) => card.labels.includes(options.label as string))
     if (options.mine) cards = cards.filter((card) => card.assignees.includes(me as string))
     if (options.watching) cards = cards.filter((card) => card.watchers.includes(me as string))
-    if (options.search !== undefined) {
-      const needle = options.search.toLowerCase()
-      cards = cards.filter(
-        (card) =>
-          card.title.toLowerCase().includes(needle) ||
-          (card.description ?? '').toLowerCase().includes(needle),
-      )
-    }
-    if (stale !== undefined) {
-      // Stale means nothing has happened for a while on work that is not finished.
-      cards = cards.filter(
-        (card) =>
-          !isDoneColumn(state.columns, card.column) && now.getTime() - lastActivity(card) >= stale,
-      )
+    if (options.search !== undefined || options.stale !== undefined) {
+      cards = await narrow(session, cards, {
+        search: options.search,
+        stale: options.stale,
+        now: now.getTime(),
+      })
     }
 
     const compare: Record<(typeof SORTS)[number], (a: Card, b: Card) => number> = {

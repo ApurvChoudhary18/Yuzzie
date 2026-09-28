@@ -78,6 +78,7 @@ export class FakeApi {
       }),
     )
     this.on('GET', /^\/boards\/b\/events/, () => reply(200, { events: [], seq: 0 }))
+    this.on('GET', /^\/boards\/b\/activity/, () => reply(200, { events: [], seq: 0, next: null }))
     this.on('GET', /^\/boards\/b\/cards$/, () =>
       reply(200, { cards: this.cards, boardSlug: 'b', count: this.cards.length }),
     )

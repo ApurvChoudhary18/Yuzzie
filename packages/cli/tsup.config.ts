@@ -16,6 +16,8 @@ export default defineConfig({
   dts: false,
   sourcemap: true,
   clean: true,
+  // Optional (off by default, §18 Session 14): loaded only if installed and enabled.
+  external: ['node-notifier'],
   banner: { js: '#!/usr/bin/env node' },
   define: { __YUZIE_VERSION__: JSON.stringify(pkg.version) },
 })

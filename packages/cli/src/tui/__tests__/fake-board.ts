@@ -21,8 +21,16 @@ export class FakeBoard {
   connected = true
   syncs = 0
   private readonly handlers = new Map<string, Set<Handler>>()
+  /** What `boards.activity` answers with. */
+  log: EventEnvelope[] = []
   readonly boards = {
     events: async () => ({ events: [] as EventEnvelope[], seq: 0 }),
+    activity: async (query: { card?: number; limit?: number } = {}) => {
+      const matching = this.log.filter(
+        (event) => query.card === undefined || event.cardNo === query.card,
+      )
+      return { events: matching.slice(-(query.limit ?? 50)), seq: this.state.seq, next: null }
+    },
   }
 
   constructor(columns: Column[], cards: Card[]) {

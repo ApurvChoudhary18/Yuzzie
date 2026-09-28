@@ -105,7 +105,12 @@ function reduce(state: BoardState, event: EventEnvelope): BoardState {
         // Assignees are a set, kept in handle order: the server stores no order
         // and returns them sorted, so folding events must land on the same array
         // a snapshot would, or two clients would disagree about one card.
-        return { ...card, assignees: [...kept, ...appended].sort(), updatedAt: event.ts }
+        return {
+          ...card,
+          assignees: [...kept, ...appended].sort(),
+          watchers: withWatchers(card.watchers, event.payload.watch),
+          updatedAt: event.ts,
+        }
       })
 
     case 'card.deleted': {
@@ -119,6 +124,7 @@ function reduce(state: BoardState, event: EventEnvelope): BoardState {
         if (card.comments.some((comment) => comment.id === event.payload.commentId)) return card
         return {
           ...card,
+          watchers: withWatchers(card.watchers, event.payload.watch),
           comments: [
             ...card.comments,
             {
@@ -239,6 +245,12 @@ function reduce(state: BoardState, event: EventEnvelope): BoardState {
  * Events at or below `state.seq` have already been applied and are ignored, so
  * a duplicate delivery (the echo of the client's own write, §12.2) is a no-op.
  */
+/** Watchers are a sorted set, like assignees (auto-watch adds to it). */
+function withWatchers(current: readonly string[], added: readonly string[] | undefined): string[] {
+  if (added === undefined || added.length === 0) return [...current]
+  return [...new Set([...current, ...added])].sort()
+}
+
 export function applyEvent(state: BoardState, event: EventEnvelope): BoardState {
   if (event.seq <= state.seq) return state
   const next = reduce(state, event)

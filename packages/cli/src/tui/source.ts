@@ -34,9 +34,13 @@ export const TOAST_CAP = 3
 export const OFFLINE_AFTER_MS = 4_000
 /** While writes are queued and the stream is up, try sending them this often. */
 const DRAIN_EVERY_MS = 5_000
-/** Pages of the event log read, at most, to fill one card's activity panel. */
-const ACTIVITY_PAGES = 4
-const PAGE = 500
+/** The board activity drawer (`A`) keeps this many entries. */
+export const BOARD_ACTIVITY_LIMIT = 200
+/** What the drawer asks the server for when it opens. */
+const BOARD_ACTIVITY_PAGE = 100
+
+/** An OS-level notification (node-notifier), for news about a watched card. */
+export type Notify = (title: string, message: string) => void
 
 type ToastKind = NonNullable<BoardView['toast']>['kind']
 
@@ -48,6 +52,9 @@ export class SdkSource implements BoardSource {
   private readonly drainTimer: ReturnType<typeof setInterval>
 
   private readonly toasts: Array<{ text: string; kind: ToastKind }> = []
+  /** The board's activity by `seq`, for the `A` drawer; `null` while the first load runs. */
+  private readonly feed = new Map<number, ActivityEntry>()
+  private feedLoading = false
   private toastShownAt = 0
   private toastTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -71,6 +78,7 @@ export class SdkSource implements BoardSource {
     private readonly board: Board,
     private readonly slug: string,
     private readonly clock: () => number = Date.now,
+    private readonly notify: Notify | null = null,
   ) {
     board.on('change', () => this.invalidate())
     board.on('presence', () => this.invalidate())
@@ -127,10 +135,29 @@ export class SdkSource implements BoardSource {
       }
       this.remember(cardNo, event)
     }
+    this.feed.set(event.seq, this.entry(event))
+    this.trimFeed()
     // Toasts are news: your own changes echo back as events, but you just made
     // them, and the key that made them already said so.
-    if (event.actor === null || event.actor !== this.board.handle)
-      this.say(`${actor(event)} ${describeEvent(event, this.board.state)}`, 'event')
+    if (event.actor === null || event.actor !== this.board.handle) {
+      const text = `${actor(event)} ${describeEvent(event, this.board.state)}`
+      const me = this.board.handle
+      const watched =
+        me !== null &&
+        cardNo !== undefined &&
+        this.board.state.cards[cardNo]?.watchers.includes(me) === true
+      this.say(text, watched ? 'watch' : 'event')
+      if (watched) this.notifyOs(`#${cardNo}`, text)
+    }
+  }
+
+  private notifyOs(title: string, message: string): void {
+    if (this.notify === null) return
+    try {
+      this.notify(`yuzie · ${this.slug} ${title}`, message)
+    } catch {
+      // A missing or broken notifier never disturbs the board.
+    }
   }
 
   /** Send what queued up while the server was away; the SDK keeps each write's idempotency key. */
@@ -159,8 +186,12 @@ export class SdkSource implements BoardSource {
   say(text: string, kind: ToastKind): void {
     if (this.toasts.length === 0) this.toastShownAt = this.clock()
     this.toasts.push({ text, kind })
-    // Cap the queue: the oldest waiting toast gives way; the one showing stays.
-    while (this.toasts.length > TOAST_CAP) this.toasts.splice(1, 1)
+    // Cap the queue: the one showing stays; the oldest waiting toast gives way,
+    // unless it is about a card you watch and something else can go instead.
+    while (this.toasts.length > TOAST_CAP) {
+      const ordinary = this.toasts.findIndex((toast, index) => index > 0 && toast.kind !== 'watch')
+      this.toasts.splice(ordinary === -1 ? 1 : ordinary, 1)
+    }
     this.scheduleToast()
     this.invalidate()
   }
@@ -229,8 +260,8 @@ export class SdkSource implements BoardSource {
   }
 
   /**
-   * Fill a card's activity panel from the event log, newest pages first. Offline
-   * it stays as it is, and the card view falls back to the card's comments.
+   * Fill a card's activity panel from the event log. Offline it stays as it
+   * is, and the card view falls back to the card's comments.
    */
   async loadActivity(cardNo: number): Promise<void> {
     if (this.offline || this.activity.get(cardNo) === null) return
@@ -238,25 +269,42 @@ export class SdkSource implements BoardSource {
     this.activity.set(cardNo, had ?? null)
     this.invalidate()
     try {
-      const head = this.board.state.seq
-      const found: EventEnvelope[] = []
-      for (let page = 0, upTo = head; page < ACTIVITY_PAGES && upTo > 0; page += 1, upTo -= PAGE) {
-        const since = Math.max(0, upTo - PAGE)
-        const events = (await this.board.boards.events(since, PAGE)).events.filter(
-          (event) => event.seq <= upTo && event.cardNo === cardNo,
-        )
-        found.unshift(...events)
-        if (found.length >= ACTIVITY_LIMIT) break
-      }
+      const page = await this.board.boards.activity({ card: cardNo, limit: ACTIVITY_LIMIT })
       this.activity.set(
         cardNo,
-        found.slice(-ACTIVITY_LIMIT).map((event) => this.entry(event)),
+        page.events.map((event) => this.entry(event)),
       )
     } catch {
       // Unreachable or refused: show what the card itself knows instead.
       this.activity.delete(cardNo)
     }
     this.invalidate()
+  }
+
+  private trimFeed(): void {
+    if (this.feed.size <= BOARD_ACTIVITY_LIMIT) return
+    const seqs = [...this.feed.keys()].sort((a, b) => a - b)
+    for (const seq of seqs.slice(0, seqs.length - BOARD_ACTIVITY_LIMIT)) this.feed.delete(seq)
+  }
+
+  /**
+   * Fill the board activity drawer from the log; live events keep it current.
+   * Offline it shows what arrived while the board was open.
+   */
+  async loadBoardActivity(): Promise<void> {
+    if (this.offline || this.feedLoading) return
+    this.feedLoading = this.feed.size === 0
+    this.invalidate()
+    try {
+      const page = await this.board.boards.activity({ limit: BOARD_ACTIVITY_PAGE })
+      for (const event of page.events) this.feed.set(event.seq, this.entry(event))
+      this.trimFeed()
+    } catch {
+      // Unreachable: what arrived live is what there is.
+    } finally {
+      this.feedLoading = false
+      this.invalidate()
+    }
   }
 
   // -- the view ----------------------------------------------------------------
@@ -304,6 +352,9 @@ export class SdkSource implements BoardSource {
       pushes: new Map(this.pushes),
       staleAnchors: new Set(this.staleAnchors),
       activity: new Map(this.activity),
+      boardActivity: this.feedLoading
+        ? null
+        : [...this.feed.entries()].sort(([a], [b]) => a - b).map(([, entry]) => entry),
     }
     return this.cached
   }

@@ -19,6 +19,7 @@ import {
   listEntries,
   listRows,
   numbersOf,
+  STALE_DAYS,
   visibleView,
 } from './layout.js'
 
@@ -51,6 +52,8 @@ export type Overlay =
     }
   | { readonly kind: 'confirm'; readonly cardNo: number; readonly title: string }
   | { readonly kind: 'checklist'; readonly cardNo: number; readonly index: number }
+  /** `A`: the board's recent activity; `back` is how far up from the newest it is scrolled. */
+  | { readonly kind: 'activity'; readonly back: number }
 
 export interface NavState {
   readonly screen: 'board' | 'card'
@@ -94,6 +97,7 @@ type CardEffectType =
 export type Effect =
   | { readonly type: 'quit' }
   | { readonly type: 'refresh' }
+  | { readonly type: 'boardActivity' }
   | { readonly type: CardEffectType; readonly cardNo: number }
   | { readonly type: 'move'; readonly cardNo: number; readonly column: string }
   | {
@@ -317,7 +321,16 @@ function filterPicker(view: BoardView, active: Filter | null): Overlay {
   const current = active === null ? 'all' : filterValue(active)
   const options: PickOption[] = [
     { label: 'Everything', value: 'all' },
-    ...(view.me === null ? [] : [{ label: 'Mine', value: 'mine' }]),
+    ...(view.me === null
+      ? []
+      : [
+          { label: 'Mine', value: 'mine' },
+          { label: 'Watching', value: 'watching' },
+        ]),
+    ...STALE_DAYS.map((days) => ({
+      label: `Stale: no progress in ${days} days`,
+      value: `stale:${days}`,
+    })),
     ...assignees.map((handle) => ({ label: `Assigned to @${handle}`, value: `@${handle}` })),
     ...labels.map((label) => ({ label: `Label: ${label}`, value: `#${label}` })),
   ].map((option) => ({ ...option, current: option.value === current }))
@@ -335,14 +348,15 @@ function filterPicker(view: BoardView, active: Filter | null): Overlay {
 }
 
 function filterValue(filter: Filter): string {
-  return filter.kind === 'mine'
-    ? 'mine'
-    : `${filter.kind === 'label' ? '#' : ''}${describeFilter(filter)}`
+  if (filter.kind === 'stale') return `stale:${filter.days}`
+  return filter.kind === 'label' ? `#${filter.label}` : describeFilter(filter)
 }
 
 function parseFilter(value: string): Filter | null {
   if (value === 'all') return null
   if (value === 'mine') return { kind: 'mine' }
+  if (value === 'watching') return { kind: 'watching' }
+  if (value.startsWith('stale:')) return { kind: 'stale', days: Number(value.slice(6)) }
   if (value.startsWith('@')) return { kind: 'assignee', handle: value.slice(1) }
   return { kind: 'label', label: value.slice(1) }
 }
@@ -527,6 +541,21 @@ function overlayKey(state: NavState, overlay: Overlay, key: string, view: BoardV
       return inputKey(state, overlay, key, view)
     case 'checklist':
       return checklistKey(state, overlay, key, view)
+    case 'activity': {
+      const most = Math.max(0, (view.boardActivity?.length ?? 0) - 1)
+      if (key === 'k' || key === 'up')
+        return step({
+          ...state,
+          overlay: { kind: 'activity', back: Math.min(most, overlay.back + 1) },
+        })
+      if (key === 'j' || key === 'down')
+        return step({
+          ...state,
+          overlay: { kind: 'activity', back: Math.max(0, overlay.back - 1) },
+        })
+      if (['escape', 'q', 'A', 'enter', 'ctrl-c'].includes(key)) return closeOverlay(state, view)
+      return step(state)
+    }
     case 'confirm': {
       if (key === 'y' || key === 'Y' || key === 'enter') {
         const back =
@@ -672,6 +701,8 @@ function boardKey(state: NavState, key: string, view: BoardView): Step {
       return step({ ...state, overlay: input('search', 'Search', { text: state.query }) })
     case 'f':
       return step({ ...state, overlay: filterPicker(view, state.filter) })
+    case 'A':
+      return step({ ...state, overlay: { kind: 'activity', back: 0 } }, [{ type: 'boardActivity' }])
     case 'n': {
       const column = visible.columns[state.column]
       if (column === undefined) return step(state)

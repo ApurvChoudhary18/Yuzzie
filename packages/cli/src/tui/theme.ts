@@ -52,6 +52,8 @@ export interface Glyphs {
   readonly open: string
   /** A card someone else changed under you (§18 Session 10: `⟳ updated by @x`). */
   readonly updated: string
+  /** News about a card you watch. */
+  readonly watched: string
   /** The arrow keys, as the help overlay names them. */
   readonly arrowLeft: string
   readonly arrowRight: string
@@ -80,6 +82,7 @@ const UNICODE: Glyphs = {
   pending: '◌',
   open: '○',
   updated: '⟳',
+  watched: '★',
   arrowLeft: '←',
   arrowRight: '→',
 }
@@ -107,6 +110,7 @@ const ASCII: Glyphs = {
   pending: '~',
   open: 'o',
   updated: '%',
+  watched: '*',
   arrowLeft: '<',
   arrowRight: '>',
 }

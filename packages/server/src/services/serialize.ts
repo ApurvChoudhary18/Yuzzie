@@ -59,6 +59,7 @@ export function toBoard(row: typeof boards.$inferSelect): Board {
     baseBranch: row.baseBranch,
     branchTemplate: row.branchTemplate,
     nextCardNo: row.nextCardNo,
+    autoWatch: row.autoWatch,
     archivedAt: toIso(row.archivedAt),
     createdAt: toIsoRequired(row.createdAt),
   }

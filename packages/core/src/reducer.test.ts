@@ -521,3 +521,33 @@ describe('property: shuffled event logs converge', () => {
     expect(batch).toEqual(snapshot)
   })
 })
+
+describe('auto-watch (§18 Session 14)', () => {
+  it('an assignment adds the watchers it names, as a sorted set', () => {
+    const state = stateWithCard(makeCard({ watchers: ['priya'] }))
+    const next = applyEvent(
+      state,
+      makeEvent('card.assigned', 1, { added: ['sam'], removed: [], watch: ['sam', 'priya'] }),
+    )
+    expect(next.cards[18]?.watchers).toEqual(['priya', 'sam'])
+  })
+
+  it('a comment adds its author when the payload says so, and nobody otherwise', () => {
+    const state = stateWithCard(makeCard())
+    const watched = applyEvent(
+      state,
+      makeEvent('comment.created', 1, {
+        commentId: COMMENT_ID,
+        body: 'hi',
+        author: 'priya',
+        watch: ['priya'],
+      }),
+    )
+    expect(watched.cards[18]?.watchers).toEqual(['priya'])
+    const unwatched = applyEvent(
+      state,
+      makeEvent('comment.created', 1, { commentId: COMMENT_ID, body: 'hi', author: 'priya' }),
+    )
+    expect(unwatched.cards[18]?.watchers).toEqual([])
+  })
+})
