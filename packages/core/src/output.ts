@@ -8,6 +8,7 @@
 import { z } from 'zod'
 import { EventEnvelopeSchema } from './events.js'
 import {
+  ApiTokenSchema,
   BoardListEnvelopeSchema,
   BoardSchema,
   CardEnvelopeSchema,
@@ -24,6 +25,7 @@ import {
   PresenceEnvelopeSchema,
   RoleSchema,
   SlugSchema,
+  TokenCreateResponseSchema,
 } from './schema.js'
 
 export const BoardEnvelopeSchema = jsonEnvelopeSchema('Board', BoardSchema)
@@ -171,8 +173,25 @@ export const WatchEnvelopeSchema = jsonEnvelopeSchema(
   z.object({ number: CardNumberSchema, watching: z.boolean() }),
 )
 
+/** `yuzie token list` (§18 Session 15): never a plaintext. */
+export const ApiTokenListEnvelopeSchema = jsonEnvelopeSchema(
+  'ApiTokenList',
+  z.array(ApiTokenSchema),
+)
+/** `yuzie token create`: the one document that carries a plaintext token (§13.3). */
+export const TokenCreatedEnvelopeSchema = jsonEnvelopeSchema(
+  'TokenCreated',
+  TokenCreateResponseSchema,
+)
+/** `yuzie token revoke`. */
+export const TokenRevokedEnvelopeSchema = jsonEnvelopeSchema(
+  'TokenRevoked',
+  z.object({ id: z.uuid(), revoked: z.literal(true) }),
+)
+
 /** The schema for each `kind` a Session 7 command emits. */
 export const OUTPUT_ENVELOPES = {
+  ApiTokenList: ApiTokenListEnvelopeSchema,
   Board: BoardEnvelopeSchema,
   BoardList: BoardListEnvelopeSchema,
   Branch: BranchEnvelopeSchema,
@@ -195,6 +214,8 @@ export const OUTPUT_ENVELOPES = {
   QueuedCard: QueuedCardEnvelopeSchema,
   Share: ShareEnvelopeSchema,
   SyncReport: SyncReportEnvelopeSchema,
+  TokenCreated: TokenCreatedEnvelopeSchema,
+  TokenRevoked: TokenRevokedEnvelopeSchema,
   Watch: WatchEnvelopeSchema,
 } as const
 

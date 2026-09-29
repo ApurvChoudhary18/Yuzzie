@@ -19,7 +19,8 @@ import { ACTIONS, can } from './auth/permissions.js'
  *
  * The agent column is "member role, minus destructive operations": §13.4 puts
  * the `--allow-destructive` gate in the MCP server, and a client-supplied flag
- * is no protection, so the API refuses agent card deletion outright.
+ * is no protection, so the API refuses agent card deletion unless the agent's
+ * token was issued with `allowDestructive` (agent-tokens.test.ts covers that).
  */
 
 type Cell = boolean

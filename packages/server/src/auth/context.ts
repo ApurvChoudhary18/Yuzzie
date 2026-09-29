@@ -113,7 +113,11 @@ export async function resolveBoard(
     board,
     role,
     user: auth.user,
-    actor: { role, kind: auth.user.kind as UserKind },
+    actor: {
+      role,
+      kind: auth.user.kind as UserKind,
+      allowDestructive: auth.token.allowDestructive,
+    },
   }
 }
 

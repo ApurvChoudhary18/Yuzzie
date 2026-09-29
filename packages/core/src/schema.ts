@@ -209,6 +209,8 @@ export const ApiTokenSchema = z.object({
   name: z.string().min(1),
   role: RoleSchema,
   boardSlug: slug().nullable(),
+  agent: handle().nullable(),
+  allowDestructive: z.boolean(),
   lastUsedAt: isoDateTime().nullable(),
   expiresAt: isoDateTime().nullable(),
   revokedAt: isoDateTime().nullable(),
@@ -491,12 +493,32 @@ export const InviteCreateRequestSchema = z
     message: 'Provide an email address or a @handle to invite',
   })
 
-export const TokenCreateRequestSchema = z.object({
-  name: z.string().min(1),
-  role: RoleSchema,
-  boardSlug: slug().optional(),
-  expiresAt: isoDateTime().optional(),
-})
+export const TokenCreateRequestSchema = z
+  .object({
+    name: z.string().min(1),
+    role: RoleSchema,
+    boardSlug: slug().optional(),
+    expiresAt: isoDateTime().optional(),
+    /**
+     * Issue the token to this agent instead of yourself (§18 Session 15): the
+     * agent joins the board and every action it takes is attributed to it.
+     */
+    agent: handle().optional(),
+    /** Let the agent delete cards. Only for agent tokens. */
+    allowDestructive: z.boolean().optional(),
+  })
+  .refine((body) => body.agent === undefined || body.boardSlug !== undefined, {
+    message: 'An agent token belongs to one board: give boardSlug',
+    path: ['boardSlug'],
+  })
+  .refine((body) => body.agent === undefined || body.role !== 'owner', {
+    message: 'An agent can be a member or a viewer, never an owner (§14.2)',
+    path: ['role'],
+  })
+  .refine((body) => body.allowDestructive !== true || body.agent !== undefined, {
+    message: 'allowDestructive is only for agent tokens',
+    path: ['allowDestructive'],
+  })
 
 /** The only response that ever carries a plaintext token (SPEC.md §13.3). */
 export const TokenCreateResponseSchema = z.object({

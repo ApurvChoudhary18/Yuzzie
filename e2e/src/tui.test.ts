@@ -86,7 +86,9 @@ describe('start-up', () => {
     await tui.waitFor('synced', 'synced')
     await tui.press('c')
     // Not in a repository here, so no branch — but assigned and moved to Doing.
-    await tui.waitFor('Claimed #1', 'the claim toast')
+    await tui.waitFor('Claiming #1', 'the claim starting')
+    // A separate `yuzie claim` process does the work; give it room on a busy machine.
+    await tui.waitFor('Claimed #1', 'the claim toast', 30_000)
     await tui.waitFor((screen) => /DOING \(2\)/.test(screen), 'the card in Doing')
   })
 

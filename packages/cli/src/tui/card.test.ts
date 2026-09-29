@@ -209,6 +209,16 @@ describe('card view snapshots', () => {
       expect(frame).toContain(text)
   })
 
+  it('marks an agent assignee, and an agent working on the card (§18 Session 15)', async () => {
+    const agentCard = boardWith(
+      { ...FULL, assignees: ['claude'] },
+      { agents: new Set(['claude']), presence: [{ ...person('claude', 18), kind: 'agent' }] },
+    )
+    const frame = (await openCard(agentCard, 100, 50)).terminal.lastFrame()
+    expect(frame).toContain('ASSIGNEE  @claude (agent) ● working')
+    expect(frame).toContain('● @claude (agent) is working on this card')
+  })
+
   it('says how to link a branch when there is none, and loads activity lazily', async () => {
     const loading = boardWith({ ...FULL, git: null }, { activity: new Map([[18, null]]) })
     const frame = (await openCard(loading, 100, 50)).terminal.lastFrame()

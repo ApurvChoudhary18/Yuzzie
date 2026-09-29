@@ -14,10 +14,10 @@ import {
   slugify,
   TokenCreateRequestSchema,
 } from '@yuzie/core'
-import { and, asc, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, isNull, or } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import { authorizeOn } from '../auth/context.js'
+import { authorizeOn, resolveBoard } from '../auth/context.js'
 import { generateToken, hashToken } from '../auth/tokens.js'
 import {
   apiTokens,
@@ -432,23 +432,24 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
 
   app.get('/tokens', async (request, reply) => {
     const auth = await requireAuth(context, request)
+    // Your own tokens, and the ones you issued to agents (§18 Session 15).
     const rows = await db
-      .select({ token: apiTokens, boardSlug: boards.slug })
+      .select({ token: apiTokens, boardSlug: boards.slug, holder: users })
       .from(apiTokens)
+      .innerJoin(users, eq(apiTokens.userId, users.id))
       .leftJoin(boards, eq(apiTokens.boardId, boards.id))
-      .where(and(eq(apiTokens.userId, auth.user.id), isNull(apiTokens.revokedAt)))
+      .where(
+        and(
+          or(eq(apiTokens.userId, auth.user.id), eq(apiTokens.createdBy, auth.user.id)),
+          isNull(apiTokens.revokedAt),
+        ),
+      )
+      .orderBy(asc(apiTokens.createdAt))
 
     return reply.send({
-      tokens: rows.map(({ token, boardSlug }) => ({
-        id: token.id,
-        name: token.name,
-        role: token.role as Role,
-        boardSlug: boardSlug ?? null,
-        lastUsedAt: toIso(token.lastUsedAt),
-        expiresAt: toIso(token.expiresAt),
-        revokedAt: toIso(token.revokedAt),
-        createdAt: toIsoRequired(token.createdAt),
-      })),
+      tokens: rows.map(({ token, boardSlug, holder }) =>
+        toApiToken(token, boardSlug ?? null, holder.id === auth.user.id ? null : holder.handle),
+      ),
     })
   })
 
@@ -475,16 +476,48 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
         boardSlug = board.slug
       }
 
+      // An agent token is issued to the agent, not to you: the agent joins the
+      // board with the token's role, so what it does is attributed to it.
+      let holder = auth.user
+      if (body.agent !== undefined && boardId !== null) {
+        const access = await resolveBoard(db, auth, boardSlug as string)
+        authorizeOn(access, 'member.invite')
+        const agent = await agentUser(db, body.agent)
+        const role = body.role
+        await mutateBoard(
+          db,
+          boardId,
+          { id: auth.user.id, handle: auth.user.handle },
+          async (ctx) => {
+            await ctx.tx
+              .insert(memberships)
+              .values({ boardId: ctx.board.id, userId: agent.id, role })
+              .onConflictDoUpdate({
+                target: [memberships.boardId, memberships.userId],
+                set: { role },
+              })
+            ctx.emit({
+              type: 'member.joined',
+              payload: { handle: agent.handle, role, kind: 'agent' },
+            })
+          },
+          { bus: context.bus },
+        )
+        holder = agent
+      }
+
       const plaintext = generateToken()
       const [row] = await db
         .insert(apiTokens)
         .values({
-          userId: auth.user.id,
+          userId: holder.id,
           boardId,
           name: body.name,
           tokenHash: hashToken(plaintext),
           role: body.role,
           expiresAt: body.expiresAt === undefined ? null : new Date(body.expiresAt),
+          createdBy: holder.id === auth.user.id ? null : auth.user.id,
+          allowDestructive: body.allowDestructive === true,
         })
         .returning()
       if (row === undefined) throw boardError('internal', 'Could not create the token')
@@ -492,21 +525,11 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
       // §13.3: the plaintext is shown exactly once and never stored.
       return created({
         token: plaintext,
-        apiToken: {
-          id: row.id,
-          name: row.name,
-          role: row.role as Role,
-          boardSlug,
-          lastUsedAt: toIso(row.lastUsedAt),
-          expiresAt: toIso(row.expiresAt),
-          revokedAt: toIso(row.revokedAt),
-          createdAt: toIsoRequired(row.createdAt),
-        },
+        apiToken: toApiToken(row, boardSlug, holder.id === auth.user.id ? null : holder.handle),
       })
     })
   })
 
-  // `yuzie logout` revokes the token it is holding; it never knows that token's id.
   app.delete('/tokens/current', async (request, reply) => {
     const auth = await requireAuth(context, request)
     await db.update(apiTokens).set({ revokedAt: new Date() }).where(eq(apiTokens.id, auth.token.id))
@@ -521,7 +544,12 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
     const revoked = await db
       .update(apiTokens)
       .set({ revokedAt: new Date() })
-      .where(and(eq(apiTokens.id, request.params.id), eq(apiTokens.userId, auth.user.id)))
+      .where(
+        and(
+          eq(apiTokens.id, request.params.id),
+          or(eq(apiTokens.userId, auth.user.id), eq(apiTokens.createdBy, auth.user.id)),
+        ),
+      )
       .returning({ id: apiTokens.id })
 
     if (revoked.length === 0) {
@@ -529,4 +557,44 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
     }
     return reply.send({ id: request.params.id, revoked: true })
   })
+}
+
+type TokenRow = typeof apiTokens.$inferSelect
+
+function toApiToken(row: TokenRow, boardSlug: string | null, agent: string | null) {
+  return {
+    id: row.id,
+    name: row.name,
+    role: row.role as Role,
+    boardSlug,
+    agent,
+    allowDestructive: row.allowDestructive,
+    lastUsedAt: toIso(row.lastUsedAt),
+    expiresAt: toIso(row.expiresAt),
+    revokedAt: toIso(row.revokedAt),
+    createdAt: toIsoRequired(row.createdAt),
+  }
+}
+
+/** The agent with this handle, created the first time a token is issued to it. */
+async function agentUser(db: AppContext['db'], handle: string) {
+  const [existing] = await db.select().from(users).where(eq(users.handle, handle))
+  if (existing !== undefined) {
+    if (existing.kind !== 'agent')
+      throw boardError(
+        'validation_failed',
+        `@${handle} is a person, not an agent. Pick another handle for the agent.`,
+      )
+    return existing
+  }
+  const [created] = await db
+    .insert(users)
+    .values({ handle, kind: 'agent', displayName: handle })
+    .onConflictDoNothing()
+    .returning()
+  if (created !== undefined) return created
+  // Someone issued a token to the same new agent at the same moment.
+  const [raced] = await db.select().from(users).where(eq(users.handle, handle))
+  if (raced?.kind !== 'agent') throw boardError('internal', `Could not create @${handle}`)
+  return raced
 }

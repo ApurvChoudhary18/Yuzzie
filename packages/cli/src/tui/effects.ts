@@ -90,6 +90,8 @@ async function openBranch(cardNo: number, context: EffectContext): Promise<void>
 async function claimCard(cardNo: number, context: EffectContext): Promise<void> {
   const [program, ...base] = context.cli
   if (program === undefined) return
+  // A claim is a whole `yuzie claim` run (Git included): say it has started.
+  context.source.say(`Claiming #${cardNo}…`, 'info')
   const result = await new Promise<{ code: number; stdout: string }>((resolve) => {
     const child = spawn(program, [...base, 'claim', String(cardNo), '--yes', '--json'], {
       cwd: context.cwd,

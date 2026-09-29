@@ -63,7 +63,10 @@ function metaLine(card: Card, column: ViewColumn, view: BoardView, theme: Theme)
   parts.push(
     first === undefined
       ? seg(g.none, 'dim')
-      : seg(`@${first}${rest.length > 0 ? `+${rest.length}` : ''}`, 'accent'),
+      : seg(
+          `@${first}${rest.length > 0 ? `+${rest.length}` : ''}`,
+          view.agents.has(first) ? 'agent' : 'accent',
+        ),
   )
 
   // Presence on this card: someone working on it, or looking at it right now.
