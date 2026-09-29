@@ -350,7 +350,7 @@ export async function activity(
     const state = session.board.state
     for (const event of page.events) {
       context.output.line(
-        `${context.output.paint('dim', pad(ago(now - Date.parse(event.ts)), 9))}${context.output.paint('cyan', actor(event))} ${describeEvent(event, state)}`,
+        `${context.output.paint('dim', pad(ago(now - Date.parse(event.ts)), 9))}${context.output.paint('cyan', actor(event, state))} ${describeEvent(event, state)}`,
       )
     }
     if (page.events.length === 0) context.output.line('No activity in that window.')
@@ -394,7 +394,7 @@ export async function feed(context: Context): Promise<number> {
           return
         }
         context.output.line(
-          `${context.output.paint('dim', clock(event.ts))}  ${context.output.paint('cyan', actor(event))}  ${describeEvent(event, session.board.state)}`,
+          `${context.output.paint('dim', clock(event.ts))}  ${context.output.paint('cyan', actor(event, session.board.state))}  ${describeEvent(event, session.board.state)}`,
         )
       })
       session.board.on('status', (status) => {

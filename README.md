@@ -43,7 +43,7 @@ job, or an AI agent can all drive the same board.
 | M3 — TUI usable | 8–10 | Complete |
 | M4 — Git-aware | 11–12 | Complete |
 | M5 — Resilient | 13–14 | Complete |
-| M6 — Agents | 15 | Not started |
+| M6 — Agents | 15 | Complete |
 | M7 — Launch | 16–17 | Not started |
 
 ## Repository layout
@@ -100,6 +100,72 @@ pnpm changeset
 
 See [`SPEC.md`](./SPEC.md) Appendix E for the definition of done that applies to every
 session.
+
+## Agents
+
+An AI coding agent works on the board as a member of its own, marked `(agent)` everywhere a
+person would see its work: presence, the card view, activity and the live feed.
+
+**1. Issue the agent a token** (board owners only). The agent joins the board under that handle.
+The token can be at most a member, and it only works on this board. The plaintext is printed
+once and never stored.
+
+```sh
+yuzie token create claude-agent --agent claude            # add --allow-destructive to let it delete cards
+yuzie token list                                          # yours, and the ones you issued to agents
+yuzie token revoke claude-agent
+```
+
+**2. Give it the MCP server.** For Claude Code:
+
+```sh
+claude mcp add yuzie -e YUZIE_TOKEN=yz_… -- yuzie mcp --board payments-api
+```
+
+or, in any MCP host's configuration file:
+
+```json
+{
+  "mcpServers": {
+    "yuzie": {
+      "command": "yuzie",
+      "args": ["mcp", "--board", "payments-api"],
+      "env": { "YUZIE_TOKEN": "yz_…" }
+    }
+  }
+}
+```
+
+The server exposes the following tools:
+
+| Tool | What it does |
+| --- | --- |
+| `board_list_cards` | List cards, with filters |
+| `board_get_card` | Show one card |
+| `board_create_card` | Create a card |
+| `board_move_card` | Move a card |
+| `board_comment` | Comment on a card |
+| `board_update_checklist` | Tick or add checklist items |
+| `board_claim_card` | Claim a card (needs `--allow-git`) |
+| `board_delete_card` | Delete a card (needs `--allow-destructive`) |
+
+**Guardrails.**
+- `--allow-git` lets the agent claim a card. Claiming creates and checks out a branch in the
+  agent's checkout. It refuses rather than stash anyone's uncommitted work.
+- `--allow-destructive` lets the agent delete cards, and only works if the token was issued with
+  `--allow-destructive` as well. The server enforces this, not just the MCP process.
+- Without these flags, the agent's call is refused with an explanation, and nothing happens.
+- Every tool call is written to an audit log on stderr, one JSON line per call. Add
+  `--audit-log <file>` to keep a copy.
+
+**Agent etiquette.** The server's instructions tell the agent to:
+- narrate its progress with `board_comment`: what it's about to do, what it did, and what's left;
+- tick checklist items as it finishes them;
+- move the card to review when it's done, rather than to done;
+- never delete anything silently. If something should go, it says so in a comment and lets a
+  person decide.
+
+From a shell, `yuzie claim 27 --agent` claims a card without ever prompting.
 
 ## Privacy
 

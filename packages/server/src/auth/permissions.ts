@@ -3,9 +3,10 @@
  *
  * The agent column is "member role, except destructive operations". §13.4 places
  * the `--allow-destructive` gate in the MCP server, but a client-side flag is no
- * protection at all, so the API denies agent card deletion outright and says
- * where the capability actually lives. A human member can still delete their own
- * card, and an owner can delete any.
+ * protection at all, so the capability also lives on the token: an agent deletes
+ * cards only with a token issued with `allowDestructive`, and the MCP server
+ * refuses unless it was started with the flag too. A human member can still
+ * delete their own card, and an owner can delete any.
  */
 import { boardError, type Role, type UserKind } from '@yuzie/core'
 
@@ -45,6 +46,8 @@ export interface Actor {
   readonly kind: UserKind
   /** True when the actor created the card being acted on. */
   readonly ownsCard?: boolean
+  /** An agent token issued with `--allow-destructive` (§14.2). */
+  readonly allowDestructive?: boolean
 }
 
 export function can(action: Action, actor: Actor): boolean {
@@ -68,7 +71,8 @@ export function can(action: Action, actor: Actor): boolean {
       if (role === 'owner') return true
       if (role === 'viewer') return false
       // role === 'member'
-      if (kind === 'agent') return false
+      // An agent deletes only with a token its owner issued for that (§14.2).
+      if (kind === 'agent') return actor.allowDestructive === true
       return actor.ownsCard === true
 
     // Board shape and membership are the owner's alone.
@@ -101,7 +105,7 @@ export function authorize(action: Action, actor: Actor): void {
 
   const agentDelete = action === 'card.delete' && actor.kind === 'agent'
   const detail = agentDelete
-    ? 'Agents cannot delete cards over the API. Run the MCP server with --allow-destructive if an operator wants to permit it.'
+    ? 'This agent token cannot delete cards. A board owner can issue one that may: `yuzie token create --agent <handle> --allow-destructive`.'
     : (EXPLANATIONS[action] ?? `Your role (${actor.role}) does not permit this.`)
 
   throw boardError('forbidden', `Not allowed: ${action}. ${detail}`, {

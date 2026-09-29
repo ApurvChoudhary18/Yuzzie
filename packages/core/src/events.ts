@@ -20,6 +20,7 @@ import {
   PrioritySchema,
   RankSchema,
   RoleSchema,
+  UserKindSchema,
   UuidSchema,
 } from './schema.js'
 
@@ -133,6 +134,8 @@ export const CardAnchorSetPayloadSchema = AnchorSchema.pick({
 export const MemberChangedPayloadSchema = z.object({
   handle: HandleSchema,
   role: RoleSchema,
+  /** Absent means a person; agents say so (§18 Session 15). */
+  kind: UserKindSchema.optional(),
 })
 export const BoardUpdatedPayloadSchema = z.object({
   fields: z.object({

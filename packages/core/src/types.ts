@@ -211,6 +211,10 @@ export interface ApiToken {
   readonly name: string
   readonly role: Role
   readonly boardSlug: string | null
+  /** The agent this token acts as (§18 Session 15), or null for your own token. */
+  readonly agent: Handle | null
+  /** An agent token that may delete cards (§14.2: "only with --allow-destructive"). */
+  readonly allowDestructive: boolean
   readonly lastUsedAt: IsoDateTime | null
   readonly expiresAt: IsoDateTime | null
   readonly revokedAt: IsoDateTime | null

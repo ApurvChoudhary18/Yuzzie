@@ -264,6 +264,9 @@ export async function show(context: Context, reference: string): Promise<void> {
         renderCardDetail(card, {
           columns: session.board.state.columns,
           presence: await session.presence(),
+          agents: new Set(
+            session.board.state.members.filter((m) => m.kind === 'agent').map((m) => m.handle),
+          ),
           now: context.now(),
           paint: paintFor(context),
           anchorStale: await staleness(await context.repo(), card),

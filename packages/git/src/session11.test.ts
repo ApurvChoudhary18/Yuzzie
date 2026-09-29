@@ -51,6 +51,16 @@ describe('repository states', () => {
     expect((await dirtyFiles(r.root)).sort()).toEqual(['README.md', 'new.ts'])
   })
 
+  it('Yuzie’s own cache never counts as uncommitted work; its config does', async () => {
+    const r = repo()
+    r.write('.yuzie/cache/yuzie.db', 'sqlite')
+    r.write('.yuzie/cache/unattributed.json', '[]')
+    expect(await dirtyFiles(r.root)).toEqual([])
+    // An uncommitted config is real work; git names the untracked directory.
+    r.write('.yuzie/config.json', '{}')
+    expect(await dirtyFiles(r.root)).toEqual(['.yuzie/'])
+  })
+
   it('detached HEAD: no current branch', async () => {
     const r = repo()
     const sha = r.git('rev-parse', 'HEAD')

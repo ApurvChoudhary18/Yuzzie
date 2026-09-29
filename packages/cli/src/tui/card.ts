@@ -29,7 +29,8 @@ function assigneeValue(card: Card, view: BoardView, theme: Theme): Line {
   const line: Line = []
   card.assignees.forEach((handle, index) => {
     if (index > 0) line.push(seg(', '))
-    line.push(seg(`@${handle}`, 'accent'))
+    if (view.agents.has(handle)) line.push(seg(`@${handle} (agent)`, 'agent'))
+    else line.push(seg(`@${handle}`, 'accent'))
     const presence = view.presence.find(
       (person) => person.handle === handle && person.cardNo === card.number,
     )

@@ -116,7 +116,7 @@ export class SdkSource implements BoardSource {
     const now = this.clock()
     const cardNo = event.type === 'card.created' ? event.payload.number : event.cardNo
     if (cardNo !== undefined) {
-      const who = actor(event)
+      const who = actor(event, this.board.state)
       this.lastActor.set(cardNo, who)
       if (event.actor !== this.board.handle) {
         this.touched.set(cardNo, { at: now, by: who })
@@ -140,7 +140,7 @@ export class SdkSource implements BoardSource {
     // Toasts are news: your own changes echo back as events, but you just made
     // them, and the key that made them already said so.
     if (event.actor === null || event.actor !== this.board.handle) {
-      const text = `${actor(event)} ${describeEvent(event, this.board.state)}`
+      const text = `${actor(event, this.board.state)} ${describeEvent(event, this.board.state)}`
       const me = this.board.handle
       const watched =
         me !== null &&
@@ -247,7 +247,7 @@ export class SdkSource implements BoardSource {
   private entry(event: EventEnvelope): ActivityEntry {
     return {
       at: Date.parse(event.ts),
-      who: actor(event),
+      who: actor(event, this.board.state),
       text: describeEvent(event, this.board.state),
     }
   }
@@ -344,6 +344,9 @@ export class SdkSource implements BoardSource {
             },
       now,
       members: state.members.map((member) => member.handle),
+      agents: new Set(
+        state.members.filter((member) => member.kind === 'agent').map((member) => member.handle),
+      ),
       me: this.board.handle,
       pending: this.board.pendingCards,
       conflicts: new Map(this.conflicts),

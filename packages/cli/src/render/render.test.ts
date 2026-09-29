@@ -257,3 +257,34 @@ describe('text helpers', () => {
     expect(width('●✓…')).toBe(3)
   })
 })
+
+describe('agents are always marked (§13.4, §18 Session 15)', () => {
+  const event = {
+    id: '77777777-7777-4777-8777-000000000001',
+    seq: 1,
+    type: 'comment.created',
+    actor: 'claude',
+    cardNo: 27,
+    ts: minutes(1),
+    payload: {
+      commentId: '55555555-5555-4555-8555-000000000001',
+      body: 'Starting.',
+      author: 'claude',
+    },
+  } as EventEnvelope
+  const member = (handle: string, kind: 'human' | 'agent') => ({
+    handle,
+    displayName: null,
+    kind,
+    role: 'member' as const,
+    lastSeenAt: null,
+  })
+
+  it('in the feed and activity', () => {
+    const state = initialState({ members: [member('claude', 'agent'), member('priya', 'human')] })
+    expect(actor(event, state)).toBe('@claude (agent)')
+    expect(actor({ ...event, actor: 'priya' } as EventEnvelope, state)).toBe('@priya')
+    // Without the board's members nothing is guessed.
+    expect(actor(event)).toBe('@claude')
+  })
+})

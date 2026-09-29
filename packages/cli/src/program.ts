@@ -28,6 +28,7 @@ import { doctor } from './commands/doctor.js'
 import { branch, claim, commits, finish as finishCard } from './commands/git.js'
 import { hook } from './commands/hooks.js'
 import { init } from './commands/init.js'
+import { type McpOptions, mcp } from './commands/mcp.js'
 import { configGet, configSet, hooksInstall, hooksUninstall } from './commands/setup.js'
 import { sync } from './commands/sync.js'
 import {
@@ -45,6 +46,7 @@ import {
   share,
   who,
 } from './commands/team.js'
+import { type TokenCreateOptions, tokenCreate, tokenList, tokenRevoke } from './commands/tokens.js'
 import { Context, type GlobalOptions, type Io } from './context.js'
 import { EXIT_OK, EXIT_USAGE, exitCodeFor, UsageError } from './exit.js'
 import { VERSION } from './version.js'
@@ -184,12 +186,13 @@ function build(io: Io, finish: (code: number) => void): Command {
     .option('--no-branch', 'claim without touching Git')
     .option('--from <base>', 'branch from this instead of the configured base')
     .option('--force', 'carry uncommitted changes along instead of stopping')
+    .option('--agent', 'for agents and scripts: never prompt, stop on uncommitted work')
     .action(
       action(
         (
           context: Context,
           reference: string,
-          options: { branch?: boolean; from?: string; force?: boolean },
+          options: { branch?: boolean; from?: string; force?: boolean; agent?: boolean },
         ) => claim(context, reference, options),
       ),
     )
@@ -498,6 +501,37 @@ function build(io: Io, finish: (code: number) => void): Command {
         ) => activity(context, options),
       ),
     )
+
+  const token = program.command('token').description('API tokens for CI, scripts and agents')
+  token
+    .command('create <name>')
+    .description('create a token; the plaintext is shown once')
+    .option('--role <role>', 'owner, member or viewer (default member)')
+    .option('--all-boards', 'do not scope it to one board (default: this board, or --board)')
+    .option('--agent <handle>', 'issue it to an agent, who joins the board as that handle')
+    .option('--allow-destructive', 'let the agent delete cards')
+    .option('--expires <duration>', 'expire after e.g. 30d or 12h')
+    .action(
+      action((context: Context, name: string, options: TokenCreateOptions) =>
+        tokenCreate(context, name, options),
+      ),
+    )
+  token
+    .command('list')
+    .description('your tokens and the ones you issued to agents')
+    .action(action((context: Context) => tokenList(context)))
+  token
+    .command('revoke <token>')
+    .description('revoke by id, id prefix or name')
+    .action(action((context: Context, reference: string) => tokenRevoke(context, reference)))
+
+  program
+    .command('mcp')
+    .description('serve the board to an AI agent over MCP (stdio)')
+    .option('--allow-destructive', 'let the agent delete cards (its token must allow it too)')
+    .option('--allow-git', 'let the agent claim cards, creating and checking out branches')
+    .option('--audit-log <file>', 'also append the audit log to this file')
+    .action(action((context: Context, options: McpOptions) => mcp(context, options)))
 
   program
     .command('feed')

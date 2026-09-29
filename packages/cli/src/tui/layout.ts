@@ -76,6 +76,8 @@ export interface BoardView {
   readonly now: number
   /** Board members' handles, for the member picker. */
   readonly members: readonly string[]
+  /** Members who are agents: always marked, so people know what was machine-driven (§13.4). */
+  readonly agents: ReadonlySet<string>
   /** The signed-in user's handle, once known. */
   readonly me: string | null
   /** Cards with a write painted optimistically and not yet confirmed. */

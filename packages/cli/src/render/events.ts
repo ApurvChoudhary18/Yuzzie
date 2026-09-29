@@ -67,6 +67,9 @@ export function describeEvent(event: EventEnvelope, state: BoardState): string {
   }
 }
 
-export function actor(event: EventEnvelope): string {
-  return event.actor === null ? 'yuzie' : `@${event.actor}`
+/** Who did it: `@priya`, or `@claude (agent)` so machine-driven work is always marked (§13.4). */
+export function actor(event: EventEnvelope, state?: BoardState): string {
+  if (event.actor === null) return 'yuzie'
+  const agent = state?.members.find((member) => member.handle === event.actor)?.kind === 'agent'
+  return `@${event.actor}${agent ? ' (agent)' : ''}`
 }

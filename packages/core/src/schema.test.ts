@@ -216,6 +216,8 @@ const ENTITY_CASES: readonly EntityCase[] = [
       name: 'ci',
       role: 'member',
       boardSlug: 'payments-api',
+      agent: null,
+      allowDestructive: false,
       lastUsedAt: null,
       expiresAt: null,
       revokedAt: null,
@@ -226,6 +228,8 @@ const ENTITY_CASES: readonly EntityCase[] = [
       name: 'ci',
       role: 'member',
       boardSlug: 'payments-api',
+      agent: null,
+      allowDestructive: false,
       lastUsedAt: null,
       expiresAt: 'not-a-date',
       revokedAt: null,
@@ -420,5 +424,20 @@ describe('request bodies', () => {
       expiresIn: 900,
     })
     expect(parsed.success).toBe(true)
+  })
+})
+
+describe('TokenCreateRequestSchema (§18 Session 15)', () => {
+  const parse = (body: Record<string, unknown>) => TokenCreateRequestSchema.safeParse(body).success
+  it('an agent token names one board and is never an owner', () => {
+    expect(parse({ name: 'claude', role: 'member', agent: 'claude', boardSlug: 'api' })).toBe(true)
+    expect(parse({ name: 'claude', role: 'member', agent: 'claude' })).toBe(false)
+    expect(parse({ name: 'claude', role: 'owner', agent: 'claude', boardSlug: 'api' })).toBe(false)
+  })
+  it('only an agent token can allow destruction', () => {
+    expect(parse({ name: 'ci', role: 'member', allowDestructive: true })).toBe(false)
+    expect(
+      parse({ name: 'c', role: 'member', agent: 'c', boardSlug: 'api', allowDestructive: true }),
+    ).toBe(true)
   })
 })

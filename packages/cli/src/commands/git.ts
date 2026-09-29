@@ -96,10 +96,11 @@ async function resolveDirty(
   context: Context,
   dirty: readonly string[],
   force: boolean,
+  agent = false,
 ): Promise<DirtyChoice> {
   const summary = `The working tree has ${plural(dirty.length, 'uncommitted file')}`
   if (force) return 'force'
-  if (!context.prompter.canAsk) {
+  if (agent || !context.prompter.canAsk) {
     throw precondition(
       `${summary}. Commit or stash them first, or pass --force to carry them along.`,
     )
@@ -143,6 +144,8 @@ interface ClaimOptions {
   readonly branch?: boolean
   readonly from?: string
   readonly force?: boolean
+  /** §6.5 `claim --agent`: never ask anything; stop on uncommitted work instead. */
+  readonly agent?: boolean
 }
 
 /**
@@ -186,7 +189,12 @@ export async function claim(
 
         const dirty = plan === null || plan.current === name ? [] : await dirtyFiles(repo.root)
         if (plan !== null && dirty.length > 0) {
-          const choice = await resolveDirty(context, dirty, options.force === true)
+          const choice = await resolveDirty(
+            context,
+            dirty,
+            options.force === true,
+            options.agent === true,
+          )
           if (choice === 'current') plan = null
           if (choice === 'stash') {
             stashed = await stash(repo.root, `yuzie: before claiming #${card.number}`)

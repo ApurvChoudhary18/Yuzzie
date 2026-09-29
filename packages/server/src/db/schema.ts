@@ -229,6 +229,9 @@ export const apiTokens = pgTable('api_tokens', {
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
   createdAt: createdAt(),
+  /** Who issued it, when that is not its user: an agent's token (§18 Session 15). */
+  createdBy: uuid('created_by'),
+  allowDestructive: boolean('allow_destructive').notNull().default(false),
 })
 
 export const deviceCodes = pgTable('device_codes', {

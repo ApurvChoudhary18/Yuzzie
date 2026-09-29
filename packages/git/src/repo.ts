@@ -141,13 +141,27 @@ export async function currentBranch(root: string): Promise<string | null> {
   return current.kind === 'detached' ? null : current.name
 }
 
-/** Paths with uncommitted changes, untracked files included (§9.3, §9.4). */
+/**
+ * Paths with uncommitted changes, untracked files included (§9.3, §9.4) —
+ * never Yuzie's own `.yuzie/cache/`, which is ours, not someone's work, even in
+ * a checkout where `yuzie init` has not gitignored it.
+ */
 export async function dirtyFiles(root: string): Promise<string[]> {
   // -z: NUL-separated and untrimmed, so ` M file` keeps its columns and odd
   // file names arrive as written. A rename is `R  new\0old\0`: keep the new.
-  const status = await git(root, ['status', '--porcelain=v1', '-z', '--untracked-files=normal'], {
-    trim: false,
-  })
+  const status = await git(
+    root,
+    [
+      'status',
+      '--porcelain=v1',
+      '-z',
+      '--untracked-files=normal',
+      '--',
+      '.',
+      ':(exclude).yuzie/cache',
+    ],
+    { trim: false },
+  )
   if (status.code !== 0) return []
   const entries = status.stdout.split('\0')
   const paths: string[] = []

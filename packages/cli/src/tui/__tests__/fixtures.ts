@@ -100,6 +100,7 @@ export function view(
     toast: null,
     now: NOW.getTime(),
     members: ['rahul', 'priya', 'sam'],
+    agents: new Set(),
     me: 'rahul',
     pending: new Set(),
     conflicts: new Map(),

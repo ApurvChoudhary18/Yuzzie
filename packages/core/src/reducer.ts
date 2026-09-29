@@ -208,7 +208,7 @@ function reduce(state: BoardState, event: EventEnvelope): BoardState {
       const joined: Member = {
         handle: event.payload.handle,
         displayName: null,
-        kind: 'human',
+        kind: event.payload.kind ?? 'human',
         role: event.payload.role,
         lastSeenAt: event.ts,
       }

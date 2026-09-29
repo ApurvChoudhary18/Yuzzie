@@ -126,6 +126,8 @@ export interface DetailContext {
   readonly paint?: Paint
   /** The anchor's file changed since it was made (§9.7); null or absent when unknown. */
   readonly anchorStale?: boolean | null
+  /** Members who are agents, marked `(agent)` wherever they appear (§13.4). */
+  readonly agents?: ReadonlySet<string>
 }
 
 /** `yuzie card <id>` — everything about one card, read-only (§7.2, §6.6). */
@@ -137,7 +139,11 @@ export function renderCardDetail(card: Card, context: DetailContext): string {
   lines.push(`${paint('bold', `#${card.number}`)}  ${paint('bold', card.title)}`)
   const facts = [
     columnName(context.columns, card.column),
-    card.assignees.length === 0 ? 'unassigned' : card.assignees.map((h) => `@${h}`).join(', '),
+    card.assignees.length === 0
+      ? 'unassigned'
+      : card.assignees
+          .map((h) => `@${h}${context.agents?.has(h) === true ? ' (agent)' : ''}`)
+          .join(', '),
     ...(card.priority === null ? [] : [priorityLabel(card.priority)]),
     ...(card.dueAt === null ? [] : [`due ${shortDate(card.dueAt, context.now)}`]),
     ...(card.labels.length === 0 ? [] : [card.labels.join(', ')]),
