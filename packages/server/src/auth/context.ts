@@ -64,8 +64,18 @@ export async function authenticate(
     throw boardError('unauthenticated', 'That token has expired. Run `yuzie login`.')
   }
 
+  // `yuzie token list` shows when each token was last used (§18 Session 16).
+  // At most once a minute per token, so it is not a write on every request.
+  const lastUsed = row.token.lastUsedAt?.getTime() ?? 0
+  if (now.getTime() - lastUsed >= LAST_USED_RESOLUTION_MS) {
+    await db.update(apiTokens).set({ lastUsedAt: now }).where(eq(apiTokens.id, row.token.id))
+  }
+
   return { user: row.user, token: row.token }
 }
+
+/** How stale `api_tokens.last_used_at` may be. */
+export const LAST_USED_RESOLUTION_MS = 60_000
 
 /**
  * Resolve a board the caller is a member of, and their role on it.

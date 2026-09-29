@@ -12,6 +12,7 @@ import { git } from '@yuzie/git'
 import { openCache, type YuzieCache } from '@yuzie/store'
 import type { Context } from '../context.js'
 import { canLaunch } from '../open.js'
+import { screen } from '../screen.js'
 import { currentSlug } from '../session.js'
 import { type EffectContext, ENTER_ALT_SCREEN, LEAVE_ALT_SCREEN, perform } from './effects.js'
 import { renderFrame } from './frame.js'
@@ -115,9 +116,13 @@ export async function startTui(context: Context): Promise<number> {
   const raw = interactive && typeof stdin.setRawMode === 'function'
   if (raw) stdin.setRawMode(true)
   const restore = () => {
+    if (!screen.active) return
+    screen.active = false
     if (raw) stdin.setRawMode(false)
     stdout.write(LEAVE_ALT_SCREEN)
   }
+  screen.active = true
+  screen.restore = restore
 
   let quitting = false
   finish = () => {
@@ -126,14 +131,13 @@ export async function startTui(context: Context): Promise<number> {
   const onTerm = () => finish()
   // `on`, not `once`: Ink's signal-exit re-raises the signal if it finds itself
   // the only listener left, which would kill us before the terminal is restored.
-  process.on('SIGTERM', onTerm)
+  // SIGHUP is the terminal window closing; SIGINT is `kill -INT` (Ctrl-C itself
+  // arrives as a key in raw mode).
+  const signals = ['SIGTERM', 'SIGINT', 'SIGHUP'] as const
+  for (const signal of signals) process.on(signal, onTerm)
 
-  const [{ render }, { createElement }, { App }] = await Promise.all([
-    import('ink'),
-    import('react'),
-    import('./App.js'),
-  ])
-  const app = render(createElement(App, { source, theme, onEffect, interactive, onSuspend }), {
+  const [{ render }, { appElement }] = await Promise.all([import('ink'), import('./App.js')])
+  const app = render(appElement({ source, theme, onEffect, interactive, onSuspend }), {
     stdout,
     stdin,
     // We only get here for a terminal (or YUZIE_FORCE_TUI); Ink's own guess
@@ -152,7 +156,7 @@ export async function startTui(context: Context): Promise<number> {
   try {
     await app.waitUntilExit()
   } finally {
-    process.off('SIGTERM', onTerm)
+    for (const signal of signals) process.off(signal, onTerm)
     restore()
     presence.stop()
     source.dispose()

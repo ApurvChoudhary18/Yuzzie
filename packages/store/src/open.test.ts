@@ -115,9 +115,9 @@ describe('openCache', () => {
 
 describe('SqliteUnavailableError', () => {
   it('explains the fallback rather than just failing', () => {
-    const error = new SqliteUnavailableError(new Error('no prebuilt binary'))
+    const error = new SqliteUnavailableError(new Error('No such built-in module: node:sqlite'))
     expect(error.name).toBe('SqliteUnavailableError')
-    expect(error.message).toContain('optional dependency')
+    expect(error.message).toContain('Node 22.13')
     expect(error.message).toContain('JSON cache driver')
     expect(error.cause).toBeInstanceOf(Error)
   })

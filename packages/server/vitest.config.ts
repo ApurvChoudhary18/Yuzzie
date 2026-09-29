@@ -16,6 +16,7 @@ export default defineConfig({
       '**/dist/**',
       'src/realtime-timing.test.ts',
       'src/search-timing.test.ts',
+      'src/load.test.ts',
     ],
     coverage: {
       provider: 'v8',

@@ -8,10 +8,10 @@
     "yuzie": "./dist/index.js",
     "yz": "./dist/index.js"
   },
-  "main": "./dist/index.js",
+  "main": "./dist/main.js",
   "exports": {
     ".": {
-      "import": "./dist/index.js"
+      "import": "./dist/main.js"
     }
   },
   "files": [
@@ -25,21 +25,12 @@
     "test": "vitest run",
     "bench": "vitest run --config vitest.bench.config.ts",
     "lint": "biome check --error-on-warnings .",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "budget": "node bench/size-budget.mjs && node bench/startup-budget.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "@types/node-notifier": "^8.0.5",
     "@types/react": "^19.3.0",
-    "ink-testing-library": "^4.0.0",
-    "tsup": "^8.3.0",
-    "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "dependencies": {
     "@yuzie/core": "workspace:^",
     "@yuzie/git": "workspace:^",
     "@yuzie/mcp": "workspace:^",
@@ -47,11 +38,15 @@
     "@yuzie/store": "workspace:^",
     "commander": "^14.0.3",
     "ink": "^7.1.1",
+    "ink-testing-library": "^4.0.0",
     "react": "^19.3.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
     "yaml": "^2.9.1",
     "zod": "^4.6.5"
   },
-  "optionalDependencies": {
-    "node-notifier": "^10.0.1"
+  "publishConfig": {
+    "access": "public"
   }
 }

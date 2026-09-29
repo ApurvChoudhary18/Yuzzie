@@ -54,7 +54,13 @@ export function defaultFetch(): FetchLike {
 }
 
 export function defaultWebSocket(): WebSocketFactory | undefined {
-  const WebSocket = (globalThis as Globals).WebSocket
-  if (WebSocket === undefined) return undefined
-  return (url, protocols) => new WebSocket(url, protocols)
+  // `in` asks whether it exists without reading it: in Node 22 the first read
+  // of `globalThis.WebSocket` loads undici's WebSocket, ~11 ms that a one-shot
+  // command with no stream would pay for nothing (§18 Session 16).
+  if (!('WebSocket' in globalThis)) return undefined
+  return (url, protocols) => {
+    const WebSocket = (globalThis as Globals).WebSocket
+    if (WebSocket === undefined) throw new Error('WebSocket is not available in this runtime')
+    return new WebSocket(url, protocols)
+  }
 }

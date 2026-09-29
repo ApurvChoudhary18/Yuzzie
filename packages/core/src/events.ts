@@ -66,6 +66,8 @@ export const CardCreatedPayloadSchema = CardSchema
 export const CardUpdatedPayloadSchema = z.object({
   fields: CardFieldsPayloadSchema,
   version: z.number().int().positive(),
+  /** The checklist item this update added, so activity can say which (§18 Session 16). */
+  checklistAdded: z.object({ position: z.number().int().positive(), text: z.string() }).optional(),
 })
 export const CardMovedPayloadSchema = z.object({
   from: ColumnKeySchema,

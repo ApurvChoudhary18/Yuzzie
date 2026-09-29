@@ -22,4 +22,5 @@ export {
   type StaleColumn,
   type StaleContext,
 } from './stale.js'
+export { codePoint, firstControlCharacter, printable } from './text.js'
 export * from './types.js'

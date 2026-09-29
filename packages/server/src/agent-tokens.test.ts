@@ -217,3 +217,23 @@ describe('an agent token per §14.2 cell', () => {
       expect(response.status).toBe(403)
   })
 })
+
+describe('last used (§18 Session 16)', () => {
+  it('a token says when it was last used', async () => {
+    const board = await createBoard(server)
+    const issued = await issue(board, { agent: unique('bot'), name: 'used' })
+    const listed = async () =>
+      (
+        await call<{ tokens: Array<{ name: string; lastUsedAt: string | null }> }>(server, {
+          method: 'GET',
+          url: '/v1/tokens',
+          token: board.owner.token,
+        })
+      ).body.tokens.find((token) => token.name === 'used')
+    expect((await listed())?.lastUsedAt).toBeNull()
+    await call(server, { method: 'GET', url: `/v1/boards/${board.slug}`, token: issued.token })
+    const used = (await listed())?.lastUsedAt
+    expect(used).not.toBeNull()
+    expect(Date.now() - Date.parse(used as string)).toBeLessThan(60_000)
+  })
+})

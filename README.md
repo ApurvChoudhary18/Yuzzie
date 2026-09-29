@@ -44,7 +44,7 @@ job, or an AI agent can all drive the same board.
 | M4 — Git-aware | 11–12 | Complete |
 | M5 — Resilient | 13–14 | Complete |
 | M6 — Agents | 15 | Complete |
-| M7 — Launch | 16–17 | Not started |
+| M7 — Launch | 16–17 | In progress (16 done) |
 
 ## Repository layout
 
@@ -68,7 +68,9 @@ Requires Node 22+ (CI covers 22 and 24) and pnpm.
 pnpm install
 pnpm turbo build test lint typecheck    # the full pipeline
 node packages/cli/dist/index.js --version
-pnpm turbo bench --concurrency=1        # timing budgets, run alone
+pnpm turbo bench --concurrency=1        # timing budgets, run alone (includes the load test)
+pnpm --filter @yuzie/server load        # 25 clients × 2,000 cards × 100 events/s, on its own
+pnpm --filter @yuzie/cli budget         # install size < 4 MB; `list --json` p50 < 150 ms (needs hyperfine)
 ```
 
 Local service dependencies for the server (from Session 3 onwards):
@@ -100,6 +102,22 @@ pnpm changeset
 
 See [`SPEC.md`](./SPEC.md) Appendix E for the definition of done that applies to every
 session.
+
+## When something goes wrong
+
+- `yuzie doctor` checks node, git, sign-in, the server, hooks and the cache, and says the command
+  that fixes each problem.
+- `yuzie doctor --bundle` also writes a diagnostic file to attach to an issue. It contains:
+  - versions and the checks;
+  - config and environment, with every token, password and your home directory redacted;
+  - the last 200 log lines;
+  - facts about your git repository.
+
+  Read it before you share it.
+- `~/.yuzie/logs/yuzie.log` holds a JSON line for every command. It is rotated at 5 MB, keeps three
+  old files, and is also redacted. Set `YUZIE_LOG=off` to turn it off.
+- Every error is one line saying what went wrong and what to do about it, with the exit code set by
+  §7.4. A stack trace appears only with `--verbose`.
 
 ## Agents
 

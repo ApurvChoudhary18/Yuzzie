@@ -1,15 +1,13 @@
 /**
  * The SQLite cache driver (SPEC.md §11.3, §10.3).
  *
- * `better-sqlite3` is synchronous, which is exactly right for a CLI: no event
- * loop turn between "read the cache" and "paint the board". It is loaded through
- * `createRequire` rather than `await import` so opening the cache stays
- * synchronous, and so a missing or unbuildable native module is a catchable
- * error rather than an unhandled rejection.
+ * SQLite comes from Node itself (`node:sqlite`, see node-sqlite.ts): nothing
+ * native to install. It is synchronous, which is exactly right for a CLI: no
+ * event loop turn between "read the cache" and "paint the board". A Node
+ * without it is a catchable error, and the JSON driver takes over.
  */
 
 import { mkdirSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { dirname } from 'node:path'
 import type {
   Card,
@@ -21,9 +19,8 @@ import type {
   GitSummary,
   Priority,
 } from '@yuzie/core'
-import type DatabaseConstructor from 'better-sqlite3'
-import type { Database, Statement } from 'better-sqlite3'
 import { backoffDelayMs } from './backoff.js'
+import { type Database, loadNodeSqlite, openNodeSqlite, type Statement } from './node-sqlite.js'
 import { MIGRATIONS, SCHEMA_VERSION } from './schema.js'
 import { drainOutbox, matchesFilter } from './shared.js'
 import type {
@@ -51,22 +48,17 @@ export interface SqliteCacheOptions {
 export class SqliteUnavailableError extends Error {
   constructor(cause: unknown) {
     super(
-      'better-sqlite3 is not available (it is an optional dependency). The JSON cache driver will be used instead.',
+      'SQLite is not available in this Node (node:sqlite needs Node 22.13 or later). The JSON cache driver will be used instead.',
       { cause },
     )
     this.name = 'SqliteUnavailableError'
   }
 }
 
-let cachedCtor: typeof DatabaseConstructor | null = null
-
-/** Load the native module, or throw {@link SqliteUnavailableError}. */
-export function loadSqlite(): typeof DatabaseConstructor {
-  if (cachedCtor !== null) return cachedCtor
+/** Load `node:sqlite`, or throw {@link SqliteUnavailableError}. */
+export function loadSqlite(): void {
   try {
-    const require = createRequire(import.meta.url)
-    cachedCtor = require('better-sqlite3') as typeof DatabaseConstructor
-    return cachedCtor
+    loadNodeSqlite()
   } catch (cause) {
     throw new SqliteUnavailableError(cause)
   }
@@ -183,7 +175,7 @@ function parseJsonArray<T>(raw: string): T[] {
 /**
  * The card column list, written once.
  *
- * `list()` reads rows in better-sqlite3's positional mode, which skips building
+ * `list()` reads rows in positional mode, which skips building
  * an object per row and is roughly half the cost of a 2,000-card read. The
  * indices are derived from this tuple rather than hard-coded, so the SQL and the
  * decoder cannot drift apart.
@@ -425,11 +417,11 @@ function groupBy<T>(rows: readonly T[], key: (row: T) => number): Map<number, T[
 // ---------------------------------------------------------------------------
 
 export function openSqliteCache(options: SqliteCacheOptions): YuzieCache {
-  const Ctor = loadSqlite()
+  loadSqlite()
   if (options.location !== ':memory:') {
     mkdirSync(dirname(options.location), { recursive: true })
   }
-  const db: Database = new Ctor(options.location)
+  const db: Database = openNodeSqlite(options.location)
   const jitter = options.jitter ?? Math.random
 
   // WAL keeps readers from blocking writers and, with a rollback journal's

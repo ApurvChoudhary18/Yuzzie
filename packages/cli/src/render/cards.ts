@@ -135,15 +135,14 @@ export function renderCardDetail(card: Card, context: DetailContext): string {
   const paint = context.paint ?? plain
   const label = (name: string) => paint('dim', pad(name, 8))
   const lines: string[] = []
+  // Agents are marked wherever a handle appears (§13.4).
+  const who = (handle: string, kind?: string) =>
+    `@${handle}${kind === 'agent' || context.agents?.has(handle) === true ? ' (agent)' : ''}`
 
   lines.push(`${paint('bold', `#${card.number}`)}  ${paint('bold', card.title)}`)
   const facts = [
     columnName(context.columns, card.column),
-    card.assignees.length === 0
-      ? 'unassigned'
-      : card.assignees
-          .map((h) => `@${h}${context.agents?.has(h) === true ? ' (agent)' : ''}`)
-          .join(', '),
+    card.assignees.length === 0 ? 'unassigned' : card.assignees.map((h) => who(h)).join(', '),
     ...(card.priority === null ? [] : [priorityLabel(card.priority)]),
     ...(card.dueAt === null ? [] : [`due ${shortDate(card.dueAt, context.now)}`]),
     ...(card.labels.length === 0 ? [] : [card.labels.join(', ')]),
@@ -155,7 +154,7 @@ export function renderCardDetail(card: Card, context: DetailContext): string {
     lines.push(
       paint(
         'green',
-        `● @${person.handle} is ${person.state === 'working' ? 'working on this' : 'viewing'}`,
+        `● ${who(person.handle, person.kind)} is ${person.state === 'working' ? 'working on this' : 'viewing'}`,
       ),
     )
   }
@@ -180,10 +179,10 @@ export function renderCardDetail(card: Card, context: DetailContext): string {
     lines.push(`${label('Branch')}${card.git.branch}  ${paint('dim', `(${stats.join(' · ')})`)}`)
   }
   if (card.watchers.length > 0) {
-    lines.push(`${label('Watch')}${card.watchers.map((h) => `@${h}`).join(', ')}`)
+    lines.push(`${label('Watch')}${card.watchers.map((h) => who(h)).join(', ')}`)
   }
   lines.push(
-    `${label('Updated')}${shortAge(context.now.getTime() - lastActivity(card))} ago${card.createdBy === null ? '' : ` · created by @${card.createdBy}`}`,
+    `${label('Updated')}${shortAge(context.now.getTime() - lastActivity(card))} ago${card.createdBy === null ? '' : ` · created by ${who(card.createdBy)}`}`,
   )
 
   if (card.description !== null && card.description.trim().length > 0) {
@@ -203,7 +202,7 @@ export function renderCardDetail(card: Card, context: DetailContext): string {
     lines.push('', paint('bold', 'Comments'))
     for (const comment of card.comments) {
       lines.push(
-        `  ${paint('cyan', `@${comment.author}`)} ${paint('dim', `· ${shortAge(context.now.getTime() - Date.parse(comment.createdAt))} ago`)}`,
+        `  ${paint('cyan', who(comment.author))} ${paint('dim', `· ${shortAge(context.now.getTime() - Date.parse(comment.createdAt))} ago`)}`,
       )
       for (const line of comment.body.split('\n')) lines.push(`    ${line}`)
     }

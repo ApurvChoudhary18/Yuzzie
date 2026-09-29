@@ -10,6 +10,7 @@
  */
 import { z } from 'zod'
 import { isValidRank } from './rank.js'
+import { codePoint, firstControlCharacter } from './text.js'
 import type {
   Anchor,
   ApiToken,
@@ -324,20 +325,36 @@ export const BoardListResponseSchema = z.object({
   boards: z.array(BoardSchema),
 })
 
+/**
+ * Text a person types that other people's terminals will print (§18 Session
+ * 16): one line with no control characters, or — `multiline` — lines that may
+ * hold tabs but nothing else a terminal would act on.
+ */
+function typed(multiline = false) {
+  return z.string().superRefine((value, context) => {
+    const found = firstControlCharacter(value, multiline)
+    if (found !== null)
+      context.addIssue({
+        code: 'custom',
+        message: `${multiline ? 'Text' : 'This must be one line of text and'} cannot contain control characters (found ${codePoint(found)})`,
+      })
+  })
+}
+
 export const BoardCreateRequestSchema = z.object({
-  name: z.string().min(1),
+  name: typed().min(1),
   slug: slug().optional(),
   workspace: slug().optional(),
   repoRemote: z.string().min(1).optional(),
   baseBranch: z.string().min(1).optional(),
   branchTemplate: z.string().min(1).optional(),
   /** Display names; keys are derived by the server. Defaults to Todo/Doing/Review/Done. */
-  columns: z.array(z.string().min(1)).min(1).optional(),
+  columns: z.array(typed().min(1)).min(1).optional(),
 })
 
 export const BoardUpdateRequestSchema = z
   .object({
-    name: z.string().min(1).optional(),
+    name: typed().min(1).optional(),
     baseBranch: z.string().min(1).optional(),
     branchTemplate: z.string().min(1).optional(),
     autoWatch: z.boolean().optional(),
@@ -357,7 +374,7 @@ export const BoardArchiveResponseSchema = z.object({
 })
 
 export const ColumnCreateRequestSchema = z.object({
-  name: z.string().min(1),
+  name: typed().min(1),
   key: columnKey().optional(),
   /** Insert after this column; omitted means append. */
   after: columnRef().optional(),
@@ -370,7 +387,7 @@ export const ColumnCreateRequestSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export const AnchorInputSchema = z.object({
-  path: z.string().min(1),
+  path: typed().min(1),
   line: z.number().int().positive().optional(),
   endLine: z.number().int().positive().optional(),
   commitSha: z.string().regex(SHA_PATTERN).optional(),
@@ -397,11 +414,11 @@ export const CardListResponseSchema = z.object({
 })
 
 export const CardCreateRequestSchema = z.object({
-  title: z.string().min(1),
-  description: z.string().optional(),
+  title: typed().min(1),
+  description: typed(true).optional(),
   column: columnRef().optional(),
   assignees: z.array(handle()).optional(),
-  labels: z.array(z.string().min(1)).optional(),
+  labels: z.array(typed().min(1)).optional(),
   dueAt: isoDateTime().optional(),
   priority: PrioritySchema.optional(),
   anchor: AnchorInputSchema.optional(),
@@ -412,11 +429,11 @@ export const CardCreateRequestSchema = z.object({
 
 export const CardUpdateRequestSchema = z
   .object({
-    title: z.string().min(1).optional(),
-    description: z.string().nullable().optional(),
+    title: typed().min(1).optional(),
+    description: typed(true).nullable().optional(),
     priority: PrioritySchema.nullable().optional(),
     dueAt: isoDateTime().nullable().optional(),
-    labels: z.array(z.string().min(1)).optional(),
+    labels: z.array(typed().min(1)).optional(),
     checklist: z.array(ChecklistItemSchema).optional(),
   })
   .refine((body) => Object.keys(body).length > 0, { message: 'No fields to update' })
@@ -442,18 +459,18 @@ export const CardDeleteResponseSchema = z.object({
 })
 
 export const CommentCreateRequestSchema = z.object({
-  body: z.string().min(1),
+  body: typed(true).min(1),
 })
 
 export const ChecklistAddRequestSchema = z.object({
-  text: z.string().min(1),
+  text: typed().min(1),
   position: z.number().int().positive().optional(),
 })
 
 export const ChecklistUpdateRequestSchema = z
   .object({
     done: z.boolean().optional(),
-    text: z.string().min(1).optional(),
+    text: typed().min(1).optional(),
     position: z.number().int().positive().optional(),
   })
   .refine((body) => Object.keys(body).length > 0, { message: 'No fields to update' })
@@ -495,7 +512,7 @@ export const InviteCreateRequestSchema = z
 
 export const TokenCreateRequestSchema = z
   .object({
-    name: z.string().min(1),
+    name: typed().min(1),
     role: RoleSchema,
     boardSlug: slug().optional(),
     expiresAt: isoDateTime().optional(),

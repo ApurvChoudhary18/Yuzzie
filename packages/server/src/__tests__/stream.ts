@@ -39,11 +39,14 @@ export interface Closed {
 
 export class StreamClient {
   readonly frames: ServerFrame[] = []
+  /** `performance.now()` when each frame arrived, index for index with `frames`. */
+  readonly arrivedAt: number[] = []
   closed: Closed | null = null
   private waiters: Array<() => void> = []
 
   private constructor(readonly socket: WebSocket) {
     socket.on('message', (data) => {
+      this.arrivedAt.push(performance.now())
       this.frames.push(parseServerFrame(JSON.parse(String(data))))
       this.wake()
     })
