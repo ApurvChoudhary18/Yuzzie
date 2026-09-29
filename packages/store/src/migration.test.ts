@@ -2,11 +2,12 @@
  * A cache written by schema 1 opens under schema 2 with its outbox intact
  * (§18 Session 13 adds the poison-op quarantine column).
  */
+
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it } from 'vitest'
+import { openNodeSqlite } from './node-sqlite.js'
 import { MIGRATIONS, SCHEMA_VERSION } from './schema.js'
 import { openSqliteCache } from './sqlite-driver.js'
 
@@ -21,7 +22,7 @@ describe('schema 1 → 2', () => {
     dirs.push(dir)
     const location = join(dir, 'yuzie.db')
 
-    const old = new Database(location)
+    const old = openNodeSqlite(location)
     const first = MIGRATIONS.find((migration) => migration.version === 1)
     for (const statement of first?.statements ?? []) old.exec(statement)
     old.pragma('user_version = 1')
@@ -44,8 +45,8 @@ describe('schema 1 → 2', () => {
     } finally {
       cache.close()
     }
-    const reopened = new Database(location)
-    expect(reopened.pragma('user_version', { simple: true })).toBe(2)
+    const reopened = openNodeSqlite(location)
+    expect(reopened.pragma('user_version')).toEqual([{ user_version: 2 }])
     reopened.close()
   })
 })

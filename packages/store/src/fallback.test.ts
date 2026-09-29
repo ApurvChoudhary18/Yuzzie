@@ -7,22 +7,23 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { BUNDLE_ENTRY } from './__tests__/bundle.js'
 
 /**
- * SPEC.md §20 lists "better-sqlite3 native build failures break npx" as a
- * high-impact risk, mitigated by "optional dependency + JSON fallback driver".
+ * SPEC.md §20 lists "SQLite failures break npx" as a high-impact risk,
+ * mitigated by a JSON fallback driver. SQLite now comes from Node itself
+ * (`node:sqlite`), which a Node older than 22.13 does not have.
  *
  * The conformance suite proves the JSON driver *works*; it does not prove the
- * fallback ever *engages*. Deciding that requires a process where the native
- * module genuinely cannot be resolved, so this test builds one: the package is
- * copied somewhere `require('better-sqlite3')` must fail, and a child process
- * is asked which driver it chose.
+ * fallback ever *engages*. Deciding that requires a process where SQLite is
+ * genuinely missing, so this test builds one: a child Node started with
+ * `--no-experimental-sqlite`, which removes the built-in module, is asked which
+ * driver it chose.
  */
-describe('when better-sqlite3 cannot be resolved', () => {
+describe('when node:sqlite is not available', () => {
   let workspace: string
 
   beforeAll(() => {
     workspace = mkdtempSync(join(tmpdir(), 'yuzie-nosqlite-'))
 
-    // @yuzie/core must still resolve; better-sqlite3 must not.
+    // A copy of the package, with @yuzie/core beside it and nothing else.
     const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
     mkdirSync(join(workspace, 'node_modules', '@yuzie'), { recursive: true })
     symlinkSync(
@@ -63,10 +64,8 @@ describe('when better-sqlite3 cannot be resolved', () => {
         explicitError = { name: error.name, isTyped: error instanceof SqliteUnavailableError, message: error.message }
       }
 
-      const { createRequire } = await import('node:module')
-      const req = createRequire(import.meta.url)
       let resolvedFrom = null
-      try { resolvedFrom = req.resolve('better-sqlite3') } catch (e) { resolvedFrom = 'UNRESOLVABLE:' + e.code }
+      try { await import('node:sqlite'); resolvedFrom = 'node:sqlite' } catch (e) { resolvedFrom = 'UNRESOLVABLE:' + e.code }
 
       console.log(JSON.stringify({
         resolvedFrom,
@@ -87,11 +86,15 @@ describe('when better-sqlite3 cannot be resolved', () => {
     // real `npx yuzie` has no such variable, so neither does the child.
     const { NODE_PATH: _ignored, NODE_OPTIONS: _alsoIgnored, ...env } = process.env
 
-    const output = execFileSync(process.execPath, [join(workspace, 'probe.mjs')], {
-      cwd: workspace,
-      encoding: 'utf8',
-      env,
-    })
+    const output = execFileSync(
+      process.execPath,
+      ['--no-experimental-sqlite', join(workspace, 'probe.mjs')],
+      {
+        cwd: workspace,
+        encoding: 'utf8',
+        env,
+      },
+    )
     const result = JSON.parse(output.trim()) as {
       resolvedFrom: string
       scriptUrl: string

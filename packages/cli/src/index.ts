@@ -1,30 +1,14 @@
 /**
- * @yuzie/cli — the `yuzie` (and `yz`) binary.
+ * The `yuzie` binary's entry: as small as possible, so V8's on-disk compile
+ * cache is on before the rest of the CLI is loaded (§18 Session 16). The next
+ * run then skips compiling it. `NODE_DISABLE_COMPILE_CACHE=1` turns it off.
  */
-import { pathToFileURL } from 'node:url'
-import { EXIT_INTERRUPTED } from './exit.js'
-import { run } from './program.js'
-import { VERSION } from './version.js'
+import { enableCompileCache } from 'node:module'
 
-export { run, VERSION }
-
-// Only self-execute as a binary, never when imported by a test.
-const entry = process.argv[1]
-if (entry !== undefined && import.meta.url === pathToFileURL(entry).href) {
-  process.on('SIGINT', () => process.exit(EXIT_INTERRUPTED))
-  run(process.argv.slice(2), {
-    stdout: process.stdout,
-    stderr: process.stderr,
-    stdin: process.stdin,
-    env: process.env,
-    cwd: process.cwd(),
-  }).then(
-    (code) => {
-      process.exitCode = code
-    },
-    (error: unknown) => {
-      process.stderr.write(`yuzie: ${error instanceof Error ? error.message : String(error)}\n`)
-      process.exitCode = 1
-    },
-  )
+try {
+  enableCompileCache?.()
+} catch {
+  // An unwritable cache directory just means compiling as before.
 }
+const { main } = await import('./main.js')
+main()

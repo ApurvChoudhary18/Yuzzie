@@ -57,8 +57,22 @@ jobs:
       - name: CLI binary prints a version
         run: node packages/cli/dist/index.js --version
 
+      # §10.4: the CLI installs in under 4 MB, with no runtime dependencies.
+      - name: Bundle size budget
+        run: node packages/cli/bench/size-budget.mjs
+
       # Performance budgets run alone, so they measure the code rather than the
       # runner. Linux only: the macOS legs skip @yuzie/server and are noisier.
+      # They include the load test (25 clients × 2,000 cards × 100 events/s)
+      # and the TUI's memory on a 500-card board.
       - name: Performance budgets
         if: runner.os == 'Linux'
         run: pnpm turbo bench --concurrency=1
+
+      # §10.4: `yuzie list --json` p50 under 150 ms with a warm cache, by hyperfine.
+      - name: Startup budget
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq hyperfine
+          node packages/cli/bench/startup-budget.mjs

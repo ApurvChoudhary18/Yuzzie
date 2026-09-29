@@ -18,7 +18,7 @@ import {
   start,
   yuzie,
 } from './__support__/cli.js'
-import { startWorld, type World } from './__support__/world.js'
+import { eventually, startWorld, type World } from './__support__/world.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -426,8 +426,12 @@ describe('feed', () => {
 
   it('under --json prints one Event document per line', async () => {
     const feed = start(['feed', '--json'], { cwd: repo, env: computer.env })
-    // No banner under --json; give the stream a moment to connect.
-    await new Promise((resolve) => setTimeout(resolve, 800))
+    // No banner under --json: the feed is listening once its connection shows
+    // up in presence. (A fixed wait lost the first event on a busy machine.)
+    await eventually(async () => {
+      const who = await run(['who', '--json'])
+      return who.code === 0 && (JSON.parse(who.stdout).data as unknown[]).length > 0
+    }, 'the feed to connect')
     await run(['move', '1', 'doing'])
     await run(['comment', '1', 'streamed'])
     await feed.waitFor(/comment\.created/)

@@ -288,3 +288,56 @@ describe('agents are always marked (§13.4, §18 Session 15)', () => {
     expect(actor(event)).toBe('@claude')
   })
 })
+
+describe('checklist activity (§18 Session 16)', () => {
+  it('says which item was added, not just "edited (checklist)"', () => {
+    const event = {
+      id: '77777777-7777-4777-8777-000000000002',
+      seq: 2,
+      type: 'card.updated',
+      actor: 'rahul',
+      cardNo: 6,
+      ts: minutes(1),
+      payload: {
+        fields: { checklist: [] },
+        version: 2,
+        checklistAdded: { position: 3, text: 'Tests' },
+      },
+    } as unknown as EventEnvelope
+    expect(describeEvent(event, initialState())).toBe('added "Tests" to the checklist on #6')
+    const old = { ...event, payload: { fields: { checklist: [] }, version: 2 } } as EventEnvelope
+    expect(describeEvent(old, initialState())).toBe('updated the checklist on #6')
+  })
+})
+
+describe('agents in the card detail (§18 Session 16)', () => {
+  it('are marked as assignee, as presence, as watcher and as comment author', () => {
+    const out = renderCardDetail(
+      card(4, {
+        title: 'Rate limit',
+        assignees: ['claude'],
+        watchers: ['claude'],
+        comments: [
+          {
+            id: '55555555-5555-4555-8555-000000000001',
+            cardNumber: 4,
+            author: 'claude',
+            body: 'Starting.',
+            createdAt: minutes(1),
+            editedAt: null,
+          },
+        ],
+      }),
+      {
+        columns: COLUMNS,
+        presence: [{ ...person('claude', 'working', 4), kind: 'agent' }],
+        now: NOW,
+        agents: new Set(['claude']),
+      },
+    )
+    expect(out).toContain('Todo · @claude (agent)\n')
+    expect(out).toContain('● @claude (agent) is working on this')
+    expect(out).toMatch(/Watch\s+@claude \(agent\)/)
+    expect(out).toContain('  @claude (agent) · 1m ago')
+  })
+})

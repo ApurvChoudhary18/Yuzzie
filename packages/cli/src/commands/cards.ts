@@ -9,7 +9,6 @@ import { type AnchorInput, type Card, type Column, NotFoundError, OfflineError }
 import { matchColumn } from '@yuzie/sdk'
 import type { Context } from '../context.js'
 import { parseDue, parseDuration, parsePriority } from '../dates.js'
-import { diffCard, editText, parseDocument, toDocument } from '../edit.js'
 import { UsageError } from '../exit.js'
 import { staleness } from '../open.js'
 import { columnName, lastActivity, renderCardDetail, renderCardList } from '../render/cards.js'
@@ -347,8 +346,10 @@ export async function comment(
   options: { editor?: boolean },
 ): Promise<void> {
   let body = words.join(' ')
-  if (options.editor === true) body = await editText(context.io.env, '', 'COMMENT.md')
-  else if (body === '-') body = await readStdin(context)
+  if (options.editor === true) {
+    const { editText } = await import('../edit.js')
+    body = await editText(context.io.env, '', 'COMMENT.md')
+  } else if (body === '-') body = await readStdin(context)
   body = body.trim()
   if (body.length === 0)
     throw new UsageError(
@@ -366,6 +367,8 @@ export async function comment(
 export async function edit(context: Context, reference: string): Promise<void> {
   await withBoard(context, async (session) => {
     const card = await session.card(reference)
+    // The editor's YAML parser loads only for `yuzie edit` (§18 Session 16).
+    const { diffCard, editText, parseDocument, toDocument } = await import('../edit.js')
     const text = await editText(context.io.env, toDocument(card), `card-${card.number}.md`)
     const patch = diffCard(card, parseDocument(text), context.now())
     const fields = Object.keys(patch)

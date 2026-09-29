@@ -671,6 +671,46 @@ describe('the offline queue', () => {
   })
 })
 
+describe('one-shot opens (§18 Session 16)', () => {
+  it('fetch the board once, and rewrite nothing in the cache when nothing changed', async () => {
+    const { openCache } = await import('@yuzie/store')
+    const cache = openCache({ boardSlug: 'b', location: ':memory:' })
+    const open = () =>
+      createClient({
+        baseUrl: 'https://api.test/v1',
+        token: 'yz_t',
+        fetch: api.fetch,
+        retries: 0,
+      }).connect('b', { realtime: false, offline: 'queue', cache })
+    const api = new FakeApi()
+    await (await open()).close()
+    expect(api.calls.filter((c) => c.method === 'GET' && c.path === '/boards/b')).toHaveLength(1)
+
+    // Count writes on a second open of the same, unchanged board.
+    const writes: string[] = []
+    const { put, putMany } = cache.cards
+    cache.cards.put = (slug, card) => {
+      writes.push(`put ${card.number}`)
+      put.call(cache.cards, slug, card)
+    }
+    cache.cards.putMany = (slug, cards) => {
+      writes.push(`putMany ${cards.length}`)
+      putMany.call(cache.cards, slug, cards)
+    }
+    await (await open()).close()
+    expect(writes).toEqual([])
+
+    // One card changes on the server: only it is written.
+    api.cards.set(1, card(1, { title: 'Renamed', version: 2 }))
+    api.cards.set(2, card(2))
+    await (await open()).close()
+    // (The store's putMany writes each card through put.)
+    expect(writes).toEqual(['putMany 2', 'put 1', 'put 2'])
+    expect(cache.cards.get('b', 1)?.title).toBe('Renamed')
+    cache.close()
+  })
+})
+
 describe('helpers', () => {
   it('matchColumn: exact key, else a unique case-insensitive prefix', () => {
     expect(matchColumn(COLUMNS, 'Review')?.key).toBe('review')

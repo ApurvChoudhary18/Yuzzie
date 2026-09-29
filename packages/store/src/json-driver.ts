@@ -1,10 +1,10 @@
 /**
  * The JSON fallback cache driver.
  *
- * `better-sqlite3` is a native module, and SPEC.md §17 and §20 are explicit that
- * a failed native build must never break `npx yuzie`. So this driver is held to
- * the identical conformance suite as the SQLite one — it is the reason the
- * dependency can be optional at all.
+ * SQLite comes from `node:sqlite`, which a Node older than 22.13 lacks, and
+ * SPEC.md §17 and §20 are explicit that a missing SQLite must never break
+ * `npx yuzie`. So this driver is held to the identical conformance suite as the
+ * SQLite one.
  *
  * Durability comes from writing a temporary file and renaming it over the real
  * one. `rename` is atomic on POSIX, so a process killed mid-write leaves either

@@ -1,10 +1,10 @@
 /**
  * The local cache contract (SPEC.md §11.3).
  *
- * Two drivers implement this: SQLite via `better-sqlite3`, and a pure-JSON
- * fallback for machines where the native module will not build. `npx yuzie` must
- * never fail because of a compiler (§17), so the fallback is not a toy — it is
- * held to the identical conformance suite.
+ * Two drivers implement this: SQLite via Node's built-in `node:sqlite`, and a
+ * pure-JSON fallback for a Node without it. `npx yuzie` must never fail because
+ * of SQLite (§17), so the fallback is not a toy — it is held to the identical
+ * conformance suite.
  *
  * Every method is scoped by `boardSlug` because one cache file can hold several
  * boards: `sync_state` is keyed by board slug in §11.3.

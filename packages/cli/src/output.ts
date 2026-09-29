@@ -11,7 +11,7 @@
  *
  * `--quiet` keeps only errors; `--verbose` adds debug lines on stderr.
  */
-import { JSON_API_VERSION } from '@yuzie/core'
+import { JSON_API_VERSION, printable } from '@yuzie/core'
 import { exitCodeFor, fixFor } from './exit.js'
 
 export interface Stream {
@@ -59,6 +59,22 @@ export function colorEnabled(
   return stdout.isTTY === true
 }
 
+/** A colour code as `paint` writes it: the one control sequence human output may carry. */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: recognising our own colour codes is the point
+const SGR = /(\u001b\[[0-9;]*m)/
+
+/**
+ * Text as it may reach a terminal (§18 Session 16): colour codes pass, every
+ * other control character — from a card title, a comment, a server message —
+ * is shown as `�` instead of being obeyed.
+ */
+export function terminalSafe(text: string): string {
+  return text
+    .split(SGR)
+    .map((part, index) => (index % 2 === 1 ? part : printable(part, { multiline: true })))
+    .join('')
+}
+
 export class Output {
   constructor(private readonly options: OutputOptions) {}
 
@@ -79,7 +95,7 @@ export class Output {
   /** A plain line of human output. Suppressed under `--json` and `--quiet`. */
   line(text = ''): void {
     if (this.options.json || this.options.quiet) return
-    this.options.stdout.write(`${text}\n`)
+    this.options.stdout.write(`${terminalSafe(text)}\n`)
   }
 
   success(text: string): void {
@@ -101,7 +117,7 @@ export class Output {
   /** Raw text for prompts: human mode only, no newline added. */
   prompt(text: string): void {
     if (this.options.json) return
-    this.options.stdout.write(text)
+    this.options.stdout.write(terminalSafe(text))
   }
 
   /**
@@ -109,12 +125,13 @@ export class Output {
    * stderr there so stdout stays pure JSON.
    */
   notice(text: string): void {
-    if (this.options.json) this.options.stderr.write(`${text}\n`)
+    if (this.options.json) this.options.stderr.write(`${terminalSafe(text)}\n`)
     else this.line(text)
   }
 
   debug(text: string): void {
-    if (this.options.verbose) this.options.stderr.write(`${this.paint('dim', `[debug] ${text}`)}\n`)
+    if (this.options.verbose)
+      this.options.stderr.write(`${terminalSafe(this.paint('dim', `[debug] ${text}`))}\n`)
   }
 
   /** The `--json` result. Exactly one per command. */
@@ -152,14 +169,14 @@ export class Output {
       return
     }
     const hint = fix === undefined || message.includes(fix) ? '' : ` ${this.paint('dim', fix)}`
-    this.options.stderr.write(`${this.paint('red', '✗')} ${message}${hint}\n`)
+    this.options.stderr.write(terminalSafe(`${this.paint('red', '✗')} ${message}${hint}\n`))
   }
 
   /** A spinner on stderr in an interactive terminal; a no-op everywhere else (§18 Session 6). */
   spinner(text: string): Spinner {
     if (!this.interactive || this.options.quiet) return { update: () => {}, stop: () => {} }
     let frame = 0
-    let label = text
+    let label = printable(text)
     const render = () => {
       this.options.stderr.write(
         `\r${this.paint('cyan', FRAMES[frame % FRAMES.length] ?? '')} ${label}\u001b[K`,
@@ -170,7 +187,7 @@ export class Output {
     const timer = setInterval(render, 80)
     return {
       update: (next) => {
-        label = next
+        label = printable(next)
       },
       stop: () => {
         clearInterval(timer)

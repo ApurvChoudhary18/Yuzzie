@@ -176,21 +176,17 @@ async function autoWatch(
   people: ReadonlyMap<string, string>,
 ): Promise<string[]> {
   if (people.size === 0) return []
-  const already = new Set(
-    (
-      await tx
-        .select({ userId: watchers.userId })
-        .from(watchers)
-        .where(and(eq(watchers.cardId, cardId), inArray(watchers.userId, [...people.values()])))
-    ).map((row) => row.userId),
-  )
-  const fresh = [...people].filter(([, userId]) => !already.has(userId))
-  if (fresh.length === 0) return []
-  await tx
+  // One statement: the rows it actually inserted are exactly the new watchers.
+  const inserted = await tx
     .insert(watchers)
-    .values(fresh.map(([, userId]) => ({ cardId, userId })))
+    .values([...people.values()].map((userId) => ({ cardId, userId })))
     .onConflictDoNothing()
-  return fresh.map(([handle]) => handle).sort()
+    .returning({ userId: watchers.userId })
+  const added = new Set(inserted.map((row) => row.userId))
+  return [...people]
+    .filter(([, userId]) => added.has(userId))
+    .map(([handle]) => handle)
+    .sort()
 }
 
 async function resolveUserIds(
@@ -711,7 +707,11 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
               type: 'card.updated',
               cardId: row.id,
               cardNo: number,
-              payload: { fields: { checklist: card?.checklist ?? [] }, version },
+              payload: {
+                fields: { checklist: card?.checklist ?? [] },
+                version,
+                checklistAdded: { position: item.position, text: item.text },
+              },
             })
 
             return {

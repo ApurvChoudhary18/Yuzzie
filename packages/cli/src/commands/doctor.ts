@@ -4,6 +4,9 @@
  * only the ones that are not fine.
  */
 import { existsSync } from 'node:fs'
+import { writeFile } from 'node:fs/promises'
+import { arch, platform, release } from 'node:os'
+import { resolve } from 'node:path'
 import {
   EXIT_OFFLINE,
   EXIT_RUNTIME,
@@ -11,10 +14,13 @@ import {
   initialState,
   isBoardError,
 } from '@yuzie/core'
-import { gitVersion, type HookName, hookStatus } from '@yuzie/git'
+import { currentBranch, dirtyFiles, gitVersion, type HookName, hookStatus } from '@yuzie/git'
 import { openCache, resolveCacheLocation } from '@yuzie/store'
 import type { Context } from '../context.js'
+import { tailLog } from '../log.js'
 import { describeOp } from '../reconcile.js'
+import { redactValue } from '../redact.js'
+import { VERSION } from '../version.js'
 
 export type CheckStatus = 'ok' | 'warn' | 'fail' | 'skip'
 
@@ -225,10 +231,115 @@ export function printCheck(context: Context, check: Check): void {
   else output.line(`${output.paint('dim', '–')} ${output.paint('dim', check.detail)}`)
 }
 
-export async function doctor(context: Context): Promise<number> {
+export async function doctor(
+  context: Context,
+  options: { bundle?: boolean | string } = {},
+): Promise<number> {
   const checks = await runChecks(context)
   for (const check of checks) printCheck(context, check)
   const failed = checks.find((check) => check.status === 'fail')
+  if (options.bundle !== undefined && options.bundle !== false) {
+    const path = await writeBundle(
+      context,
+      checks,
+      typeof options.bundle === 'string' ? options.bundle : undefined,
+    )
+    context.output.success(`Wrote a diagnostic bundle: ${path}`)
+    context.output.line(
+      context.output.paint(
+        'dim',
+        '  Tokens, passwords and your home directory are redacted. Read it before you share it.',
+      ),
+    )
+    context.output.result('Doctor', { checks, bundle: path }, { ok: failed === undefined })
+    // A bundle is asked for when something is wrong: writing it is the success.
+    return 0
+  }
   context.output.result('Doctor', { checks }, { ok: failed === undefined })
   return failed?.exitCode ?? 0
+}
+
+/**
+ * `yuzie doctor --bundle` (SPEC.md §15, §18 Session 16): everything needed to
+ * diagnose a problem in one file — versions, the checks above, config with
+ * secrets stripped, the last 200 log lines, and Git facts — redacted before it
+ * is written.
+ */
+export async function buildBundle(
+  context: Context,
+  checks: readonly Check[],
+): Promise<Record<string, unknown>> {
+  const env = context.io.env
+  const { config, path: configPath } = await context.config()
+  const repo = await context.repo().catch(() => null)
+  let gitFacts: Record<string, unknown> = { repository: false }
+  if (repo !== null) {
+    const [branch, dirty, hooks] = await Promise.all([
+      currentBranch(repo.root).catch(() => null),
+      dirtyFiles(repo.root).catch(() => []),
+      hookStatus(repo.root, config.git.hooks as HookName[]).catch(() => []),
+    ])
+    gitFacts = {
+      repository: true,
+      root: repo.root,
+      remote: repo.remote === null ? null : { host: repo.remote.host, path: repo.remote.path },
+      defaultBranch: repo.defaultBranch,
+      currentBranch: branch,
+      uncommittedFiles: dirty.length,
+      hooks: hooks.map((hook) => ({ name: hook.name, state: hook.state })),
+    }
+  }
+  let cache: Record<string, unknown> = { board: config.board ?? null }
+  if (config.board !== undefined) {
+    const location = resolveCacheLocation({
+      boardSlug: config.board,
+      cwd: context.io.cwd,
+      home: context.home,
+      env,
+    })
+    cache = {
+      ...cache,
+      path: location.path,
+      scope: location.scope,
+      exists: existsSync(location.path),
+    }
+  }
+  const bundle = {
+    generatedAt: new Date().toISOString(),
+    yuzie: VERSION,
+    node: process.versions.node,
+    platform: `${platform()} ${release()} ${arch()}`,
+    terminal: {
+      term: env.TERM ?? null,
+      colorterm: env.COLORTERM ?? null,
+      lang: env.LANG ?? env.LC_ALL ?? null,
+      ci: env.CI !== undefined,
+      columns: (context.io.stdout as { columns?: number }).columns ?? null,
+    },
+    checks,
+    config: { path: configPath, resolved: config },
+    environment: Object.fromEntries(
+      Object.entries(env)
+        .filter(([name]) => name.startsWith('YUZIE_') || name === 'NO_COLOR')
+        .sort(([a], [b]) => a.localeCompare(b)),
+    ),
+    git: { version: await gitVersion(context.io.cwd), ...gitFacts },
+    cache,
+    log: tailLog(context.home, BUNDLE_LOG_LINES),
+  }
+  return redactValue(bundle, context.home) as Record<string, unknown>
+}
+
+export const BUNDLE_LOG_LINES = 200
+
+async function writeBundle(
+  context: Context,
+  checks: readonly Check[],
+  target: string | undefined,
+): Promise<string> {
+  const bundle = await buildBundle(context, checks)
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*$/, '').replace('T', '-')
+  const path = resolve(context.io.cwd, target ?? `yuzie-diagnostics-${stamp}.json`)
+  await writeFile(path, `${JSON.stringify(bundle, null, 2)}\n`, { mode: 0o600 })
+  return path
 }

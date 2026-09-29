@@ -3,6 +3,7 @@
  * optional style. Widths are measured before any escape codes are added, so
  * every line is exactly as wide as the terminal no matter which theme paints it.
  */
+import { printable } from '@yuzie/core'
 import type { Style, Theme } from './theme.js'
 
 export interface Segment {
@@ -14,8 +15,14 @@ export interface Segment {
 
 export type Line = Segment[]
 
+/**
+ * A run of text in one style. Everything the board shows passes through here,
+ * so a control character in a title or comment is drawn as `�`, never obeyed
+ * by the terminal (§18 Session 16).
+ */
 export function seg(text: string, style?: Style): Segment {
-  return style === undefined ? { text } : { text, style }
+  const safe = printable(text)
+  return style === undefined ? { text: safe } : { text: safe, style }
 }
 
 export function chars(text: string): string[] {

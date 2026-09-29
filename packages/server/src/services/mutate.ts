@@ -125,30 +125,31 @@ async function appendEvents(
 ): Promise<EventEnvelope[]> {
   if (drafts.length === 0) return []
 
-  // Read once, after the mutation, so every event carries the version the card
-  // ended on. A deleted card has none, which is right: there is nothing to match.
+  // One read, after the mutation: the board's head, and the version each card
+  // ended on so every event carries it (a deleted card has none, which is
+  // right: there is nothing to match). Then one insert for all the events.
+  // Both run under the board lock, so each round trip here is one less write a
+  // second the board can take (§18 Session 16).
   const cardIds = [...new Set(drafts.flatMap((draft) => (draft.cardId ? [draft.cardId] : [])))]
-  const versions = new Map<string, number>()
-  if (cardIds.length > 0) {
-    const rows = await tx
-      .select({ id: cards.id, version: cards.version })
-      .from(cards)
-      .where(inArray(cards.id, cardIds))
-    for (const row of rows) versions.set(row.id, row.version)
-  }
-
+  const versionsSql =
+    cardIds.length === 0
+      ? sql`'{}'::json`
+      : sql`coalesce((SELECT json_object_agg(${cards.id}, ${cards.version}) FROM ${cards} WHERE ${inArray(cards.id, cardIds)}), '{}'::json)`
   const [head] = await tx
-    .select({ maxSeq: sql<string>`coalesce(max(${events.seq}), 0)` })
-    .from(events)
-    .where(eq(events.boardId, boardId))
+    .execute<{ max_seq: string; versions: Record<string, number> }>(
+      sql`SELECT (SELECT coalesce(max(${events.seq}), 0) FROM ${events} WHERE ${events.boardId} = ${boardId}) AS max_seq, ${versionsSql} AS versions`,
+    )
+    .then((result) => result.rows)
+  const versions = head?.versions ?? {}
 
-  let seq = Number(head?.maxSeq ?? 0)
+  let seq = Number(head?.max_seq ?? 0)
   const envelopes: EventEnvelope[] = []
+  const rows: Array<typeof events.$inferInsert> = []
 
   for (const draft of drafts) {
     seq += 1
     const id = newId()
-    const version = draft.cardId ? versions.get(draft.cardId) : undefined
+    const version = draft.cardId ? versions[draft.cardId] : undefined
 
     const envelope = EventEnvelopeSchema.parse({
       id,
@@ -162,7 +163,7 @@ async function appendEvents(
       ts: ts.toISOString(),
     })
 
-    await tx.insert(events).values({
+    rows.push({
       boardId,
       seq,
       id,
@@ -175,10 +176,10 @@ async function appendEvents(
       idempotencyKey: idempotencyKey ?? null,
       cardVersion: version ?? null,
     })
-
     envelopes.push(envelope)
   }
 
+  await tx.insert(events).values(rows)
   return envelopes
 }
 

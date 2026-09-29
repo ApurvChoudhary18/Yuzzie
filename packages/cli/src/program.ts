@@ -4,52 +4,83 @@
  */
 
 import { Command, CommanderError, Option } from 'commander'
-import { login, logout, whoami } from './commands/auth.js'
-import {
-  type AddOptions,
-  add,
-  assign,
-  check,
-  comment,
-  done,
-  due,
-  edit,
-  type ListOptions,
-  labels,
-  list,
-  move,
-  priority,
-  rm,
-  show,
-  watch,
-} from './commands/cards.js'
-import { anchor, open } from './commands/code.js'
-import { doctor } from './commands/doctor.js'
-import { branch, claim, commits, finish as finishCard } from './commands/git.js'
-import { hook } from './commands/hooks.js'
-import { init } from './commands/init.js'
-import { type McpOptions, mcp } from './commands/mcp.js'
-import { configGet, configSet, hooksInstall, hooksUninstall } from './commands/setup.js'
-import { sync } from './commands/sync.js'
-import {
-  activity,
-  boardsArchive,
-  boardsCreate,
-  boardsList,
-  boardsRename,
-  columnsAdd,
-  columnsList,
-  columnsRemove,
-  feed,
-  invite,
-  members,
-  share,
-  who,
-} from './commands/team.js'
-import { type TokenCreateOptions, tokenCreate, tokenList, tokenRevoke } from './commands/tokens.js'
-import { Context, type GlobalOptions, type Io } from './context.js'
+import type { AddOptions, ListOptions } from './commands/cards.js'
+import type { McpOptions } from './commands/mcp.js'
+import type { TokenCreateOptions } from './commands/tokens.js'
+import type { Context, GlobalOptions, Io } from './context.js'
 import { EXIT_OK, EXIT_USAGE, exitCodeFor, UsageError } from './exit.js'
 import { VERSION } from './version.js'
+
+/**
+ * Each command's code loads when that command runs, not at start-up (§18 Session 16):
+ * `yuzie --version` never parses the TUI, the editor's YAML or the MCP server.
+ */
+const lazy =
+  <Module, Name extends keyof Module>(load: () => Promise<Module>, name: Name) =>
+  async (...args: unknown[]) =>
+    ((await load())[name] as (...args: unknown[]) => Promise<unknown>)(...args)
+
+const loadAuth = () => import('./commands/auth.js')
+const loadCards = () => import('./commands/cards.js')
+const loadCode = () => import('./commands/code.js')
+const loadDoctor = () => import('./commands/doctor.js')
+const loadGit = () => import('./commands/git.js')
+const loadHooks = () => import('./commands/hooks.js')
+const loadInit = () => import('./commands/init.js')
+const loadMcp = () => import('./commands/mcp.js')
+const loadSetup = () => import('./commands/setup.js')
+const loadSync = () => import('./commands/sync.js')
+const loadTeam = () => import('./commands/team.js')
+const loadTokens = () => import('./commands/tokens.js')
+
+const login = lazy(loadAuth, 'login')
+const logout = lazy(loadAuth, 'logout')
+const whoami = lazy(loadAuth, 'whoami')
+const add = lazy(loadCards, 'add')
+const assign = lazy(loadCards, 'assign')
+const check = lazy(loadCards, 'check')
+const comment = lazy(loadCards, 'comment')
+const done = lazy(loadCards, 'done')
+const due = lazy(loadCards, 'due')
+const edit = lazy(loadCards, 'edit')
+const labels = lazy(loadCards, 'labels')
+const list = lazy(loadCards, 'list')
+const move = lazy(loadCards, 'move')
+const priority = lazy(loadCards, 'priority')
+const rm = lazy(loadCards, 'rm')
+const show = lazy(loadCards, 'show')
+const watch = lazy(loadCards, 'watch')
+const anchor = lazy(loadCode, 'anchor')
+const open = lazy(loadCode, 'open')
+const doctor = lazy(loadDoctor, 'doctor')
+const branch = lazy(loadGit, 'branch')
+const claim = lazy(loadGit, 'claim')
+const commits = lazy(loadGit, 'commits')
+const finishCard = lazy(loadGit, 'finish')
+const hook = lazy(loadHooks, 'hook')
+const init = lazy(loadInit, 'init')
+const mcp = lazy(loadMcp, 'mcp')
+const configGet = lazy(loadSetup, 'configGet')
+const configSet = lazy(loadSetup, 'configSet')
+const hooksInstall = lazy(loadSetup, 'hooksInstall')
+const hooksUninstall = lazy(loadSetup, 'hooksUninstall')
+const sync = lazy(loadSync, 'sync')
+const activity = lazy(loadTeam, 'activity')
+const boardsArchive = lazy(loadTeam, 'boardsArchive')
+const boardsCreate = lazy(loadTeam, 'boardsCreate')
+const boardsList = lazy(loadTeam, 'boardsList')
+const boardsRename = lazy(loadTeam, 'boardsRename')
+const columnsAdd = lazy(loadTeam, 'columnsAdd')
+const columnsList = lazy(loadTeam, 'columnsList')
+const columnsRemove = lazy(loadTeam, 'columnsRemove')
+const feed = lazy(loadTeam, 'feed')
+const invite = lazy(loadTeam, 'invite')
+const members = lazy(loadTeam, 'members')
+const share = lazy(loadTeam, 'share')
+const who = lazy(loadTeam, 'who')
+const tokenCreate = lazy(loadTokens, 'tokenCreate')
+const tokenList = lazy(loadTokens, 'tokenList')
+const tokenRevoke = lazy(loadTokens, 'tokenRevoke')
 
 /** The command a mistyped word most likely meant: close in spelling, or a unique prefix. */
 export function closest(word: string, names: readonly string[]): string | null {
@@ -89,6 +120,14 @@ export function closest(word: string, names: readonly string[]): string | null {
   return best
 }
 
+/** `token create`, not just `create`: for the log. */
+function commandPath(command: Command): string {
+  const names: string[] = []
+  for (let current: Command | null = command; current?.parent; current = current.parent)
+    names.unshift(current.name())
+  return names.join(' ')
+}
+
 /** A command body: gets the context, then commander's positional args and options. */
 type Handler = (context: Context, ...args: never[]) => Promise<unknown>
 
@@ -120,18 +159,34 @@ function build(io: Io, finish: (code: number) => void): Command {
     async (...raw: unknown[]): Promise<void> => {
       // commander calls actions with (…positional args, options, command).
       const command = raw.at(-1) as Command
+      const { Context } = await import('./context.js')
       const context = new Context(command.optsWithGlobals() as GlobalOptions, io)
       context.output.debug(`yuzie ${VERSION} · ${command.name()}`)
+      const started = Date.now()
+      const name = commandPath(command)
+      context.log.log('info', 'command', { command: name, version: VERSION })
       try {
         const body = handler as (context: Context, ...args: unknown[]) => Promise<unknown>
         const code = await body(context, ...raw.slice(0, -1))
-        finish(typeof code === 'number' ? code : EXIT_OK)
+        const exitCode = typeof code === 'number' ? code : EXIT_OK
+        context.log.log('info', 'done', { command: name, exitCode, ms: Date.now() - started })
+        finish(exitCode)
       } catch (error) {
         context.output.error(error)
         context.output.debug(
           error instanceof Error ? (error.stack ?? error.message) : String(error),
         )
-        finish(exitCodeFor(error))
+        const exitCode = exitCodeFor(error)
+        // The stack goes to the log, never to the terminal without --verbose.
+        context.log.log(exitCode === 1 ? 'error' : 'warn', 'failed', {
+          command: name,
+          exitCode,
+          ms: Date.now() - started,
+          error: error instanceof Error ? error.message : String(error),
+          code: (error as { code?: unknown } | null)?.code,
+          stack: error instanceof Error ? error.stack : undefined,
+        })
+        finish(exitCode)
       } finally {
         context.prompter.close()
         // Nothing left in flight keeps the process alive after the command.
@@ -163,7 +218,15 @@ function build(io: Io, finish: (code: number) => void): Command {
   program
     .command('doctor')
     .description('check node, git, sign-in, server, hooks and cache')
-    .action(action((context: Context) => doctor(context)))
+    .option(
+      '--bundle [file]',
+      'also write a redacted diagnostic bundle (versions, config, last 200 log lines, git facts)',
+    )
+    .action(
+      action((context: Context, options: { bundle?: boolean | string }) =>
+        doctor(context, options),
+      ),
+    )
 
   const config = program.command('config').description('read and change .yuzie/config.json')
   config
@@ -545,6 +608,7 @@ function build(io: Io, finish: (code: number) => void): Command {
     .allowExcessArguments()
     .action(async (name: string, _options: unknown, command: Command) => {
       try {
+        const { Context } = await import('./context.js')
         await hook(
           new Context(command.optsWithGlobals() as GlobalOptions, io),
           name,

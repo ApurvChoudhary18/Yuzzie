@@ -363,6 +363,8 @@ export class Board {
   readonly comments: CommentsResource
 
   private confirmed: BoardState = initialState()
+  /** What this process knows the cache holds for each card, to skip rewriting it unchanged. */
+  private readonly inCache = new Map<number, Card>()
   private pending: Pending[] = []
   private view: BoardState | null = null
   private presenceList: readonly Presence[] = []
@@ -498,18 +500,25 @@ export class Board {
     this.hydrateFromCache()
     this.replayQueued()
 
+    // Nothing is asked of a server the probe says is unreachable (§18 Session 13).
     let reachable = this.options.probe === undefined ? true : await this.options.probe()
     if (!reachable && this.options.offline === 'fail') {
       throw new OfflineError('offline_network_required', 'Cannot reach the server', { status: 0 })
     }
+    // The board and `/me` at once, and the board kept for `refresh`: each
+    // round trip is what a one-shot command waits on (§18 Session 16).
+    let detail: BoardDetailResponse | undefined
     if (reachable) {
       try {
-        await this.boards.get()
-        const me = await this.options.http.request({
-          method: 'GET',
-          path: '/me',
-          schema: z.object({ user: z.object({ handle: z.string() }) }),
-        })
+        const [board, me] = await Promise.all([
+          this.boards.get(),
+          this.options.http.request({
+            method: 'GET',
+            path: '/me',
+            schema: z.object({ user: z.object({ handle: z.string() }) }),
+          }),
+        ])
+        detail = board
         this.me = me.user.handle
       } catch (error) {
         if (!(error instanceof OfflineError) || this.options.offline === 'fail') throw error
@@ -526,13 +535,15 @@ export class Board {
       } catch {
         // Left queued; `sync()` reports what went wrong.
       }
+      // What was sent may have changed the board: read it again.
+      detail = undefined
     }
 
     if (this.options.realtime && this.options.socket !== undefined) {
       this.startRealtime(this.options.socket)
       if (reachable) await this.waitForSync(this.options.connectTimeoutMs)
     } else if (reachable) {
-      await this.refresh()
+      await this.refresh(detail)
     }
   }
 
@@ -540,14 +551,16 @@ export class Board {
    * Reload the whole board over HTTP. Used without realtime, and after draining
    * the outbox when no stream is carrying the echoes.
    */
-  async refresh(): Promise<void> {
+  async refresh(fetched?: BoardDetailResponse): Promise<void> {
+    // The head first: every card read after it is at least that new, so
+    // events after it can be replayed on top without missing any.
     const head = await this.options.http.request({
       method: 'GET',
       path: `/boards/${encodeURIComponent(this.slug)}/events`,
       query: { since: 0, limit: 1 },
       schema: EventsReplayResponseSchema,
     })
-    const detail = await this.boards.get()
+    const detail = fetched ?? (await this.boards.get())
     const list = await this.options.http.request({
       method: 'GET',
       path: `/boards/${encodeURIComponent(this.slug)}/cards`,
@@ -890,7 +903,10 @@ export class Board {
     const cache = this.options.cache
     if (cache === undefined) return
     const cards: Record<number, Card> = {}
-    for (const card of cache.cards.list(this.slug)) cards[card.number] = card
+    for (const card of cache.cards.list(this.slug)) {
+      cards[card.number] = card
+      this.inCache.set(card.number, card)
+    }
     this.confirmed = initialState({
       columns: cache.columns.list(this.slug),
       cards,
@@ -899,14 +915,32 @@ export class Board {
     this.changed()
   }
 
+  /**
+   * Replace the board with the server's, writing to the cache only what
+   * differs from what it already holds (§18 Session 16): a refresh of an
+   * unchanged 200-card board used to rewrite every row, on every command.
+   */
   private replaceConfirmed(state: BoardState): void {
+    const columnsChanged = JSON.stringify(this.confirmed.columns) !== JSON.stringify(state.columns)
     this.confirmed = state
     const cache = this.options.cache
     cache?.transaction(() => {
-      cache.cards.clear(this.slug)
-      cache.cards.putMany(this.slug, Object.values(state.cards))
-      cache.columns.clear(this.slug)
-      cache.columns.putMany(this.slug, state.columns)
+      const changed: Card[] = []
+      for (const card of Object.values(state.cards)) {
+        const held = this.inCache.get(card.number)
+        if (held === undefined || JSON.stringify(held) !== JSON.stringify(card)) changed.push(card)
+      }
+      for (const number of [...this.inCache.keys()]) {
+        if (state.cards[number] !== undefined) continue
+        cache.cards.delete(this.slug, number)
+        this.inCache.delete(number)
+      }
+      if (changed.length > 0) cache.cards.putMany(this.slug, changed)
+      for (const card of changed) this.inCache.set(card.number, card)
+      if (columnsChanged) {
+        cache.columns.clear(this.slug)
+        cache.columns.putMany(this.slug, state.columns)
+      }
       cache.sync.set({ boardSlug: this.slug, lastSeq: state.seq, syncedAt: Date.now() })
     })
     this.changed()
@@ -916,8 +950,13 @@ export class Board {
     const cache = this.options.cache
     if (cache === undefined) return
     const card = this.confirmed.cards[number]
-    if (card === undefined) cache.cards.delete(this.slug, number)
-    else cache.cards.put(this.slug, card)
+    if (card === undefined) {
+      cache.cards.delete(this.slug, number)
+      this.inCache.delete(number)
+    } else {
+      cache.cards.put(this.slug, card)
+      this.inCache.set(number, card)
+    }
   }
 
   private startRealtime(socket: WebSocketFactory): void {

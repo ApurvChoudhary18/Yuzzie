@@ -22,6 +22,11 @@ export function describeEvent(event: EventEnvelope, state: BoardState): string {
       const fields = Object.keys(event.payload.fields)
       if (fields.length === 1 && fields[0] === 'watchers')
         return `changed who watches ${title(state, event.cardNo)}`
+      const added = event.payload.checklistAdded
+      if (added !== undefined)
+        return `added "${truncate(added.text.replace(/\s+/g, ' '), 60)}" to the checklist on ${title(state, event.cardNo)}`
+      if (fields.length === 1 && fields[0] === 'checklist')
+        return `updated the checklist on ${title(state, event.cardNo)}`
       return `edited ${title(state, event.cardNo)} (${fields.join(', ')})`
     }
     case 'card.moved':

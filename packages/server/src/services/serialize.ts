@@ -1,9 +1,9 @@
 /**
  * Database rows -> the domain shapes in `@yuzie/core`.
  *
- * Cards are assembled with a fixed number of queries regardless of how many
- * cards are returned: §10.4 budgets a 2,000-card board, and an N+1 would spend
- * that budget on round trips.
+ * Cards are assembled in one query regardless of how many cards are returned:
+ * §10.4 budgets a 2,000-card board and 100 writes a second, and every round
+ * trip is spent on both.
  */
 import type {
   Anchor,
@@ -21,24 +21,9 @@ import type {
   User,
   UserKind,
 } from '@yuzie/core'
-import { and, eq, inArray } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import type { Database } from '../db/client.js'
-import {
-  anchors,
-  type boards,
-  cardAssignees,
-  cardLabels,
-  cards,
-  checklistItems,
-  columns,
-  comments,
-  commits,
-  gitLinks,
-  labels,
-  memberships,
-  users,
-  watchers,
-} from '../db/schema.js'
+import { type boards, type columns, type labels, memberships, users } from '../db/schema.js'
 
 export function toIso(value: Date | string | null): string | null {
   if (value === null) return null
@@ -94,207 +79,135 @@ export function toLabel(row: typeof labels.$inferSelect): Label {
   return { name: row.name, color: row.color }
 }
 
-function group<T, K>(rows: readonly T[], key: (row: T) => K): Map<K, T[]> {
-  const grouped = new Map<K, T[]>()
-  for (const row of rows) {
-    const id = key(row)
-    const bucket = grouped.get(id)
-    if (bucket === undefined) grouped.set(id, [row])
-    else bucket.push(row)
-  }
-  return grouped
-}
-
 export interface LoadCardsOptions {
   /** Restrict to these card numbers; omitted means the whole board. */
   readonly numbers?: readonly number[]
   readonly includeArchived?: boolean
 }
 
+/** A timestamp exactly as `Date#toISOString` writes it, from inside Postgres. */
+const iso = (column: string) =>
+  `to_char(${column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`
+
 /**
- * Load whole cards, children included, in board order.
- *
- * Eight queries, no matter how many cards come back.
+ * Every card field and child in one statement: a correlated, JSON-aggregating
+ * subquery per kind of child. Each is an index lookup by card, so the cost
+ * stays with the rows returned, and it is one round trip (§18 Session 16:
+ * reloading a card used to be ten, which capped writes to one board below
+ * the 100 a second §10.4 asks for).
+ */
+const CARD_SELECT = `
+SELECT
+  c.id, c.board_id, c.number, col.key AS column_key, c.rank, c.title, c.description,
+  c.priority, c.due_at, c.archived_at, c.created_at, c.updated_at, c.version,
+  creator.handle AS created_by,
+  (SELECT coalesce(json_agg(u.handle), '[]')
+     FROM card_assignees a JOIN users u ON u.id = a.user_id WHERE a.card_id = c.id) AS assignees,
+  (SELECT coalesce(json_agg(l.name), '[]')
+     FROM card_labels cl JOIN labels l ON l.id = cl.label_id WHERE cl.card_id = c.id) AS labels,
+  (SELECT coalesce(json_agg(u.handle), '[]')
+     FROM watchers w JOIN users u ON u.id = w.user_id WHERE w.card_id = c.id) AS watchers,
+  (SELECT coalesce(json_agg(json_build_object(
+            'id', i.id, 'position', i.position, 'text', i.text,
+            'doneAt', ${iso('i.done_at')}, 'doneBy', du.handle) ORDER BY i.position), '[]')
+     FROM checklist_items i LEFT JOIN users du ON du.id = i.done_by WHERE i.card_id = c.id) AS checklist,
+  (SELECT coalesce(json_agg(json_build_object(
+            'id', m.id, 'author', mu.handle, 'body', m.body,
+            'createdAt', ${iso('m.created_at')}, 'editedAt', ${iso('m.edited_at')})
+            ORDER BY m.created_at, m.id), '[]')
+     FROM comments m JOIN users mu ON mu.id = m.author_id WHERE m.card_id = c.id) AS comments,
+  (SELECT coalesce(json_agg(json_build_object(
+            'sha', k.sha, 'message', k.message, 'author', ku.handle,
+            'committedAt', ${iso('k.committed_at')})
+            ORDER BY k.committed_at NULLS LAST, k.sha), '[]')
+     FROM commits k LEFT JOIN users ku ON ku.id = k.author_id WHERE k.card_id = c.id) AS commits,
+  (SELECT json_build_object(
+            'branch', g.branch, 'baseBranch', g.base_branch, 'commits', g.commit_count,
+            'filesChanged', g.files_changed, 'additions', g.additions, 'deletions', g.deletions,
+            'pushed', g.pushed, 'prUrl', g.pr_url, 'prState', g.pr_state,
+            'lastActivityAt', ${iso('g.last_activity_at')})
+     FROM git_links g WHERE g.card_id = c.id) AS git,
+  (SELECT json_build_object(
+            'path', n.path, 'line', n.line, 'endLine', n.end_line,
+            'commitSha', n.commit_sha, 'primary', n.primary_anchor)
+     FROM anchors n WHERE n.card_id = c.id ORDER BY n.primary_anchor DESC LIMIT 1) AS anchor
+FROM cards c
+JOIN columns col ON col.id = c.column_id
+LEFT JOIN users creator ON creator.id = c.created_by`
+
+interface CardSqlRow {
+  id: string
+  board_id: string
+  number: number
+  column_key: string
+  rank: string
+  title: string
+  description: string | null
+  priority: number | null
+  due_at: Date | null
+  archived_at: Date | null
+  created_at: Date
+  updated_at: Date
+  version: number
+  created_by: string | null
+  assignees: string[]
+  labels: string[]
+  watchers: string[]
+  checklist: ChecklistItem[]
+  comments: Array<Omit<Comment, 'cardNumber'>>
+  commits: Commit[]
+  git: GitSummary | null
+  anchor: Anchor | null
+}
+
+/**
+ * Load whole cards, children included, in board order — in one query, however
+ * many cards come back.
  */
 export async function loadCards(
   db: Database,
   boardId: string,
   options: LoadCardsOptions = {},
 ): Promise<Card[]> {
-  const where =
-    options.numbers === undefined
-      ? eq(cards.boardId, boardId)
-      : and(eq(cards.boardId, boardId), inArray(cards.number, [...options.numbers]))
-
-  const cardRows = await db
-    .select({ card: cards, columnKey: columns.key })
-    .from(cards)
-    .innerJoin(columns, eq(cards.columnId, columns.id))
-    .where(where)
-
-  if (cardRows.length === 0) return []
-
-  const ids = cardRows.map((row) => row.card.id)
-
-  // Sequential, not Promise.all: inside a transaction every one of these runs on
-  // the *same* connection, and concurrent queries on one client are deprecated in
-  // node-postgres 8 and removed in 9. Eight round trips to a local database cost
-  // far less than the correctness of the transactional read path.
-  const assigneeRows = await db
-    .select({ cardId: cardAssignees.cardId, handle: users.handle })
-    .from(cardAssignees)
-    .innerJoin(users, eq(cardAssignees.userId, users.id))
-    .where(inArray(cardAssignees.cardId, ids))
-
-  const labelRows = await db
-    .select({ cardId: cardLabels.cardId, name: labels.name })
-    .from(cardLabels)
-    .innerJoin(labels, eq(cardLabels.labelId, labels.id))
-    .where(inArray(cardLabels.cardId, ids))
-
-  const watcherRows = await db
-    .select({ cardId: watchers.cardId, handle: users.handle })
-    .from(watchers)
-    .innerJoin(users, eq(watchers.userId, users.id))
-    .where(inArray(watchers.cardId, ids))
-
-  const checklistRows = await db
-    .select()
-    .from(checklistItems)
-    .where(inArray(checklistItems.cardId, ids))
-
-  const commentRows = await db
-    .select({ comment: comments, handle: users.handle })
-    .from(comments)
-    .innerJoin(users, eq(comments.authorId, users.id))
-    .where(inArray(comments.cardId, ids))
-
-  const commitRows = await db.select().from(commits).where(inArray(commits.cardId, ids))
-  const gitRows = await db.select().from(gitLinks).where(inArray(gitLinks.cardId, ids))
-  const anchorRows = await db.select().from(anchors).where(inArray(anchors.cardId, ids))
-
-  const assigneesBy = group(assigneeRows, (row) => row.cardId)
-  const labelsBy = group(labelRows, (row) => row.cardId)
-  const watchersBy = group(watcherRows, (row) => row.cardId)
-  const checklistBy = group(checklistRows, (row) => row.cardId)
-  const commentsBy = group(commentRows, (row) => row.comment.cardId)
-  const commitsBy = group(commitRows, (row) => row.cardId)
-  const anchorsBy = group(anchorRows, (row) => row.cardId)
-  const gitBy = new Map(gitRows.map((row) => [row.cardId, row]))
-
-  // One more query resolves every user id a card refers to indirectly: who
-  // created it, who ticked a checklist item, who authored a linked commit.
-  const referencedUserIds = new Set<string>()
-  for (const { card } of cardRows) {
-    if (card.createdBy !== null) referencedUserIds.add(card.createdBy)
-  }
-  for (const row of checklistRows) {
-    if (row.doneBy !== null) referencedUserIds.add(row.doneBy)
-  }
-  for (const row of commitRows) {
-    if (row.authorId !== null) referencedUserIds.add(row.authorId)
-  }
-
-  const handleById = new Map<string, string>()
-  if (referencedUserIds.size > 0) {
-    const referenced = await db
-      .select({ id: users.id, handle: users.handle })
-      .from(users)
-      .where(inArray(users.id, [...referencedUserIds]))
-    for (const row of referenced) handleById.set(row.id, row.handle)
-  }
-
-  const handleFor = (id: string | null): string | null =>
-    id === null ? null : (handleById.get(id) ?? null)
-
-  const result: Card[] = cardRows.map(({ card, columnKey }) => {
-    const checklist: ChecklistItem[] = (checklistBy.get(card.id) ?? [])
-      .map((row) => ({
-        id: row.id,
-        position: row.position,
-        text: row.text,
-        doneAt: toIso(row.doneAt),
-        doneBy: handleFor(row.doneBy),
-      }))
-      .sort((a, b) => a.position - b.position)
-
-    const cardComments: Comment[] = (commentsBy.get(card.id) ?? [])
-      .map(({ comment, handle }) => ({
-        id: comment.id,
-        cardNumber: card.number,
-        author: handle,
-        body: comment.body,
-        createdAt: toIsoRequired(comment.createdAt),
-        editedAt: toIso(comment.editedAt),
-      }))
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
-
-    const cardCommits: Commit[] = (commitsBy.get(card.id) ?? []).map((row) => ({
-      sha: row.sha,
-      message: row.message,
-      author: handleFor(row.authorId),
-      committedAt: toIso(row.committedAt),
-    }))
-
-    const gitRow = gitBy.get(card.id)
-    const git: GitSummary | null =
-      gitRow === undefined
-        ? null
-        : {
-            branch: gitRow.branch,
-            baseBranch: gitRow.baseBranch,
-            commits: gitRow.commitCount,
-            filesChanged: gitRow.filesChanged,
-            additions: gitRow.additions,
-            deletions: gitRow.deletions,
-            pushed: gitRow.pushed,
-            prUrl: gitRow.prUrl,
-            prState: gitRow.prState,
-            lastActivityAt: toIso(gitRow.lastActivityAt),
-          }
-
-    const anchorRow =
-      (anchorsBy.get(card.id) ?? []).find((row) => row.primaryAnchor) ??
-      (anchorsBy.get(card.id) ?? [])[0]
-    const anchor: Anchor | null =
-      anchorRow === undefined
-        ? null
-        : {
-            path: anchorRow.path,
-            line: anchorRow.line,
-            endLine: anchorRow.endLine,
-            commitSha: anchorRow.commitSha,
-            primary: anchorRow.primaryAnchor,
-          }
-
-    return {
-      id: card.id,
-      boardId: card.boardId,
-      number: card.number,
-      column: columnKey,
-      rank: card.rank,
-      title: card.title,
-      description: card.description,
-      priority: card.priority as Priority | null,
-      dueAt: toIso(card.dueAt),
-      assignees: (assigneesBy.get(card.id) ?? []).map((row) => row.handle).sort(),
-      labels: (labelsBy.get(card.id) ?? []).map((row) => row.name).sort(),
-      watchers: (watchersBy.get(card.id) ?? []).map((row) => row.handle).sort(),
-      checklist,
-      comments: cardComments,
-      commits: cardCommits,
-      git,
-      anchor,
-      createdBy: handleFor(card.createdBy),
-      archivedAt: toIso(card.archivedAt),
-      createdAt: toIsoRequired(card.createdAt),
-      updatedAt: toIsoRequired(card.updatedAt),
-      version: card.version,
-    }
-  })
-
+  const numbers = options.numbers
+  if (numbers !== undefined && numbers.length === 0) return []
+  const only =
+    numbers === undefined
+      ? sql``
+      : sql` AND c.number IN (${sql.join(
+          numbers.map((number) => sql`${number}`),
+          sql`, `,
+        )})`
+  const result = await db.execute<CardSqlRow & Record<string, unknown>>(
+    sql`${sql.raw(CARD_SELECT)} WHERE c.board_id = ${boardId}${only}`,
+  )
+  const cardsOut: Card[] = result.rows.map((row) => ({
+    id: row.id,
+    boardId: row.board_id,
+    number: row.number,
+    column: row.column_key,
+    rank: row.rank,
+    title: row.title,
+    description: row.description,
+    priority: row.priority as Priority | null,
+    dueAt: toIso(row.due_at),
+    // Sorted here, not by Postgres, so the order never depends on a collation.
+    assignees: [...row.assignees].sort(),
+    labels: [...row.labels].sort(),
+    watchers: [...row.watchers].sort(),
+    checklist: row.checklist,
+    comments: row.comments.map((comment) => ({ ...comment, cardNumber: row.number })),
+    commits: row.commits,
+    git: row.git,
+    anchor: row.anchor,
+    createdBy: row.created_by,
+    archivedAt: toIso(row.archived_at),
+    createdAt: toIsoRequired(row.created_at),
+    updatedAt: toIsoRequired(row.updated_at),
+    version: row.version,
+  }))
   // Board order: rank, then card number (SPEC.md §11.4).
-  return result.sort((a, b) => (a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : a.number - b.number))
+  return cardsOut.sort((a, b) => (a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : a.number - b.number))
 }
 
 export async function loadCard(

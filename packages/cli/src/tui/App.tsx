@@ -4,7 +4,15 @@
  * by line. Nothing here decides layout or behaviour.
  */
 import { Box, Text, useApp, useInput, usePaste, useStdout } from 'ink'
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import {
+  createElement,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { frameLines } from './frame.js'
 import type { BoardView } from './layout.js'
 import { type Effect, initialNav, type NavAction, type NavState, reduce } from './state.js'
@@ -185,4 +193,13 @@ export function App({
       ))}
     </Box>
   )
+}
+
+/**
+ * The app as an element, for `run.ts`. Made here, where React is a static
+ * import: a bundled `await import('react')` of a CommonJS module hands back its
+ * exports under `default`, and `createElement` would not be where run.ts looks.
+ */
+export function appElement(props: AppProps): ReactElement {
+  return createElement(App, props)
 }

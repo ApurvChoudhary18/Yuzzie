@@ -7,8 +7,10 @@ import { defineConfig } from 'vitest/config'
  */
 export default defineConfig({
   test: {
-    include: ['src/realtime-timing.test.ts', 'src/search-timing.test.ts'],
-    testTimeout: 60_000,
+    include: ['src/realtime-timing.test.ts', 'src/search-timing.test.ts', 'src/load.test.ts'],
+    pool: 'forks',
+    poolOptions: { forks: { execArgv: ['--expose-gc'] } },
+    testTimeout: 180_000,
     hookTimeout: 120_000,
     setupFiles: ['./src/__tests__/docker-env.ts'],
     globalSetup: ['./src/__tests__/global-setup.ts'],

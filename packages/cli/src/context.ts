@@ -10,7 +10,9 @@ import { AuthenticationError, OfflineError } from '@yuzie/core'
 import { findRepo, type Repo } from '@yuzie/git'
 import { createClient, type YuzieClient } from '@yuzie/sdk'
 import { type CredentialOptions, resolveToken } from '@yuzie/sdk/node'
+import { findRepoRoot } from '@yuzie/store'
 import { type LoadedConfig, loadConfig } from './config.js'
+import { createLogger, type Logger } from './log.js'
 import { colorEnabled, Output, type Stream } from './output.js'
 import { type Input, Prompter } from './prompt.js'
 import { VERSION } from './version.js'
@@ -64,7 +66,11 @@ export class Context {
     })
     this.prompter = new Prompter(this.output, io.stdin, json || options.yes === true)
     this.home = io.home ?? io.env.HOME ?? homedir()
+    this.log = createLogger(this.home, io.env)
   }
+
+  /** `~/.yuzie/logs/yuzie.log` (§15): what happened, for `yuzie doctor --bundle`. */
+  readonly log: Logger
 
   repo(): Promise<Repo | null> {
     const pending = this.repoPromise ?? findRepo(this.io.cwd)
@@ -75,9 +81,11 @@ export class Context {
   async config(): Promise<LoadedConfig> {
     const pending =
       this.configPromise ??
-      this.repo().then((repo) =>
+      // Only the repository's root is needed here, and finding it is a few
+      // `stat`s — not the git processes `repo()` runs (§18 Session 16).
+      Promise.resolve(findRepoRoot(this.io.cwd)).then((root) =>
         loadConfig({
-          root: repo?.root ?? null,
+          root,
           home: this.home,
           env: this.io.env,
           ...(this.options.config === undefined ? {} : { configPath: this.options.config }),
