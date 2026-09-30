@@ -41,6 +41,8 @@ export async function startTui(context: Context): Promise<number> {
   const offline = context.options.offline === true
   const board = client.board(slug, {
     realtime: !offline,
+    // `ws`, not the global WebSocket: loading undici's cost the board 20–30 MB (§18 Session 16).
+    ...(offline ? {} : { webSocket: (await import('@yuzie/sdk/websocket')).nodeWebSocket }),
     offline: 'queue',
     ...(cache === undefined ? {} : { cache }),
   })
