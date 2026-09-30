@@ -51,7 +51,16 @@ interface NodeDatabase {
   readonly isTransaction: boolean
 }
 
-type NodeSqlite = { DatabaseSync: new (location: string) => NodeDatabase }
+type NodeSqlite = {
+  DatabaseSync: new (location: string, options?: { timeout?: number }) => NodeDatabase
+}
+
+/**
+ * How long a write waits for another process's (the board, `yuzie feed`, a
+ * hook) — better-sqlite3's default, which node:sqlite does not have: without it
+ * a second process fails at once with "database is locked".
+ */
+export const BUSY_TIMEOUT_MS = 5_000
 
 let loaded: NodeSqlite | null = null
 
@@ -88,7 +97,7 @@ function wrap(statement: NodeStatement): Statement {
 
 export function openNodeSqlite(location: string): Database {
   const { DatabaseSync } = loadNodeSqlite()
-  const db = new DatabaseSync(location)
+  const db = new DatabaseSync(location, { timeout: BUSY_TIMEOUT_MS })
   let depth = 0
   return {
     prepare: (sql) => wrap(db.prepare(sql)),
@@ -102,7 +111,10 @@ export function openNodeSqlite(location: string): Database {
     transaction<T>(fn: () => T): () => T {
       return () => {
         const savepoint = depth > 0 || db.isTransaction ? `yuzie_${depth}` : null
-        db.exec(savepoint === null ? 'BEGIN' : `SAVEPOINT ${savepoint}`)
+        // IMMEDIATE: take the write lock at the start, where the busy timeout
+        // applies. A deferred BEGIN that reads, then writes, cannot wait for
+        // another process's lock — SQLite refuses the upgrade at once.
+        db.exec(savepoint === null ? 'BEGIN IMMEDIATE' : `SAVEPOINT ${savepoint}`)
         depth += 1
         try {
           const result = fn()

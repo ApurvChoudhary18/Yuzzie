@@ -8,8 +8,8 @@
 import { homedir } from 'node:os'
 import { AuthenticationError, OfflineError } from '@yuzie/core'
 import { findRepo, type Repo } from '@yuzie/git'
-import { createClient, type YuzieClient } from '@yuzie/sdk'
-import { type CredentialOptions, resolveToken } from '@yuzie/sdk/node'
+import { createClient, type RequestInitLike, type YuzieClient } from '@yuzie/sdk'
+import { type CredentialOptions, nodeFetch, resolveToken } from '@yuzie/sdk/node'
 import { findRepoRoot } from '@yuzie/store'
 import { type LoadedConfig, loadConfig } from './config.js'
 import { createLogger, type Logger } from './log.js'
@@ -159,8 +159,10 @@ export class Context {
             fetch: () => Promise.reject(new TypeError('offline (--offline)')),
           }
         : {
-            fetch: (url: string, init: RequestInit) =>
-              fetch(url, {
+            // `node:http`, not the global fetch: undici costs a one-shot
+            // command ~12 ms to load before its first request (§18 Session 16).
+            fetch: (url: string, init: RequestInitLike) =>
+              nodeFetch(url, {
                 ...init,
                 // Both: the caller's own budget (a probe), and ours for the whole command.
                 signal:
