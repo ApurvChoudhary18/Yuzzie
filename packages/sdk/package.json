@@ -15,6 +15,10 @@
     "./node": {
       "types": "./dist/node.d.ts",
       "import": "./dist/node.js"
+    },
+    "./websocket": {
+      "types": "./dist/websocket.d.ts",
+      "import": "./dist/websocket.js"
     }
   },
   "files": [
@@ -33,6 +37,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^3.2.7",
     "@yuzie/store": "workspace:^",
     "esbuild": "^0.28.2",
@@ -47,6 +52,7 @@
   },
   "dependencies": {
     "@yuzie/core": "workspace:^",
+    "ws": "^8.21.3",
     "zod": "^4.6.5"
   },
   "tsd": {

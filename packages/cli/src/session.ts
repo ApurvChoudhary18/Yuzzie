@@ -82,8 +82,11 @@ export async function openBoard(
   // cache, writes queue, and a server that does not answer /healthz within the
   // budget is not waited on at all.
   const budget = Number(context.io.env.YUZIE_REACHABILITY_MS)
+  const live = options.live === true && !offline
   const board = await client.connect(slug, {
-    realtime: options.live === true && !offline,
+    realtime: live,
+    // `ws`, not the global (undici) WebSocket, and only when streaming (§18 Session 16).
+    ...(live ? { webSocket: (await import('@yuzie/sdk/websocket')).nodeWebSocket } : {}),
     offline: 'queue',
     ...(offline
       ? {}

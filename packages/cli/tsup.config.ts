@@ -17,13 +17,13 @@ export default defineConfig({
   // Maps would triple the install; set YUZIE_SOURCEMAPS=1 to debug a build.
   sourcemap: process.env.YUZIE_SOURCEMAPS === '1',
   clean: true,
-  // Ink's devtools (and the websocket library they use) load only under
-  // DEV=true, so they are never shipped.
-  external: ['react-devtools-core', 'ws'],
+  // Ink's devtools load only under DEV=true, so they are never shipped; `ws`'s
+  // native speed-ups are optional (it requires them in a try/catch).
+  external: ['react-devtools-core', 'bufferutil', 'utf-8-validate'],
   // Everything is bundled (§10.4: < 4 MB installed): the published CLI has no
   // runtime dependencies to download, only this code, tree-shaken. CommonJS
   // dependencies inside an ES module bundle need a real `require`.
-  noExternal: [/^(?!react-devtools-core$|ws$).*/],
+  noExternal: [/^(?!react-devtools-core$|bufferutil$|utf-8-validate$).*/],
   minify: true,
   banner: {
     js: [

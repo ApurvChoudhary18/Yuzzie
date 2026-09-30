@@ -23,6 +23,11 @@ Session 16: hardening. The CLI is faster, much smaller, and safer to point at ho
   - The CLI makes its requests with `node:http` (the new `nodeFetch` in `@yuzie/sdk/node`) instead of
     the global `fetch`, whose undici implementation cost about 35 ms to load. A request to a server
     that goes silent is abandoned after 300 s, as undici's are.
+  - The board and `feed` stream over the `ws` package (the new `@yuzie/sdk/websocket` entry)
+    instead of Node's global WebSocket, whose undici implementation added 20–30 MB. The TUI on a
+    500-card board now peaks at about 99 MB on Node 22 and 106 MB on Node 24 (budget 120 MB).
+  - The shared cache waits up to 5 s for another process's write lock, as better-sqlite3 did,
+    instead of failing with "database is locked".
   - One-shot commands exit as soon as their output is flushed.
   - `list` fetches the board once, and fetches the board and `/me` together.
   - An unchanged refresh no longer rewrites the cache.
