@@ -28,6 +28,7 @@ import {
 } from '@yuzie/core'
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
+import { z } from 'zod'
 import { authorizeOn, type BoardAccess } from '../auth/context.js'
 import type { Database } from '../db/client.js'
 import {
@@ -736,6 +737,10 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
       const { auth, access } = await board(request, request.params.slug)
       authorizeOn(access, 'checklist.write')
       const number = parseCardNumber(request.params.no)
+      // Not a uuid is not an item: a 404, not a database error.
+      if (!z.uuid().safeParse(request.params.itemId).success) {
+        throw boardError('card_not_found', 'No such checklist item on this card', { status: 404 })
+      }
 
       return mutation(context, request, reply, auth, async (idempotencyKey) => {
         const body = parseBody(ChecklistUpdateRequestSchema, request.body)

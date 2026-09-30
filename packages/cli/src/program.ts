@@ -23,6 +23,7 @@ const lazy =
 const loadAuth = () => import('./commands/auth.js')
 const loadCards = () => import('./commands/cards.js')
 const loadCode = () => import('./commands/code.js')
+const loadCompletion = () => import('./commands/completion.js')
 const loadDoctor = () => import('./commands/doctor.js')
 const loadGit = () => import('./commands/git.js')
 const loadHooks = () => import('./commands/hooks.js')
@@ -32,6 +33,7 @@ const loadSetup = () => import('./commands/setup.js')
 const loadSync = () => import('./commands/sync.js')
 const loadTeam = () => import('./commands/team.js')
 const loadTokens = () => import('./commands/tokens.js')
+const loadUpgrade = () => import('./commands/upgrade.js')
 
 const login = lazy(loadAuth, 'login')
 const logout = lazy(loadAuth, 'logout')
@@ -52,6 +54,7 @@ const show = lazy(loadCards, 'show')
 const watch = lazy(loadCards, 'watch')
 const anchor = lazy(loadCode, 'anchor')
 const open = lazy(loadCode, 'open')
+const completion = lazy(loadCompletion, 'completion')
 const doctor = lazy(loadDoctor, 'doctor')
 const branch = lazy(loadGit, 'branch')
 const claim = lazy(loadGit, 'claim')
@@ -81,6 +84,7 @@ const who = lazy(loadTeam, 'who')
 const tokenCreate = lazy(loadTokens, 'tokenCreate')
 const tokenList = lazy(loadTokens, 'tokenList')
 const tokenRevoke = lazy(loadTokens, 'tokenRevoke')
+const upgrade = lazy(loadUpgrade, 'upgrade')
 
 /** The command a mistyped word most likely meant: close in spelling, or a unique prefix. */
 export function closest(word: string, names: readonly string[]): string | null {
@@ -120,6 +124,33 @@ export function closest(word: string, names: readonly string[]): string | null {
   return best
 }
 
+/**
+ * A newer version, mentioned at most once a day, to a person at a terminal
+ * (§18 Session 17). Never delays or fails the command it follows.
+ */
+async function nudge(context: Context, command: string): Promise<void> {
+  if (['upgrade', 'mcp', 'completion'].includes(command)) return
+  // Only a person at a terminal: never a script, a pipe or a test runner.
+  if (context.io.stderr.isTTY !== true) return
+  try {
+    const { afterCommand, checksAllowed } = await import('./update.js')
+    const { config } = await context.config()
+    const allowed = checksAllowed(context.io.env, {
+      json: context.options.json === true,
+      quiet: context.options.quiet === true,
+      configured: config.ui.updateCheck,
+    })
+    if (!allowed) return
+    const line = afterCommand(context.home, context.io.env, {
+      execPath: process.execPath,
+      script: process.argv[1],
+    })
+    if (line !== null) context.io.stderr.write(`${context.output.paint('dim', line)}\n`)
+  } catch {
+    // A version check is never the reason a command fails.
+  }
+}
+
 /** `token create`, not just `create`: for the log. */
 function commandPath(command: Command): string {
   const names: string[] = []
@@ -150,6 +181,10 @@ function build(io: Io, finish: (code: number) => void): Command {
     .configureOutput({
       writeOut: (text) => io.stdout.write(text),
       writeErr: (text) => io.stderr.write(text),
+      // The terminal's width when there is one; 80 otherwise, so the generated
+      // command reference (docs/commands.md) is the same on every machine.
+      getOutHelpWidth: () => (io.stdout as { columns?: number }).columns ?? 80,
+      getErrHelpWidth: () => (io.stderr as { columns?: number }).columns ?? 80,
     })
     .exitOverride()
 
@@ -191,6 +226,7 @@ function build(io: Io, finish: (code: number) => void): Command {
         context.prompter.close()
         // Nothing left in flight keeps the process alive after the command.
         context.abortRequests()
+        await nudge(context, name)
       }
     }
 
@@ -589,6 +625,27 @@ function build(io: Io, finish: (code: number) => void): Command {
     .action(action((context: Context, reference: string) => tokenRevoke(context, reference)))
 
   program
+    .command('completion <shell>')
+    .description('print shell completion for bash, zsh or fish (see `yuzie completion --help`)')
+    .addHelpText(
+      'after',
+      `
+Install:
+  bash  echo 'eval "$(yuzie completion bash)"' >> ~/.bashrc
+  zsh   echo 'eval "$(yuzie completion zsh)"' >> ~/.zshrc
+  fish  yuzie completion fish > ~/.config/fish/completions/yuzie.fish
+
+Card numbers and column names are completed from the local cache, offline.`,
+    )
+    .action(action((context: Context, shell: string) => completion(context, shell)))
+
+  program
+    .command('upgrade')
+    .description('install the latest yuzie, the way this one was installed')
+    .option('--dry-run', 'say what would run, and run nothing')
+    .action(action((context: Context, options: { dryRun?: boolean }) => upgrade(context, options)))
+
+  program
     .command('mcp')
     .description('serve the board to an AI agent over MCP (stdio)')
     .option('--allow-destructive', 'let the agent delete cards (its token must allow it too)')
@@ -657,6 +714,11 @@ function build(io: Io, finish: (code: number) => void): Command {
   return program
 }
 
+/** The command tree, for the generated command reference (§18 Session 17). */
+export function commandTree(io: Io): Command {
+  return build(io, () => {})
+}
+
 /** Run the CLI; resolves to the exit code instead of exiting, so it is testable. */
 export async function run(argv: readonly string[], io: Io): Promise<number> {
   let exitCode: number | undefined
@@ -664,6 +726,27 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     exitCode ??= code
   }
   const program = build(io, finish)
+
+  // The once-a-day background version check (§18 Session 17): no output, ever.
+  if (argv[0] === '__update-check') {
+    const { updateCheck } = await import('./update.js')
+    const { homedir } = await import('node:os')
+    await updateCheck(io.home ?? io.env.HOME ?? homedir(), io.env).catch(() => {})
+    return EXIT_OK
+  }
+
+  // Shell completion (§18 Session 17): the words after `__complete` are the
+  // user's half-typed command line, so they are never parsed as our own flags.
+  if (argv[0] === '__complete') {
+    const { Context } = await import('./context.js')
+    const { complete } = await import('./commands/completion.js')
+    try {
+      await complete(new Context({}, io), program, argv[1] ?? '', argv.slice(2))
+    } catch {
+      // Completion never prints an error into someone's prompt.
+    }
+    return EXIT_OK
+  }
 
   try {
     await program.parseAsync([...argv], { from: 'user' })

@@ -1,0 +1,106 @@
+# Releases (SPEC.md §18 Session 17): changesets versions and publishes every
+# package — the libraries, @yuzie/cli and the unscoped `yuzie` alias — to npm
+# with provenance, then the server image goes to GHCR. RELEASE.md is the checklist.
+#
+# Off until the repository variable RELEASES_ENABLED is "true" (Settings →
+# Secrets and variables → Actions → Variables): publishing is irreversible, so
+# it waits for someone to decide the names, the npm org and the credentials.
+#
+# On each push to main with pending changesets, this opens (or updates) a
+# "Release: version packages" pull request. Merging that pull request publishes.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  npm:
+    name: version or publish
+    if: vars.RELEASES_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # the version commit and tags
+      pull-requests: write   # the version pull request
+      id-token: write        # npm provenance (and trusted publishing)
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
+      packages: ${{ steps.changesets.outputs.publishedPackages }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      # npm trusted publishing needs npm 11.5 or later; Node 22 ships 10.
+      - run: npm install -g npm@11
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo build
+      # What is about to be published is what CI verified.
+      - run: node scripts/check-packages.mjs
+
+      - name: Version pull request, or publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: pnpm changeset version
+          publish: pnpm changeset publish
+          title: 'Release: version packages'
+          commit: 'Release: version packages'
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Unset when npm trusted publishing is configured for these packages.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
+
+  image:
+    name: server image → GHCR
+    needs: npm
+    if: needs.npm.outputs.published == 'true' && contains(needs.npm.outputs.packages, '"@yuzie/server"')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: The version just published
+        id: version
+        run: echo "version=$(node -p "require('./packages/server/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/server/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: |
+            ghcr.io/apurvchoudhary18/yuzie-server:${{ steps.version.outputs.version }}
+            ghcr.io/apurvchoudhary18/yuzie-server:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.licenses=MIT
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/apurvchoudhary18/yuzie-server
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

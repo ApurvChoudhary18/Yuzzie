@@ -49,6 +49,8 @@ const UiSchema = z.object({
   showGitBadges: z.boolean(),
   /** OS notifications for watched cards while the board is open (§18 Session 14). */
   notifications: z.boolean(),
+  /** A once-a-day check for a newer yuzie, mentioned on stderr (§18 Session 17). */
+  updateCheck: z.boolean(),
 })
 
 /** One file's worth: everything optional, nothing unknown. */
@@ -88,7 +90,13 @@ export const DEFAULTS: ResolvedConfig = {
   },
   flow: { startColumn: 'doing', finishColumn: 'review', doneColumn: 'done' },
   checks: { requireCleanTree: true, requirePushed: false },
-  ui: { theme: 'dark', compact: false, showGitBadges: true, notifications: false },
+  ui: {
+    theme: 'dark',
+    compact: false,
+    showGitBadges: true,
+    notifications: false,
+    updateCheck: true,
+  },
 }
 
 export interface LoadOptions {

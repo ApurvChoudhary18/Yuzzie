@@ -22,11 +22,12 @@
  */
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { AuthenticationError, type Board, slugify, type User } from '@yuzie/core'
+import { AuthenticationError, type Board, slugify, type User, ValidationError } from '@yuzie/core'
 import { type HookName, installHooks } from '@yuzie/git'
 import type { YuzieClient } from '@yuzie/sdk'
 import { CACHE_IGNORE, type ConfigLayer, repoConfigPath, writeLayer } from '../config.js'
 import type { Context } from '../context.js'
+import { UsageError } from '../exit.js'
 import { signIn } from './auth.js'
 import { printCheck, runChecks } from './doctor.js'
 import { requireRepo } from './setup.js'
@@ -131,13 +132,24 @@ export async function init(context: Context, options: InitOptions): Promise<void
         .map((column) => column.trim())
         .filter((column) => column.length > 0)
       const isDefault = columns.join(',') === DEFAULT_COLUMNS.join(',')
-      board = await client.boards.create({
-        name,
-        ...(repo.remote === null ? {} : { repoRemote: repo.remote.display }),
-        baseBranch: repo.defaultBranch,
-        // Leave the defaults to the server, which knows what each one means.
-        ...(isDefault ? {} : { columns }),
-      })
+      board = await client.boards
+        .create({
+          name,
+          ...(repo.remote === null ? {} : { repoRemote: repo.remote.display }),
+          baseBranch: repo.defaultBranch,
+          // Leave the defaults to the server, which knows what each one means.
+          ...(isDefault ? {} : { columns }),
+        })
+        .catch((error: unknown) => {
+          // Board names are unique per server: on a shared one, another team
+          // may already have this one, and it is not a board this user can see.
+          if (error instanceof ValidationError && error.details.boardSlug !== undefined)
+            throw new UsageError(
+              `Someone on this server already has a board named "${error.details.boardSlug}".`,
+              'Run `yuzie init` again and give the board another name, or ask its owner to invite you.',
+            )
+          throw error
+        })
       created = true
     }
   }

@@ -4,21 +4,39 @@
   "description": "Typed programmatic client for the Yuzie API \u2014 HTTP, realtime, and offline queue.",
   "license": "MIT",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./node": {
-      "types": "./dist/node.d.ts",
-      "import": "./dist/node.js"
+      "import": {
+        "types": "./dist/node.d.ts",
+        "default": "./dist/node.js"
+      },
+      "require": {
+        "types": "./dist/node.d.cts",
+        "default": "./dist/node.cjs"
+      }
     },
     "./websocket": {
-      "types": "./dist/websocket.d.ts",
-      "import": "./dist/websocket.js"
+      "import": {
+        "types": "./dist/websocket.d.ts",
+        "default": "./dist/websocket.js"
+      },
+      "require": {
+        "types": "./dist/websocket.d.cts",
+        "default": "./dist/websocket.cjs"
+      }
     }
   },
   "files": [
@@ -48,7 +66,8 @@
     "vitest": "^3.0.0"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "dependencies": {
     "@yuzie/core": "workspace:^",
@@ -57,5 +76,14 @@
   },
   "tsd": {
     "directory": "test-d"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ApurvChoudhary18/Yuzzie.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/ApurvChoudhary18/Yuzzie#readme",
+  "bugs": {
+    "url": "https://github.com/ApurvChoudhary18/Yuzzie/issues"
   }
 }

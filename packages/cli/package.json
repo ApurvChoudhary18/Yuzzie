@@ -8,12 +8,6 @@
     "yuzie": "./dist/index.js",
     "yz": "./dist/index.js"
   },
-  "main": "./dist/main.js",
-  "exports": {
-    ".": {
-      "import": "./dist/main.js"
-    }
-  },
   "files": [
     "dist"
   ],
@@ -26,7 +20,8 @@
     "bench": "vitest run --config vitest.bench.config.ts",
     "lint": "biome check --error-on-warnings .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "budget": "node bench/size-budget.mjs && node bench/startup-budget.mjs"
+    "budget": "node bench/size-budget.mjs && node bench/startup-budget.mjs",
+    "docs": "YUZIE_UPDATE_DOCS=1 vitest run src/reference.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
@@ -47,6 +42,16 @@
     "zod": "^4.6.5"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ApurvChoudhary18/Yuzzie.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/ApurvChoudhary18/Yuzzie#readme",
+  "bugs": {
+    "url": "https://github.com/ApurvChoudhary18/Yuzzie/issues"
   }
 }
