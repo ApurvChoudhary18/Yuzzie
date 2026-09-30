@@ -32,6 +32,8 @@ export interface Tui {
   quit(): Promise<number>
   kill(): void
   readonly child: ChildProcessWithoutNullStreams
+  /** The headless terminal itself, for reading colours (the README demo). */
+  readonly terminal: InstanceType<typeof Terminal>
 }
 
 /** Fork the command on a pty of the given size and shuttle bytes both ways. */
@@ -130,6 +132,7 @@ export function startTui(options: {
 
   return {
     child,
+    terminal,
     screen,
     text,
     get writes() {

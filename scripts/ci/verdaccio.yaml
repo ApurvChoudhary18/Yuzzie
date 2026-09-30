@@ -1,0 +1,23 @@
+# A throwaway npm registry for the clean-machine release check (SPEC.md §18
+# Session 17): our packages are published here, never to npmjs, and everything
+# else is fetched from npmjs as usual.
+storage: /verdaccio/storage/data
+auth:
+  htpasswd:
+    file: /verdaccio/storage/htpasswd
+    max_users: -1
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+packages:
+  # Ours, and only from here: never the public registry's.
+  'yuzie':
+    access: $all
+    publish: $anonymous
+  '@yuzie/*':
+    access: $all
+    publish: $anonymous
+  '**':
+    access: $all
+    proxy: npmjs
+log: { type: stdout, format: pretty, level: warn }

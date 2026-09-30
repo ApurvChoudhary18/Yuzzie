@@ -1,0 +1,69 @@
+# FAQ
+
+**What do I need?**
+Node 22 or newer, and git. `npx yuzie@latest` runs it without installing anything. To install
+it, use `npm install -g yuzie` (or `@yuzie/cli`, the same program), which puts `yuzie` and `yz`
+on your PATH.
+
+**How do I try it without a server?**
+Self-host one in two minutes; see [self-hosting](self-hosting.md). The CLI finds it through
+`YUZIE_SERVER`, and `yuzie init` records it in `.yuzie/config.json` for the rest of your team.
+
+**Does it work offline?**
+Yes. Writes made offline are queued in `.yuzie/cache/`, shown as pending, and sent when the
+connection returns. `yuzie sync` sends them now and reports conflicts. `--offline` forces
+offline mode for one command.
+
+**Can scripts use it?**
+Every command takes `--json` and prints exactly one JSON document to stdout. Exit codes are
+stable:
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success |
+| 1 | Something else went wrong |
+| 2 | Usage |
+| 3 | Not signed in |
+| 4 | Not found |
+| 5 | Forbidden |
+| 6 | Conflict |
+| 7 | Offline |
+| 8 | Git precondition |
+| 130 | Interrupted |
+
+See [the command reference](commands.md).
+
+**Why didn't my commit link to the card?**
+Commits are linked by the post-commit hook, which runs the `yuzie` on your PATH. With `npx` alone
+there is no `yuzie` on the PATH, and the hooks quietly do nothing. Install yuzie globally, or run
+`yuzie sync` to link commits by hand. `yuzie doctor` says whether the hooks are installed.
+
+**How do I get Tab completion?**
+Add one line to your shell's startup file:
+- bash: `eval "$(yuzie completion bash)"` in `~/.bashrc`
+- zsh: `eval "$(yuzie completion zsh)"` in `~/.zshrc`
+- fish: `yuzie completion fish | source` in `~/.config/fish/config.fish`
+
+It completes commands, flags, card numbers (with their titles) and column names, from the local
+cache, so it is instant and works offline.
+
+**How do I upgrade?**
+Run `yuzie upgrade`. It uses whichever package manager installed yuzie. Under `npx`,
+`npx yuzie@latest` always runs the newest version. Once a day yuzie mentions a newer version on
+stderr. Turn that off with `YUZIE_NO_UPDATE_CHECK=1` or `yuzie config set ui.updateCheck false`.
+
+**"Someone on this server already has a board named …"**
+Board names are unique per server. Run `yuzie init` again and choose another name, or ask the
+board's owner to `yuzie invite` you.
+
+**Something is wrong. What do I send?**
+- `yuzie doctor` checks node, git, sign-in, the server, the hooks and the cache, and gives the
+  command that fixes each problem.
+- `yuzie doctor --bundle` writes a redacted diagnostic file. Read it, then attach it to an
+  issue.
+
+**Can an AI agent use the board?**
+Yes, as a member marked `(agent)`, through `yuzie mcp`. See [agents](agents.md).
+
+**Where is my data?**
+See [privacy](privacy.md).

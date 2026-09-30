@@ -170,6 +170,23 @@ describe('Journey A (§6.1)', () => {
     expect(second.stdout).not.toContain('? Columns')
   })
 
+  it('says what to do when another team on the server has the board name', async () => {
+    const first = machine(world.baseUrl)
+    const second = machine(world.baseUrl)
+    const repo = repository('https://github.com/acme/shared-name.git')
+    const other = repository('https://github.com/acme/shared-name.git')
+    cleanup.push(first.home, second.home, repo, other)
+    await logIn(first, repo, 'shared-first')
+    expect((await yuzie(['init'], { cwd: repo, env: first.env, input: '\n\n' })).code).toBe(0)
+
+    await logIn(second, other, 'shared-second')
+    const result = await yuzie(['init'], { cwd: other, env: second.env, input: '\n\n' })
+    expect(result.code).toBe(2)
+    expect(result.stderr.trim()).toBe(
+      '✗ Someone on this server already has a board named "shared-name". Run `yuzie init` again and give the board another name, or ask its owner to invite you.',
+    )
+  })
+
   it('refuses outside a git repository with exit 8', async () => {
     const computer = machine(world.baseUrl)
     cleanup.push(computer.home)

@@ -82,3 +82,65 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq hyperfine
           node packages/cli/bench/startup-budget.mjs
+
+  # §18 Session 17 (c): every published export resolves and loads under ESM and
+  # CommonJS, arethetypeswrong is clean (node16 and bundler resolution), and the
+  # self-hosting guide's compose file is the one in deploy/.
+  packages:
+    name: packages · exports and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo build
+      - name: Exports load, types are right
+        run: node scripts/check-packages.mjs
+      - name: The guide's compose file is deploy/docker-compose.yml
+        run: node scripts/ci/follow-guide.mjs docs/self-hosting.md --check
+
+  # §18 Session 17 (a) and (b), the release acceptance:
+  #   (b) follow docs/self-hosting.md verbatim — its sh blocks, in order — and run
+  #       the e2e suite against the server it brings up;
+  #   (a) on a container with only Node, `npx yuzie@latest init` in a fresh repo
+  #       completes Journey A. The packages are packed as they would be published
+  #       and served from a throwaway registry; nothing is published anywhere.
+  release-acceptance:
+    name: release acceptance · self-host guide, clean machine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo build
+
+      # The guide pulls the published image; this is the image this commit would publish.
+      - name: Build the server image, under the name the guide uses
+        run: docker build -f packages/server/Dockerfile -t ghcr.io/apurvchoudhary18/yuzie-server:latest .
+
+      - name: Follow the self-hosting guide verbatim
+        run: node scripts/ci/follow-guide.mjs docs/self-hosting.md "$RUNNER_TEMP/self-host"
+
+      - name: e2e against the self-hosted server
+        env:
+          YUZIE_E2E_SERVER: http://localhost:8787
+        run: pnpm --filter @yuzie/e2e exec vitest run src/self-hosted.test.ts
+
+      - name: Journey A against it, with this commit's CLI
+        run: node scripts/journey-a.mjs --server http://localhost:8787 --yuzie "node $PWD/packages/cli/dist/index.js"
+
+      - name: Clean machine — npx yuzie@latest init completes Journey A
+        run: scripts/ci/clean-machine.sh http://localhost:8787
+
+      - name: Server logs
+        if: failure()
+        working-directory: ${{ runner.temp }}/self-host/yuzie-server
+        run: docker compose logs --no-color

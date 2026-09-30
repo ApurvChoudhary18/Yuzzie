@@ -5,6 +5,13 @@
 > Yuzie is Trello for developers who never leave the terminal — except it knows what
 > branch you're on.
 
+<p align="center">
+  <img src="docs/demo.svg" alt="The yuzie board in a terminal: a teammate's card move arrives live, a card opens with its branch, commits and checklist, and is moved to Review." width="100%">
+</p>
+
+<sub>Recorded from the real TUI in a real terminal against a real server
+(`e2e/src/demo.record.test.ts`), not drawn.</sub>
+
 ---
 
 ## Why
@@ -30,10 +37,96 @@ with no arguments opens the full interactive board.
 Underneath both is a typed SDK (`@yuzie/sdk`), so a VS Code extension, a web dashboard, a CI
 job, or an AI agent can all drive the same board.
 
+## Sixty seconds
+
+You need Node 22+ and git, and a server: [self-host one](docs/self-hosting.md) in two
+minutes with Docker. Then, in any repository:
+
+```console
+$ npm install -g yuzie                  # or put `npx yuzie@latest` wherever `yuzie` appears
+$ export YUZIE_SERVER=http://localhost:8787/v1   # your server; init records it for the team
+$ yuzie init
+✓ Git repository detected: payments-api (github.com/acme/payments-api)
+✓ Signed in as @rahul
+✓ Board "payments-api" created
+✓ Installed git hooks (post-commit, post-checkout)
+$ git add .yuzie .gitignore && git commit -m "Track work on Yuzie"
+
+$ yuzie add "Fix GitHub OAuth"          # → #1
+$ yuzie claim 1                         # assigns you, creates task/1-fix-github-oauth, checks it out
+$ git commit -am "Keep state per attempt (#1)"   # the hook links it to the card
+$ yuzie                                 # the live board; ? for keys
+```
+
+`yuzie` and `yz` are the same program, and so are the `yuzie` and `@yuzie/cli` packages. For
+Tab completion, add `eval "$(yuzie completion zsh)"` to your shell's startup file (or `bash`,
+or `fish`).
+
+## Commands
+
+Every command composes with pipes: `--json` prints exactly one JSON document, and exit codes
+are stable (see the [FAQ](docs/faq.md)).
+
+| | |
+| --- | --- |
+| Set up | `init` `login` `logout` `whoami` `doctor` `config` `hooks` `completion` `upgrade` |
+| Cards | `add` `list` `card` `move` `done` `assign` `comment` `edit` `rm` `watch` `unwatch` `check` `label` `due` `priority` |
+| Git | `claim` `start` `finish` `branch` `commits` `anchor` `open` `sync` |
+| Team | `boards` `columns` `members` `share` `invite` `who` `activity` `feed` `token` |
+| Agents | `mcp` |
+
+The full reference — every flag of every command, generated from the program itself — is
+[docs/commands.md](docs/commands.md).
+
+## Documentation
+
+- [Command reference](docs/commands.md)
+- [Keys in the board](docs/keybindings.md)
+- [Self-hosting](docs/self-hosting.md): one compose file
+- [Agents and MCP](docs/agents.md): an AI agent as a board member
+- [SDK](docs/sdk.md): `@yuzie/sdk`, for your own tools
+- [Privacy](docs/privacy.md)
+- [FAQ](docs/faq.md)
+
+## Agents
+
+An AI coding agent joins the board as a member, marked `(agent)`. Issue it a scoped token with
+`yuzie token create`, then give it the MCP server:
+
+```sh
+claude mcp add yuzie -e YUZIE_TOKEN=yz_… -- yuzie mcp --board payments-api
+```
+
+It can list, create, move and comment on cards, and tick checklists. Claiming (git) and deleting
+are off unless you pass `--allow-git` or `--allow-destructive`. Every call is audited. See
+[docs/agents.md](docs/agents.md).
+
+## Privacy
+
+**No repository code is ever sent to the server.** Only derived numbers — commit count, file
+count, branch name, the file path of an anchor — and commit SHAs/messages that you have
+explicitly linked. There is no telemetry. Self-hosting is a first-class, documented path. See
+[docs/privacy.md](docs/privacy.md).
+
+## When something goes wrong
+
+- `yuzie doctor` checks node, git, sign-in, the server, hooks and the cache, and says the command
+  that fixes each problem.
+- `yuzie doctor --bundle` also writes a diagnostic file to attach to an issue. It contains:
+  - versions and the checks;
+  - config and environment, with every token, password and your home directory redacted;
+  - the last 200 log lines;
+  - facts about your git repository.
+
+  Read it before you share it.
+- `~/.yuzie/logs/yuzie.log` holds a JSON line for every command. It is rotated at 5 MB, keeps three
+  old files, and is also redacted. Set `YUZIE_LOG=off` to turn it off.
+- Every error is one line saying what went wrong and what to do about it, with the exit code set by
+  §7.4. A stack trace appears only with `--verbose`.
+
 ## Status
 
-🚧 **In development.** Built against [`SPEC.md`](./SPEC.md) across 18 discrete sessions
-(spec §18). Nothing is published to npm yet.
+All 18 sessions of [`SPEC.md`](./SPEC.md) §18 are complete.
 
 | Milestone | Sessions | State |
 | --- | --- | --- |
@@ -44,7 +137,10 @@ job, or an AI agent can all drive the same board.
 | M4 — Git-aware | 11–12 | Complete |
 | M5 — Resilient | 13–14 | Complete |
 | M6 — Agents | 15 | Complete |
-| M7 — Launch | 16–17 | In progress (16 done) |
+| M7 — Launch | 16–17 | Complete |
+
+The release pipeline is in place (see [RELEASE.md](RELEASE.md)), and nothing has been published
+yet.
 
 ## Repository layout
 
@@ -55,9 +151,13 @@ packages/
   sdk/      @yuzie/sdk     typed client: http, realtime, offline queue
   git/      @yuzie/git     repo introspection, branches, commits, hooks
   cli/      @yuzie/cli     the `yuzie` binary and Ink TUI
-  server/   @yuzie/server  Fastify REST API + WebSocket gateway
+  server/   @yuzie/server  Fastify REST API + WebSocket gateway (and its Dockerfile)
   mcp/      @yuzie/mcp     MCP stdio server for AI agents
+  yuzie/    yuzie          the unscoped alias, so `npx yuzie` works
+deploy/                    the self-hosting compose file
+docs/                      user documentation
 e2e/                       cross-package end-to-end tests (journeys §6)
+scripts/                   package and release checks
 ```
 
 ## Development
@@ -71,6 +171,8 @@ node packages/cli/dist/index.js --version
 pnpm turbo bench --concurrency=1        # timing budgets, run alone (includes the load test)
 pnpm --filter @yuzie/server load        # 25 clients × 2,000 cards × 100 events/s, on its own
 pnpm --filter @yuzie/cli budget         # install size < 4 MB; `list --json` p50 < 150 ms (needs hyperfine)
+pnpm --filter @yuzie/cli docs           # regenerate docs/commands.md after changing a command
+node scripts/check-packages.mjs         # every export loads under import and require; arethetypeswrong
 ```
 
 Local service dependencies for the server (from Session 3 onwards):
@@ -101,96 +203,7 @@ pnpm changeset
 ```
 
 See [`SPEC.md`](./SPEC.md) Appendix E for the definition of done that applies to every
-session.
-
-## When something goes wrong
-
-- `yuzie doctor` checks node, git, sign-in, the server, hooks and the cache, and says the command
-  that fixes each problem.
-- `yuzie doctor --bundle` also writes a diagnostic file to attach to an issue. It contains:
-  - versions and the checks;
-  - config and environment, with every token, password and your home directory redacted;
-  - the last 200 log lines;
-  - facts about your git repository.
-
-  Read it before you share it.
-- `~/.yuzie/logs/yuzie.log` holds a JSON line for every command. It is rotated at 5 MB, keeps three
-  old files, and is also redacted. Set `YUZIE_LOG=off` to turn it off.
-- Every error is one line saying what went wrong and what to do about it, with the exit code set by
-  §7.4. A stack trace appears only with `--verbose`.
-
-## Agents
-
-An AI coding agent works on the board as a member of its own, marked `(agent)` everywhere a
-person would see its work: presence, the card view, activity and the live feed.
-
-**1. Issue the agent a token** (board owners only). The agent joins the board under that handle.
-The token can be at most a member, and it only works on this board. The plaintext is printed
-once and never stored.
-
-```sh
-yuzie token create claude-agent --agent claude            # add --allow-destructive to let it delete cards
-yuzie token list                                          # yours, and the ones you issued to agents
-yuzie token revoke claude-agent
-```
-
-**2. Give it the MCP server.** For Claude Code:
-
-```sh
-claude mcp add yuzie -e YUZIE_TOKEN=yz_… -- yuzie mcp --board payments-api
-```
-
-or, in any MCP host's configuration file:
-
-```json
-{
-  "mcpServers": {
-    "yuzie": {
-      "command": "yuzie",
-      "args": ["mcp", "--board", "payments-api"],
-      "env": { "YUZIE_TOKEN": "yz_…" }
-    }
-  }
-}
-```
-
-The server exposes the following tools:
-
-| Tool | What it does |
-| --- | --- |
-| `board_list_cards` | List cards, with filters |
-| `board_get_card` | Show one card |
-| `board_create_card` | Create a card |
-| `board_move_card` | Move a card |
-| `board_comment` | Comment on a card |
-| `board_update_checklist` | Tick or add checklist items |
-| `board_claim_card` | Claim a card (needs `--allow-git`) |
-| `board_delete_card` | Delete a card (needs `--allow-destructive`) |
-
-**Guardrails.**
-- `--allow-git` lets the agent claim a card. Claiming creates and checks out a branch in the
-  agent's checkout. It refuses rather than stash anyone's uncommitted work.
-- `--allow-destructive` lets the agent delete cards, and only works if the token was issued with
-  `--allow-destructive` as well. The server enforces this, not just the MCP process.
-- Without these flags, the agent's call is refused with an explanation, and nothing happens.
-- Every tool call is written to an audit log on stderr, one JSON line per call. Add
-  `--audit-log <file>` to keep a copy.
-
-**Agent etiquette.** The server's instructions tell the agent to:
-- narrate its progress with `board_comment`: what it's about to do, what it did, and what's left;
-- tick checklist items as it finishes them;
-- move the card to review when it's done, rather than to done;
-- never delete anything silently. If something should go, it says so in a comment and lets a
-  person decide.
-
-From a shell, `yuzie claim 27 --agent` claims a card without ever prompting.
-
-## Privacy
-
-**No repository code is ever sent to the server.** Only derived numbers — commit count, file
-count, branch name, the file path of an anchor — and commit SHAs/messages that you have
-explicitly linked. Telemetry is off by default and opt-in. Self-hosting is a first-class,
-documented path. See spec §14.3.
+session, and [RELEASE.md](RELEASE.md) for how a release is cut.
 
 ## License
 

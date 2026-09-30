@@ -1,0 +1,43 @@
+# Yuzie, self-hosted (SPEC.md §14.3): the server and its Postgres, one file.
+# docs/self-hosting.md walks through it; the guide's copy of this file must stay
+# identical (a test checks).
+#
+#   docker compose up -d --wait
+#
+# Needs a .env beside it with POSTGRES_PASSWORD (and YUZIE_PUBLIC_URL when the
+# server is reached at anything but http://localhost:8787).
+
+name: yuzie
+
+services:
+  server:
+    image: ${YUZIE_IMAGE:-ghcr.io/apurvchoudhary18/yuzie-server:latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://yuzie:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/yuzie
+      YUZIE_PUBLIC_URL: ${YUZIE_PUBLIC_URL:-http://localhost:8787}
+      YUZIE_SIGNUP: ${YUZIE_SIGNUP:-open}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "${YUZIE_PORT:-8787}:8787"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: yuzie
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: yuzie
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yuzie -d yuzie"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:

@@ -4,13 +4,19 @@
   "description": "Model Context Protocol server exposing a Yuzie board to AI agents.",
   "license": "MIT",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "files": [
@@ -33,7 +39,8 @@
     "vitest": "^3.0.0"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.1",
@@ -41,5 +48,14 @@
     "@yuzie/git": "workspace:^",
     "@yuzie/sdk": "workspace:^",
     "zod": "^4.6.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ApurvChoudhary18/Yuzzie.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://github.com/ApurvChoudhary18/Yuzzie#readme",
+  "bugs": {
+    "url": "https://github.com/ApurvChoudhary18/Yuzzie/issues"
   }
 }

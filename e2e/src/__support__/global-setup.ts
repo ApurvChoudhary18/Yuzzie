@@ -42,6 +42,8 @@ async function bundleSdkForBrowser(): Promise<string> {
 }
 
 export async function setup(): Promise<void> {
+  // Against a server someone else runs (self-hosted.test.ts): no database of our own.
+  if (process.env.YUZIE_E2E_SERVER !== undefined) return
   container = await new PostgreSqlContainer('postgres:16-alpine')
     .withDatabase('yuzie')
     .withUsername('yuzie')

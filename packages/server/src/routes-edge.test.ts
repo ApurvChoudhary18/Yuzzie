@@ -358,6 +358,18 @@ describe('route behaviour at the edges', () => {
       expect(response.status).toBe(404)
     })
 
+    it('answers 404, not 500, for a checklist item id that is not a uuid', async () => {
+      const card = await createCard(server, board, board.owner.token)
+      const response = await call<{ error: { code: string } }>(server, {
+        method: 'PATCH',
+        url: `/v1/boards/${board.slug}/cards/${card.number}/checklist/Reproduce%20it`,
+        token: board.owner.token,
+        body: { done: true },
+      })
+      expect(response.status).toBe(404)
+      expect(response.body.error.code).toBe('card_not_found')
+    })
+
     it('refuses to assign a user who does not exist', async () => {
       const card = await createCard(server, board, board.owner.token)
       const response = await call<{ error: { message: string } }>(server, {
