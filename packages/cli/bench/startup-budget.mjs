@@ -67,6 +67,33 @@ try {
     )
     p50 = JSON.parse(readFileSync(out, 'utf8')).results[0].median * 1000
   }
+  // Where the time goes, so a failure on a machine we cannot profile says why.
+  const median = (args) => {
+    const times = []
+    for (let run = 0; run < 11; run += 1) {
+      const started = performance.now()
+      spawnSync(process.execPath, args, { cwd, env, stdio: 'ignore' })
+      times.push(performance.now() - started)
+    }
+    return times.sort((a, b) => a - b)[5].toFixed(1)
+  }
+  const cache = spawnSync(
+    process.execPath,
+    [
+      '-e',
+      "const m = require('node:module'); const r = m.enableCompileCache?.(); console.log(JSON.stringify({ status: r?.status, directory: r?.directory ?? m.getCompileCacheDir?.() }))",
+    ],
+    { encoding: 'utf8' },
+  ).stdout.trim()
+  console.log(
+    [
+      `breakdown (median of 11, spawned from node): node -e 0 ${median(['-e', '0'])} ms`,
+      `--version ${median([cli, '--version'])} ms`,
+      `list --json --offline ${median([cli, 'list', '--json', '--offline'])} ms`,
+      `list --json ${median([cli, 'list', '--json'])} ms`,
+      `compile cache ${cache}`,
+    ].join(' · '),
+  )
   console.log(`yuzie list --json: p50 ${p50.toFixed(1)} ms (budget ${BUDGET_MS} ms)`)
   if (p50 >= BUDGET_MS) {
     console.error(`over budget by ${(p50 - BUDGET_MS).toFixed(1)} ms`)
