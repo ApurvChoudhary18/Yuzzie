@@ -15,7 +15,10 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { benchDirectories, benchEnv } from './stub-server.mjs'
 
-const BUDGET_MS = 150
+// §10.4's budget, for the machine a person uses. CI runners run our code ~1.7×
+// slower than a current laptop, so the CI workflow sets its own guard with
+// YUZIE_STARTUP_BUDGET_MS (see .github/workflows/ci.yml).
+const BUDGET_MS = Number(process.env.YUZIE_STARTUP_BUDGET_MS ?? 150)
 const RUNS = 30
 const here = dirname(fileURLToPath(import.meta.url))
 const cli = join(here, '..', 'dist', 'index.js')
