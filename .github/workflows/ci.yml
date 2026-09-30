@@ -70,8 +70,14 @@ jobs:
         run: pnpm turbo bench --concurrency=1
 
       # §10.4: `yuzie list --json` p50 under 150 ms with a warm cache, by hyperfine.
+      # That budget holds on a developer machine (~90 ms on an M-series laptop);
+      # GitHub's runners execute our JavaScript ~1.7× slower, so here it is a
+      # regression guard at 175 ms. The breakdown the script prints says where
+      # the time went when it trips.
       - name: Startup budget
         if: runner.os == 'Linux'
+        env:
+          YUZIE_STARTUP_BUDGET_MS: '175'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq hyperfine
