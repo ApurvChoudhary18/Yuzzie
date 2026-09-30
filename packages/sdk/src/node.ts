@@ -18,6 +18,7 @@ import { type CredentialOptions, resolveToken } from './credentials.js'
 
 export * from './credentials.js'
 export * from './index.js'
+export { createNodeFetch, nodeFetch } from './node-fetch.js'
 
 export interface NodeClientOptions extends ClientOptions {
   /** Where to look for a stored token when `token` is not given. */

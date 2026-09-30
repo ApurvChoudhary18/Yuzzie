@@ -20,10 +20,14 @@ Session 16: hardening. The CLI is faster, much smaller, and safer to point at ho
   - Node's compile cache is on.
   - Config no longer runs git subprocesses to find the repository.
   - The SDK no longer loads the WebSocket implementation unless it streams.
+  - The CLI makes its requests with `node:http` (the new `nodeFetch` in `@yuzie/sdk/node`) instead of
+    the global `fetch`, whose undici implementation cost about 35 ms to load. A request to a server
+    that goes silent is abandoned after 300 s, as undici's are.
   - One-shot commands exit as soon as their output is flushed.
   - `list` fetches the board once, and fetches the board and `/me` together.
   - An unchanged refresh no longer rewrites the cache.
-  - `yuzie list --json` p50 is about 125 ms locally, and hyperfine enforces under 150 ms in CI.
+  - `yuzie list --json` p50 is about 87 ms locally (it was about 142 ms), and hyperfine enforces
+    under 150 ms in CI.
 - **Server throughput.**
   - A card and everything on it load in one query instead of ten.
   - Events are appended with one read and one multi-row insert.
