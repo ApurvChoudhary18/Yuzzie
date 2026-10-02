@@ -8,3 +8,12 @@ export const screen = {
   active: false,
   restore: (): void => {},
 }
+
+/**
+ * A command supervising a child process (`yuzie serve`) handles Ctrl-C itself:
+ * it passes the signal on and exits once the child has stopped, so main.ts
+ * must not exit first and leave the child running.
+ */
+export const supervisor = {
+  active: false,
+}

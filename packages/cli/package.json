@@ -21,7 +21,7 @@
     "lint": "biome check --error-on-warnings .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "budget": "node bench/size-budget.mjs && node bench/startup-budget.mjs",
-    "docs": "YUZIE_UPDATE_DOCS=1 vitest run src/reference.test.ts"
+    "docs:commands": "YUZIE_UPDATE_DOCS=1 vitest run src/reference.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

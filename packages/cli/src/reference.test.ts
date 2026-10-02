@@ -7,7 +7,7 @@ const DOC = new URL('../../../docs/commands.md', import.meta.url)
 describe('the command reference (§18 Session 17)', () => {
   it('docs/commands.md is exactly what --help prints', async () => {
     const generated = await commandReference()
-    // `pnpm --filter @yuzie/cli docs` regenerates it.
+    // `pnpm --filter @yuzie/cli run docs:commands` regenerates it.
     if (process.env.YUZIE_UPDATE_DOCS === '1') writeFileSync(DOC, generated)
     expect(readFileSync(DOC, 'utf8')).toBe(generated)
   })

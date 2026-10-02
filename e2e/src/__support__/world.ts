@@ -26,7 +26,7 @@ export interface World {
   close(): Promise<void>
 }
 
-async function freshDatabase(url: string): Promise<string> {
+export async function freshDatabase(url: string): Promise<string> {
   const name = `world_${randomUUID().replace(/-/g, '').slice(0, 12)}`
   const admin = createDatabase(url, 1)
   try {
