@@ -4,9 +4,9 @@ export default defineConfig({
   test: {
     coverage: {
       provider: 'v8',
-      // `all` counts files no test imported, so a forgotten module cannot hide
-      // behind a high percentage (SPEC.md §16 gates @yuzie/core at 90%).
-      all: true,
+      // Every file `include` matches is counted, imported by a test or not, so a
+      // forgotten module cannot hide behind a high percentage (SPEC.md §16
+      // gates @yuzie/core at 90%).
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts', 'src/__fixtures__/**'],
       reporter: ['text', 'json-summary'],

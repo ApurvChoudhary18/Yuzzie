@@ -15,6 +15,6 @@ export default defineConfig({
     globalSetup: ['./src/__tests__/global-setup.ts'],
     fileParallelism: false,
     pool: 'forks',
-    poolOptions: { forks: { execArgv: ['--expose-gc'] } },
+    execArgv: ['--expose-gc'],
   },
 })
