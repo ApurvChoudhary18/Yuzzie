@@ -14,6 +14,24 @@ only:
 
 File contents, diffs and anything else from your working tree never leave your machine.
 
+## Taking your data with you, and leaving
+
+- `yuzie export` writes the whole board as JSON: the board, columns, labels, members, every
+  card with its comments, checklist and commits, and the full activity log. `--format md` or
+  `--format csv` gives you the cards in a form people and spreadsheets can read. Anyone on a
+  board, viewers included, can export it.
+- `yuzie account delete` deletes your account on the server. Your tokens stop working at once,
+  and the handle can't sign in again. Within 30 days, everything else of yours is removed:
+  - your memberships, assignments, watches and comments go;
+  - your name is cleared from the cards you created, the items you ticked, the commits linked to
+    you and the activity log.
+
+  Cards you made stay on their boards, because they belong to the team. If you are the only
+  owner of a board, make someone else an owner, or archive the board, first.
+
+  One thing stays: your handle can remain in the text of old activity entries, e.g.
+  "@rahul moved #4".
+
 ## What the server keeps
 
 Your handle, the boards you belong to and everything on them (cards, comments, checklists and
