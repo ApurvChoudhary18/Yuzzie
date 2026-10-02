@@ -10,7 +10,10 @@ import {
   boardError,
   type Card,
   CardAssignRequestSchema,
+  type CardCreateRequest,
   CardCreateRequestSchema,
+  type CardImportItem,
+  CardImportRequestSchema,
   CardMoveRequestSchema,
   CardUpdateRequestSchema,
   ChecklistAddRequestSchema,
@@ -247,6 +250,79 @@ async function touchCard(tx: Transaction, cardId: string, now: Date): Promise<nu
   return next
 }
 
+/**
+ * Insert one card — fields, assignees, labels, anchor, checklist — and emit its
+ * `card.created`. Shared by `POST /cards` and the bulk import.
+ */
+async function insertCard(
+  ctx: MutationContext,
+  access: BoardAccess,
+  userId: string,
+  column: ColumnRow,
+  body: CardCreateRequest & { readonly checklist?: CardImportItem['checklist'] },
+): Promise<Card> {
+  const rank = await rankWithin(ctx.tx, access.board.id, column.id, {
+    beforeCard: body.beforeCard,
+    afterCard: body.afterCard,
+  })
+  const number = ctx.nextCardNumber()
+
+  const [row] = await ctx.tx
+    .insert(cards)
+    .values({
+      boardId: access.board.id,
+      number,
+      columnId: column.id,
+      rank,
+      title: body.title,
+      description: body.description ?? null,
+      priority: body.priority ?? null,
+      dueAt: body.dueAt === undefined ? null : new Date(body.dueAt),
+      createdAt: ctx.now,
+      updatedAt: ctx.now,
+      createdBy: userId,
+    })
+    .returning()
+  if (row === undefined) throw boardError('internal', 'Could not create the card')
+
+  if (body.assignees !== undefined && body.assignees.length > 0) {
+    const ids = await resolveUserIds(ctx.tx, body.assignees)
+    await ctx.tx
+      .insert(cardAssignees)
+      .values([...ids.values()].map((assignee) => ({ cardId: row.id, userId: assignee })))
+  }
+  if (body.labels !== undefined) {
+    await setLabels(ctx.tx, access.board.id, row.id, body.labels)
+  }
+  if (body.anchor !== undefined) {
+    await ctx.tx.insert(anchors).values({
+      cardId: row.id,
+      path: body.anchor.path,
+      line: body.anchor.line ?? null,
+      endLine: body.anchor.endLine ?? null,
+      commitSha: body.anchor.commitSha ?? null,
+      primaryAnchor: true,
+    })
+  }
+  if (body.checklist !== undefined && body.checklist.length > 0) {
+    await ctx.tx.insert(checklistItems).values(
+      body.checklist.map((item, index) => ({
+        cardId: row.id,
+        position: index + 1,
+        text: item.text,
+        doneAt: item.done === true ? ctx.now : null,
+        doneBy: item.done === true ? userId : null,
+      })),
+    )
+  }
+
+  const card = await loadCard(asQueryable(ctx.tx), access.board.id, number)
+  if (card === undefined) throw boardError('internal', 'Card vanished after insert')
+
+  ctx.emit({ type: 'card.created', cardId: row.id, cardNo: number, payload: card })
+  return card
+}
+
 export function registerCardRoutes(app: FastifyInstance, context: AppContext): void {
   const { db } = context
 
@@ -325,56 +401,50 @@ export function registerCardRoutes(app: FastifyInstance, context: AppContext): v
             body.column,
           )
           await enforceWipLimit(ctx.tx, access.board.id, column, 1)
-
-          const rank = await rankWithin(ctx.tx, access.board.id, column.id, {
-            beforeCard: body.beforeCard,
-            afterCard: body.afterCard,
-          })
-          const number = ctx.nextCardNumber()
-
-          const [row] = await ctx.tx
-            .insert(cards)
-            .values({
-              boardId: access.board.id,
-              number,
-              columnId: column.id,
-              rank,
-              title: body.title,
-              description: body.description ?? null,
-              priority: body.priority ?? null,
-              dueAt: body.dueAt === undefined ? null : new Date(body.dueAt),
-              createdAt: ctx.now,
-              updatedAt: ctx.now,
-              createdBy: auth.user.id,
-            })
-            .returning()
-          if (row === undefined) throw boardError('internal', 'Could not create the card')
-
-          if (body.assignees !== undefined && body.assignees.length > 0) {
-            const ids = await resolveUserIds(ctx.tx, body.assignees)
-            await ctx.tx
-              .insert(cardAssignees)
-              .values([...ids.values()].map((userId) => ({ cardId: row.id, userId })))
-          }
-          if (body.labels !== undefined) {
-            await setLabels(ctx.tx, access.board.id, row.id, body.labels)
-          }
-          if (body.anchor !== undefined) {
-            await ctx.tx.insert(anchors).values({
-              cardId: row.id,
-              path: body.anchor.path,
-              line: body.anchor.line ?? null,
-              endLine: body.anchor.endLine ?? null,
-              commitSha: body.anchor.commitSha ?? null,
-              primaryAnchor: true,
-            })
-          }
-
-          const card = await loadCard(asQueryable(ctx.tx), access.board.id, number)
-          if (card === undefined) throw boardError('internal', 'Card vanished after insert')
-
-          ctx.emit({ type: 'card.created', cardId: row.id, cardNo: number, payload: card })
+          const card = await insertCard(ctx, access, auth.user.id, column, body)
           return card
+        },
+        { idempotencyKey, bus: context.bus },
+      )
+
+      return created(value)
+    })
+  })
+
+  // `yuzie import` (§7.2): every card in one transaction, so a bad row leaves the
+  // board as it was, and a 300-card file is one write, not 300.
+  app.post<{ Params: { slug: string } }>('/boards/:slug/cards/import', async (request, reply) => {
+    const { auth, access } = await board(request, request.params.slug)
+    authorizeOn(access, 'card.write')
+
+    return mutation(context, request, reply, auth, async (idempotencyKey) => {
+      const body = parseBody(CardImportRequestSchema, request.body)
+
+      const { value } = await mutateBoard(
+        db,
+        access.board.id,
+        { id: auth.user.id, handle: auth.user.handle },
+        async (ctx) => {
+          const targets: ColumnRow[] = []
+          for (const item of body.cards)
+            targets.push(
+              await resolveColumn(ctx.tx, access.board.id, access.board.slug, item.column),
+            )
+          const incoming = new Map<string, { column: ColumnRow; count: number }>()
+          for (const column of targets) {
+            const entry = incoming.get(column.id) ?? { column, count: 0 }
+            incoming.set(column.id, { column, count: entry.count + 1 })
+          }
+          for (const { column, count } of incoming.values())
+            await enforceWipLimit(ctx.tx, access.board.id, column, count)
+
+          const imported: Card[] = []
+          for (const [index, item] of body.cards.entries()) {
+            imported.push(
+              await insertCard(ctx, access, auth.user.id, targets[index] as ColumnRow, item),
+            )
+          }
+          return { cards: imported, count: imported.length }
         },
         { idempotencyKey, bus: context.bus },
       )

@@ -7,6 +7,8 @@
  * the SDK, and the CLI needs all of those.
  */
 import {
+  type AccountDeleteResponse,
+  AccountDeleteResponseSchema,
   type ApiToken,
   AuthenticationError,
   type BoardCreateRequest,
@@ -104,6 +106,13 @@ export interface YuzieClient {
     /** Revoke the token this client is using — what `yuzie logout` does. */
     revokeCurrent(): Promise<void>
   }
+  readonly account: {
+    /**
+     * Delete the signed-in account (§14.3), confirmed by its own handle. Its
+     * tokens stop working at once; everything else is purged by `purgeBy`.
+     */
+    delete(handle: string): Promise<AccountDeleteResponse>
+  }
   /** Device-code login (§6.1): works over SSH because the browser can be anywhere. */
   readonly auth: {
     start(): Promise<DeviceAuthStartResponse>
@@ -156,6 +165,15 @@ export function createClient(options: ClientOptions = {}): YuzieClient {
     },
 
     me: () => http.request({ method: 'GET', path: '/me', schema: MeResponseSchema }),
+    account: {
+      delete: (handle) =>
+        http.request({
+          method: 'DELETE',
+          path: '/me',
+          body: { handle },
+          schema: AccountDeleteResponseSchema,
+        }),
+    },
 
     boards: {
       async list() {

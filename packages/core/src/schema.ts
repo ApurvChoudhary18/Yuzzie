@@ -427,6 +427,40 @@ export const CardCreateRequestSchema = z.object({
   afterCard: cardNumber().optional(),
 })
 
+/** `DELETE /me` (§14.3): the caller's own handle, typed again. */
+export const AccountDeleteRequestSchema = z.object({ handle: z.string().min(1) })
+
+export const AccountDeleteResponseSchema = z.object({
+  handle: handle(),
+  deletedAt: isoDateTime(),
+  /** Everything else is gone by then. */
+  purgeBy: isoDateTime(),
+})
+
+/** At most this many cards per `yuzie import` request (§7.2); larger files are sent in batches. */
+export const IMPORT_BATCH_LIMIT = 500
+
+/** One card in a bulk import: a create request, plus its checklist. */
+export const CardImportItemSchema = CardCreateRequestSchema.omit({
+  beforeCard: true,
+  afterCard: true,
+}).extend({
+  checklist: z
+    .array(z.object({ text: typed().min(1), done: z.boolean().optional() }))
+    .max(200)
+    .optional(),
+})
+
+/** `POST /boards/:slug/cards/import`: all of them, in order, or none. */
+export const CardImportRequestSchema = z.object({
+  cards: z.array(CardImportItemSchema).min(1).max(IMPORT_BATCH_LIMIT),
+})
+
+export const CardImportResponseSchema = z.object({
+  cards: z.array(CardSchema),
+  count: z.number().int().nonnegative(),
+})
+
 export const CardUpdateRequestSchema = z
   .object({
     title: typed().min(1).optional(),
@@ -589,6 +623,9 @@ export type CardAssignRequest = z.infer<typeof CardAssignRequestSchema>
 export type CardDeleteResponse = z.infer<typeof CardDeleteResponseSchema>
 export type CommentCreateRequest = z.infer<typeof CommentCreateRequestSchema>
 export type ChecklistAddRequest = z.infer<typeof ChecklistAddRequestSchema>
+export type AccountDeleteResponse = z.infer<typeof AccountDeleteResponseSchema>
+export type CardImportItem = z.infer<typeof CardImportItemSchema>
+export type CardImportRequest = z.infer<typeof CardImportRequestSchema>
 export type ChecklistUpdateRequest = z.infer<typeof ChecklistUpdateRequestSchema>
 export type GitSummaryUpsertRequest = z.infer<typeof GitSummaryUpsertRequestSchema>
 export type CommitsAttachRequest = z.infer<typeof CommitsAttachRequestSchema>

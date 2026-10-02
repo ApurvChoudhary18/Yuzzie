@@ -2,6 +2,7 @@
  * Boards, columns, members and tokens (SPEC.md §12.1).
  */
 import {
+  AccountDeleteRequestSchema,
   BoardCreateRequestSchema,
   BoardUpdateRequestSchema,
   boardError,
@@ -29,6 +30,7 @@ import {
   users,
   workspaces,
 } from '../db/schema.js'
+import { deleteAccount } from '../services/accounts.js'
 import { loadActivity, loadEvents } from '../services/log.js'
 import { currentSeq, mutateBoard } from '../services/mutate.js'
 import {
@@ -75,6 +77,30 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
         boardName: board.name,
         role: role as Role,
       })),
+    })
+  })
+
+  // §14.3: delete your own account. The body repeats your handle, so a stray
+  // request cannot do it; the CLI asks you to type it.
+  app.delete('/me', async (request, reply) => {
+    const auth = await requireAuth(context, request)
+    const body = parseBody(AccountDeleteRequestSchema, request.body ?? {})
+    if (body.handle.replace(/^@/, '') !== auth.user.handle) {
+      throw boardError(
+        'validation_failed',
+        `To delete @${auth.user.handle}, confirm with that handle.`,
+      )
+    }
+    const { deletedAt, purgeBy } = await deleteAccount(
+      db,
+      auth.user.id,
+      new Date(),
+      context.config.accountPurgeAfterMs,
+    )
+    return reply.send({
+      handle: auth.user.handle,
+      deletedAt: deletedAt.toISOString(),
+      purgeBy: purgeBy.toISOString(),
     })
   })
 
