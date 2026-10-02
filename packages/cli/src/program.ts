@@ -5,7 +5,9 @@
 
 import { Command, CommanderError, Option } from 'commander'
 import type { AddOptions, ListOptions } from './commands/cards.js'
+import type { ExportOptions, ImportOptions } from './commands/data.js'
 import type { McpOptions } from './commands/mcp.js'
+import type { ServeOptions } from './commands/serve.js'
 import type { TokenCreateOptions } from './commands/tokens.js'
 import type { Context, GlobalOptions, Io } from './context.js'
 import { EXIT_OK, EXIT_USAGE, exitCodeFor, UsageError } from './exit.js'
@@ -24,11 +26,14 @@ const loadAuth = () => import('./commands/auth.js')
 const loadCards = () => import('./commands/cards.js')
 const loadCode = () => import('./commands/code.js')
 const loadCompletion = () => import('./commands/completion.js')
+const loadData = () => import('./commands/data.js')
 const loadDoctor = () => import('./commands/doctor.js')
 const loadGit = () => import('./commands/git.js')
 const loadHooks = () => import('./commands/hooks.js')
 const loadInit = () => import('./commands/init.js')
+const loadLink = () => import('./commands/link.js')
 const loadMcp = () => import('./commands/mcp.js')
+const loadServe = () => import('./commands/serve.js')
 const loadSetup = () => import('./commands/setup.js')
 const loadSync = () => import('./commands/sync.js')
 const loadTeam = () => import('./commands/team.js')
@@ -55,6 +60,9 @@ const watch = lazy(loadCards, 'watch')
 const anchor = lazy(loadCode, 'anchor')
 const open = lazy(loadCode, 'open')
 const completion = lazy(loadCompletion, 'completion')
+const accountDelete = lazy(loadData, 'accountDelete')
+const exportBoard = lazy(loadData, 'exportBoard')
+const importCards = lazy(loadData, 'importCards')
 const doctor = lazy(loadDoctor, 'doctor')
 const branch = lazy(loadGit, 'branch')
 const claim = lazy(loadGit, 'claim')
@@ -62,6 +70,9 @@ const commits = lazy(loadGit, 'commits')
 const finishCard = lazy(loadGit, 'finish')
 const hook = lazy(loadHooks, 'hook')
 const init = lazy(loadInit, 'init')
+const link = lazy(loadLink, 'link')
+const unlink = lazy(loadLink, 'unlink')
+const serve = lazy(loadServe, 'serve')
 const mcp = lazy(loadMcp, 'mcp')
 const configGet = lazy(loadSetup, 'configGet')
 const configSet = lazy(loadSetup, 'configSet')
@@ -250,6 +261,25 @@ function build(io: Io, finish: (code: number) => void): Command {
     .command('whoami')
     .description('show who you are, which server, and which board')
     .action(action((context: Context) => whoami(context)))
+
+  program
+    .command('link <board>')
+    .description('attach this repository to an existing board')
+    .action(action((context: Context, slug: string) => link(context, slug)))
+
+  program
+    .command('unlink')
+    .description('detach this repository from its board (the board stays on the server)')
+    .action(action((context: Context) => unlink(context)))
+
+  const account = program.command('account').description('your account on this server')
+  account
+    .command('delete')
+    .description('delete your account: tokens stop now, everything else goes within 30 days')
+    .option('--confirm <handle>', 'your handle, to delete without being asked')
+    .action(
+      action((context: Context, options: { confirm?: string }) => accountDelete(context, options)),
+    )
 
   program
     .command('doctor')
@@ -638,6 +668,45 @@ Install:
 Card numbers and column names are completed from the local cache, offline.`,
     )
     .action(action((context: Context, shell: string) => completion(context, shell)))
+
+  program
+    .command('export')
+    .description('export the board: everything as JSON, or cards as markdown or CSV')
+    .addOption(
+      new Option('--format <format>', 'json (complete), md or csv; else from --output').choices([
+        'json',
+        'md',
+        'csv',
+      ]),
+    )
+    .option('-o, --output <file>', 'write to a file instead of stdout')
+    .action(action((context: Context, options: ExportOptions) => exportBoard(context, options)))
+
+  program
+    .command('import <file>')
+    .description('create cards from JSON, CSV or a markdown checklist (- for stdin)')
+    .addOption(
+      new Option('--format <format>', 'json, csv or md; else from the extension').choices([
+        'json',
+        'md',
+        'csv',
+      ]),
+    )
+    .option('--column <column>', 'where cards with no (known) column go; default the first')
+    .option('--dry-run', 'show what would be created, and create nothing')
+    .action(
+      action((context: Context, file: string, options: ImportOptions) =>
+        importCards(context, file, options),
+      ),
+    )
+
+  program
+    .command('serve')
+    .description('run the board server on this machine (Postgres from DATABASE_URL, or Docker)')
+    .option('--port <port>', 'port to listen on (default 8787, or PORT)')
+    .option('--host <host>', 'address to bind (default 127.0.0.1, or HOST)')
+    .option('--database-url <url>', 'Postgres to use (default DATABASE_URL, else a container)')
+    .action(action((context: Context, options: ServeOptions) => serve(context, options)))
 
   program
     .command('upgrade')

@@ -331,7 +331,7 @@ export async function assign(
   })
 }
 
-async function readStdin(context: Context): Promise<string> {
+export async function readStdin(context: Context): Promise<string> {
   const chunks: Buffer[] = []
   for await (const chunk of context.io.stdin as unknown as AsyncIterable<Buffer | string>) {
     chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk)

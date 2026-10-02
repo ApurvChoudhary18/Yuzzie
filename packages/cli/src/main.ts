@@ -6,7 +6,7 @@ import { homedir } from 'node:os'
 import { EXIT_INTERRUPTED } from './exit.js'
 import { createLogger } from './log.js'
 import { run } from './program.js'
-import { screen } from './screen.js'
+import { screen, supervisor } from './screen.js'
 import { VERSION } from './version.js'
 
 export { run, VERSION }
@@ -20,7 +20,7 @@ export function main(): void {
   // board on screen has its own handler that restores the terminal first.
   for (const [signal, code] of Object.entries(SIGNAL_EXIT)) {
     process.on(signal, () => {
-      if (!screen.active) process.exit(code)
+      if (!screen.active && !supervisor.active) process.exit(code)
     })
   }
   // `yuzie list | head`: when the reader goes away, stop quietly, as `git log`
