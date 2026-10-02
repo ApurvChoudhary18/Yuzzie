@@ -84,6 +84,12 @@ export function registerAuthRoutes(app: FastifyInstance, context: AppContext): v
     const [existing] = await db.select().from(users).where(eq(users.handle, body.handle))
 
     let userId: string
+    if (existing !== undefined && existing.deletedAt !== null) {
+      throw boardError(
+        'forbidden',
+        `@${body.handle} was deleted. The handle can be used again once the account is purged.`,
+      )
+    }
     if (existing !== undefined) {
       const [claimed] = await db
         .select({ id: apiTokens.id })

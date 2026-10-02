@@ -60,6 +60,9 @@ export async function authenticate(
   if (row.token.revokedAt !== null) {
     throw boardError('unauthenticated', 'That token has been revoked. Run `yuzie login`.')
   }
+  if (row.user.deletedAt !== null) {
+    throw boardError('unauthenticated', 'This account has been deleted.')
+  }
   if (row.token.expiresAt !== null && row.token.expiresAt.getTime() <= now.getTime()) {
     throw boardError('unauthenticated', 'That token has expired. Run `yuzie login`.')
   }

@@ -7,6 +7,9 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "yuzie-server": "./bin/yuzie-server.js"
+  },
   "exports": {
     ".": {
       "import": {
@@ -20,6 +23,7 @@
     }
   },
   "files": [
+    "bin",
     "dist",
     "src/db/migrations"
   ],
@@ -29,7 +33,7 @@
   },
   "scripts": {
     "build": "tsup",
-    "start": "node --input-type=module -e \"import('./dist/index.js').then((server) => server.start())\"",
+    "start": "node bin/yuzie-server.js",
     "test": "vitest run",
     "lint": "biome check --error-on-warnings .",
     "typecheck": "tsc --noEmit -p tsconfig.json",

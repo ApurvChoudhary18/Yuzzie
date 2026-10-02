@@ -31,6 +31,8 @@ export const users = pgTable('users', {
   kind: text('kind').notNull().default('human'),
   githubLogin: text('github_login'),
   createdAt: createdAt(),
+  /** Set by `DELETE /v1/me`; the purge sweep removes the row later (§14.3). */
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 })
 
 export const workspaces = pgTable('workspaces', {

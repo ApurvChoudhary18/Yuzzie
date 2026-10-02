@@ -33,6 +33,18 @@ export const ConfigSchema = z.object({
     .default(15 * 60 * 1000),
   devicePollIntervalSeconds: z.number().int().positive().default(5),
   logLevel: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  /** §14.3: a deleted account's rows are gone within this long. */
+  accountPurgeAfterMs: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(30 * 24 * 60 * 60 * 1000),
+  /** How often the purge sweep runs. */
+  accountPurgeSweepMs: z
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60 * 1000),
 
   // --- Realtime gateway (§12.2, §14.1, §18 Session 4) ---------------------------
   /** Multi-node fan-out. Unset means in-process pub/sub, which is all one node needs. */

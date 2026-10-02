@@ -51,6 +51,12 @@ export { type EnqueueResult, type OutboundLimits, OutboundQueue } from './realti
 export { BoardPresence, mergeByHandle } from './realtime/presence.js'
 export { createMemoryPubSub, type PubSub, type PubSubHandler } from './realtime/pubsub.js'
 export { createRedisPubSub, type RedisPubSubOptions } from './realtime/redis.js'
+export {
+  ACCOUNT_PURGE_AFTER_MS,
+  boardsOnlyOwnedBy,
+  deleteAccount,
+  purgeDeletedAccounts,
+} from './services/accounts.js'
 export { createEventBus, type EventBus, type EventListener } from './services/event-bus.js'
 export { type LoadEventsOptions, loadEvents, loadSnapshot, type Snapshot } from './services/log.js'
 export { currentSeq, mutateBoard } from './services/mutate.js'
@@ -60,6 +66,7 @@ import { buildServer } from './app.js'
 import { loadConfig } from './config.js'
 import { createDatabase } from './db/client.js'
 import { migratePostgres } from './db/migrate.js'
+import { purgeDeletedAccounts } from './services/accounts.js'
 
 /** Boot the server from the environment. Used by `yuzie serve`. */
 export async function start(): Promise<void> {
@@ -69,8 +76,20 @@ export async function start(): Promise<void> {
 
   const { app } = await buildServer({ config, db: handle.db })
 
+  // §14.3: deleted accounts are purged once their grace period is over.
+  const purge = async () => {
+    const purged = await purgeDeletedAccounts(handle.db, new Date(), config.accountPurgeAfterMs)
+    if (purged.length > 0) app.log.info({ purged: purged.length }, 'purged deleted accounts')
+  }
+  const sweep = setInterval(() => {
+    purge().catch((error: unknown) => app.log.error({ err: error }, 'account purge failed'))
+  }, config.accountPurgeSweepMs)
+  sweep.unref()
+  void purge().catch((error: unknown) => app.log.error({ err: error }, 'account purge failed'))
+
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down')
+    clearInterval(sweep)
     await app.close()
     await handle.close()
     process.exit(0)

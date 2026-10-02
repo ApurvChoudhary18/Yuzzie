@@ -34,6 +34,8 @@ import {
   type Card,
   type CardCreateRequest,
   CardDeleteResponseSchema,
+  type CardImportItem,
+  CardImportResponseSchema,
   CardListResponseSchema,
   CardSchema,
   type CardUpdateRequest,
@@ -53,6 +55,7 @@ import {
   type GitSummary,
   GitSummarySchema,
   type GitSummaryUpsertRequest,
+  IMPORT_BATCH_LIMIT,
   type InviteCreateRequest,
   initialState,
   isStale,
@@ -1215,6 +1218,35 @@ export class CardsResource {
         return card
       },
     })
+  }
+
+  /**
+   * Create many cards at once (`yuzie import`, §7.2). Each batch of up to
+   * {@link IMPORT_BATCH_LIMIT} is one request and one transaction: it all lands
+   * or none of it does. Needs the server; it is never queued offline.
+   * `onBatch` reports progress after each batch.
+   */
+  async import(
+    items: readonly CardImportItem[],
+    onBatch?: (done: number, total: number) => void,
+  ): Promise<Card[]> {
+    const board = this.board
+    const imported: Card[] = []
+    for (let start = 0; start < items.length; start += IMPORT_BATCH_LIMIT) {
+      const batch = items.slice(start, start + IMPORT_BATCH_LIMIT)
+      const result = await board.http.request({
+        method: 'POST',
+        path: `/boards/${encodeURIComponent(board.slug)}/cards/import`,
+        body: { cards: batch },
+        schema: CardImportResponseSchema,
+        // A retry after a lost response must not import the batch twice.
+        idempotencyKey: newId(),
+      })
+      for (const card of result.cards) board.upsertConfirmed(card)
+      imported.push(...result.cards)
+      onBatch?.(imported.length, items.length)
+    }
+    return imported
   }
 
   /** Edit fields, guarded by the card's version so a concurrent edit is a 409 (§11.4). */
