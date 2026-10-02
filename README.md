@@ -40,7 +40,7 @@ job, or an AI agent can all drive the same board.
 ## Sixty seconds
 
 You need Node 22+ and git, and a server: [self-host one](docs/self-hosting.md) in two
-minutes with Docker. Then, in any repository:
+minutes with Docker, or run `yuzie serve` on your machine to try it. Then, in any repository:
 
 ```console
 $ npm install -g yuzie                  # or put `npx yuzie@latest` wherever `yuzie` appears
@@ -69,10 +69,11 @@ are stable (see the [FAQ](docs/faq.md)).
 
 | | |
 | --- | --- |
-| Set up | `init` `login` `logout` `whoami` `doctor` `config` `hooks` `completion` `upgrade` |
+| Set up | `init` `link` `unlink` `login` `logout` `whoami` `account` `doctor` `config` `hooks` `completion` `upgrade` |
 | Cards | `add` `list` `card` `move` `done` `assign` `comment` `edit` `rm` `watch` `unwatch` `check` `label` `due` `priority` |
 | Git | `claim` `start` `finish` `branch` `commits` `anchor` `open` `sync` |
 | Team | `boards` `columns` `members` `share` `invite` `who` `activity` `feed` `token` |
+| Data | `export` `import` `serve` |
 | Agents | `mcp` |
 
 The full reference — every flag of every command, generated from the program itself — is
@@ -126,7 +127,9 @@ explicitly linked. There is no telemetry. Self-hosting is a first-class, documen
 
 ## Status
 
-All 18 sessions of [`SPEC.md`](./SPEC.md) §18 are complete.
+All 18 sessions of [`SPEC.md`](./SPEC.md) §18 are complete, along with a follow-up that
+finished the rest of the command surface: `link`, `unlink`, `export`, `import`, `serve` and
+account deletion.
 
 | Milestone | Sessions | State |
 | --- | --- | --- |
@@ -171,7 +174,7 @@ node packages/cli/dist/index.js --version
 pnpm turbo bench --concurrency=1        # timing budgets, run alone (includes the load test)
 pnpm --filter @yuzie/server load        # 25 clients × 2,000 cards × 100 events/s, on its own
 pnpm --filter @yuzie/cli budget         # install size < 4 MB; `list --json` p50 < 150 ms (needs hyperfine)
-pnpm --filter @yuzie/cli docs           # regenerate docs/commands.md after changing a command
+pnpm --filter @yuzie/cli run docs:commands   # regenerate docs/commands.md after changing a command
 node scripts/check-packages.mjs         # every export loads under import and require; arethetypeswrong
 ```
 

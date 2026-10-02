@@ -7,6 +7,10 @@ machine with Docker, and points the CLI at them. It takes about two minutes.
 > job in `.github/workflows/ci.yml`), and then an end-to-end run is made against the result. If
 > this page is wrong, the build is red.
 
+> **Just trying it?** `yuzie serve` runs the server on your own machine. It uses your
+> `DATABASE_URL`, or starts a Postgres container with Docker. This guide is for a server your
+> team shares.
+
 ## What you need
 
 - Docker with the Compose plugin (`docker compose version` prints 2.20 or later).

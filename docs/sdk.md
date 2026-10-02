@@ -49,6 +49,7 @@ anyone makes. `on(...)` returns a function that unsubscribes.
 | `me()` | The signed-in user. |
 | `boards.list()`, `boards.create({ name, … })` | Your boards. |
 | `tokens.list()`, `tokens.create({ … })`, `tokens.revoke(id)`, `tokens.revokeCurrent()` | API tokens. A token's plaintext is returned once, at creation. |
+| `account.delete(handle)` | Delete the signed-in account: tokens stop at once, the rest is purged within 30 days. |
 | `auth.start()`, `auth.poll(deviceCode)` | Device-code sign-in: show `userCode`, and poll until it is approved. |
 | `connect(slug, options)` | Open a board (above). |
 | `board(slug, options)` | A board that is not open yet. `open()` paints from cache before the network answers. |
@@ -69,7 +70,7 @@ Board options add:
 
 | Resource | Calls |
 | --- | --- |
-| `board.cards` | `list(filter)`, `listLocal(filter)`, `get(n)`, `create(input)`, `update(n, fields)`, `move(n, column, { before, after })`, `assign(n, …)`, `comment(n, body)`, `check(n, item, done)`, `addChecklistItem(n, text)`, `delete(n)`, `watch(n, on)`, `linkBranch(n, branch)`, `updateGit(n, summary)`, `attachCommits(n, commits)`, `setAnchor(n, anchor)` |
+| `board.cards` | `list(filter)`, `listLocal(filter)`, `get(n)`, `create(input)`, `import(items)` (sent in batches of 500, each all or nothing), `update(n, fields)`, `move(n, column, { before, after })`, `assign(n, …)`, `comment(n, body)`, `check(n, item, done)`, `addChecklistItem(n, text)`, `delete(n)`, `watch(n, on)`, `linkBranch(n, branch)`, `updateGit(n, summary)`, `attachCommits(n, commits)`, `setAnchor(n, anchor)` |
 | `board.boards` | `get()`, `update(fields)`, `archive()`, `addColumn(column)`, `removeColumn(key)`, `events(since)`, `activity(query)`, `presence()` |
 | `board.members` | `list()`, `invite({ handle, role })` |
 | `board.comments` | `list(n)`, `create(n, body)` |

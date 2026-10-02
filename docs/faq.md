@@ -6,8 +6,29 @@ it, use `npm install -g yuzie` (or `@yuzie/cli`, the same program), which puts `
 on your PATH.
 
 **How do I try it without a server?**
-Self-host one in two minutes; see [self-hosting](self-hosting.md). The CLI finds it through
-`YUZIE_SERVER`, and `yuzie init` records it in `.yuzie/config.json` for the rest of your team.
+Run `yuzie serve`. It starts the server on this machine, on port 8787:
+- With `DATABASE_URL` set, it uses that Postgres.
+- Otherwise, if Docker is running, it starts a Postgres container for itself
+  (`yuzie-serve-postgres`).
+
+Then `export YUZIE_SERVER=http://localhost:8787/v1`. For a team, [self-host](self-hosting.md)
+it properly. `yuzie init` records the server in `.yuzie/config.json` for everyone who clones the
+repository.
+
+**How do I move cards in or out?**
+`yuzie import <file>` creates cards from:
+- a markdown checklist: `## Column` headings, then `- [ ] title` items;
+- a CSV with a `title` column, plus any of `column`, `assignees`, `labels`, `priority`, `due`
+  and `description`;
+- JSON: a yuzie export, or a list of cards.
+
+Run `--dry-run` first to see what it will do. Columns and people the board doesn't have are
+reported, not guessed. `yuzie export` writes JSON (everything), markdown or CSV, and an export
+imports straight back into another board.
+
+**A repository should use a different board.**
+`yuzie link <board>` points the repository at a board you are already on. `yuzie unlink`
+detaches it, and the board stays on the server.
 
 **Does it work offline?**
 Yes. Writes made offline are queued in `.yuzie/cache/`, shown as pending, and sent when the
