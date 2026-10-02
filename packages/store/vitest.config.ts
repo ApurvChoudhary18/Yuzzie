@@ -12,7 +12,6 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**', 'src/benchmark.test.ts'],
     coverage: {
       provider: 'v8',
-      all: true,
       include: ['src/**/*.ts'],
       exclude: [
         'src/**/*.test.ts',

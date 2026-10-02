@@ -9,7 +9,7 @@ export default defineConfig({
   test: {
     include: ['src/realtime-timing.test.ts', 'src/search-timing.test.ts', 'src/load.test.ts'],
     pool: 'forks',
-    poolOptions: { forks: { execArgv: ['--expose-gc'] } },
+    execArgv: ['--expose-gc'],
     testTimeout: 180_000,
     hookTimeout: 120_000,
     setupFiles: ['./src/__tests__/docker-env.ts'],
