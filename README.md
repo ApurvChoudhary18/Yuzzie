@@ -207,4 +207,4 @@ session, and [RELEASE.md](RELEASE.md) for how a release is cut.
 
 ## License
 
-MIT
+[MIT](LICENSE) © 2026 Apurv Choudhary
