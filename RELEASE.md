@@ -22,10 +22,15 @@ step is a deliberate choice.
    owned by you. If they aren't, rename them in every `package.json`, in
    `.changeset/config.json` and in these docs.
 2. **npm credentials.** Use one of:
-   - **Trusted publishing** (preferred): on npmjs.com, for each package, add this repository
-     and `release.yml` as a trusted publisher. No token is needed.
-   - **A token**: an npm automation token with publish rights, stored as the repository secret
-     `NPM_TOKEN`.
+   - **A token**, for the first release: a granular access token with read and write access
+     to the `yuzie` org's packages and "bypass two-factor authentication" ticked, stored as
+     the repository secret `NPM_TOKEN` (`gh secret set NPM_TOKEN`). npm only lets you set up
+     trusted publishing on a package that already exists, so the first publish needs a token.
+   - **Trusted publishing**, from the second release on (preferred): on npmjs.com, for each
+     package, add this repository and `release.yml` as a trusted publisher. Then delete the
+     `NPM_TOKEN` secret and revoke the token.
+   - The `@yuzie/*` packages need the npm organisation `yuzie` to exist, with you as an owner.
+     The unscoped `yuzie` package does not.
 3. **GHCR.** Nothing to do: the workflow publishes with its own `GITHUB_TOKEN`. After the first
    push, make the package public: GitHub → Packages → `yuzie-server` → Package settings.
 4. **Switch it on.** Set the repository variable `RELEASES_ENABLED` to `true`: Settings →
