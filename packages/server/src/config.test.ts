@@ -16,6 +16,12 @@ describe('loadConfig', () => {
     expect(config.signupMode).toBe('open')
   })
 
+  it('treats an empty variable as unset, as compose passes an unset REDIS_URL', () => {
+    const config = loadConfig({ DATABASE_URL: 'postgres://x', REDIS_URL: '', PORT: '' })
+    expect(config.redisUrl).toBeUndefined()
+    expect(config.port).toBe(8787)
+  })
+
   it('lets explicit overrides win over the environment', () => {
     const config = loadConfig({ DATABASE_URL: 'postgres://env/db', PORT: '1234' }, { port: 9999 })
     expect(config.port).toBe(9999)

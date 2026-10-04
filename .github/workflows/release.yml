@@ -7,13 +7,25 @@
 # it waits for someone to decide the names, the npm org and the credentials.
 #
 # On each push to main with pending changesets, this opens (or updates) a
-# "Release: version packages" pull request. Merging that pull request publishes.
+# "Release: version packages" pull request. Merging that pull request publishes
+# to the `latest` channel.
+#
+# The `next` channel (§17) is a manual run (Actions → Release → Run workflow →
+# channel: next): a snapshot of main, versioned like 0.2.0-next-20261004120000,
+# published under the npm `next` tag. `npx yuzie@next` gets it; `latest` is
+# untouched, and nothing is committed or tagged.
 name: Release
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      channel:
+        description: latest (version pull request, or publish) or next (a snapshot of main)
+        type: choice
+        options: [latest, next]
+        default: latest
 
 concurrency:
   group: release
@@ -22,7 +34,7 @@ concurrency:
 jobs:
   npm:
     name: version or publish
-    if: vars.RELEASES_ENABLED == 'true'
+    if: vars.RELEASES_ENABLED == 'true' && inputs.channel != 'next'
     runs-on: ubuntu-latest
     permissions:
       contents: write        # the version commit and tags
@@ -58,6 +70,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Unset when npm trusted publishing is configured for these packages.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
+
+  next:
+    name: snapshot → npm next
+    if: vars.RELEASES_ENABLED == 'true' && inputs.channel == 'next'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@11
+      - run: pnpm install --frozen-lockfile
+      # Versions only in this checkout: 0.2.0-next-<datetime> for every package.
+      - run: pnpm changeset version --snapshot next
+      - run: pnpm turbo build
+      - run: node scripts/check-packages.mjs
+      - name: Publish under the next tag
+        run: pnpm changeset publish --tag next --no-git-tag
+        env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
 
