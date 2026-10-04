@@ -40,7 +40,12 @@ import {
   type WebSocketFactory,
 } from './platform.js'
 
-export const DEFAULT_BASE_URL = 'https://api.yuzie.dev/v1'
+/**
+ * Where a client goes when told nowhere else: this machine, where `yuzie serve`
+ * listens. There is no hosted Yuzie; a team points at its own server with
+ * `baseUrl` (the CLI: `YUZIE_SERVER`, or `server` in `.yuzie/config.json`).
+ */
+export const DEFAULT_BASE_URL = 'http://localhost:8787/v1'
 
 const HealthSchema = z.object({ status: z.literal('ok'), version: z.string() })
 
