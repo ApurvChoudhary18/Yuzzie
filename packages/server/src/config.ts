@@ -109,7 +109,8 @@ export function loadConfig(
 
   const merged: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(fromEnv)) {
-    if (value !== undefined) merged[key] = value
+    // An empty variable is an unset one: compose writes `REDIS_URL: ${REDIS_URL:-}`.
+    if (value !== undefined && value !== '') merged[key] = value
   }
   for (const [key, value] of Object.entries(overrides)) {
     if (value !== undefined) merged[key] = value

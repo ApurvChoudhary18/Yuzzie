@@ -65,6 +65,15 @@ step is a deliberate choice.
    The npm page of each package shows a provenance badge linking back to the workflow run.
 6. **Announce.** Copy the release notes from the GitHub release.
 
+## A preview on the `next` channel
+
+To let people try main before a release, run the workflow by hand: Actions → Release → Run
+workflow → channel `next`. It publishes every package as a snapshot version, e.g.
+`0.2.0-next-20261004120000`, under the npm `next` tag:
+- `npx yuzie@next` runs it;
+- `npm install -g yuzie@next` installs it;
+- `latest` is untouched, and nothing is committed or tagged.
+
 ## If something goes wrong
 
 - **A publish failed partway.** Re-run the workflow. `changeset publish` skips versions that

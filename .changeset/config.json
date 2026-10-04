@@ -14,5 +14,9 @@
   "updateInternalDependencies": "patch",
   "ignore": [
     "@yuzie/e2e"
-  ]
+  ],
+  "snapshot": {
+    "useCalculatedVersion": true,
+    "prereleaseTemplate": "{tag}-{datetime}"
+  }
 }

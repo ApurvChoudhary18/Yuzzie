@@ -5,7 +5,9 @@
 #   docker compose up -d --wait
 #
 # Needs a .env beside it with POSTGRES_PASSWORD (and YUZIE_PUBLIC_URL when the
-# server is reached at anything but http://localhost:8787).
+# server is reached at anything but http://localhost:8787). Redis is optional:
+# COMPOSE_PROFILES=redis and REDIS_URL=redis://redis:6379 in .env add it, for
+# running more than one server node.
 
 name: yuzie
 
@@ -21,6 +23,7 @@ services:
       YUZIE_PUBLIC_URL: ${YUZIE_PUBLIC_URL:-http://localhost:8787}
       YUZIE_SIGNUP: ${YUZIE_SIGNUP:-open}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      REDIS_URL: ${REDIS_URL:-}
     ports:
       - "${YUZIE_PORT:-8787}:8787"
 
@@ -39,5 +42,19 @@ services:
       timeout: 5s
       retries: 20
 
+  redis:
+    image: redis:7-alpine
+    profiles: ["redis"]
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   pgdata:
+  redisdata:

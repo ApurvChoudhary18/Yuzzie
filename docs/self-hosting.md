@@ -32,7 +32,9 @@ cat > docker-compose.yml <<'YAML'
 #   docker compose up -d --wait
 #
 # Needs a .env beside it with POSTGRES_PASSWORD (and YUZIE_PUBLIC_URL when the
-# server is reached at anything but http://localhost:8787).
+# server is reached at anything but http://localhost:8787). Redis is optional:
+# COMPOSE_PROFILES=redis and REDIS_URL=redis://redis:6379 in .env add it, for
+# running more than one server node.
 
 name: yuzie
 
@@ -48,6 +50,7 @@ services:
       YUZIE_PUBLIC_URL: ${YUZIE_PUBLIC_URL:-http://localhost:8787}
       YUZIE_SIGNUP: ${YUZIE_SIGNUP:-open}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      REDIS_URL: ${REDIS_URL:-}
     ports:
       - "${YUZIE_PORT:-8787}:8787"
 
@@ -66,8 +69,22 @@ services:
       timeout: 5s
       retries: 20
 
+  redis:
+    image: redis:7-alpine
+    profiles: ["redis"]
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   pgdata:
+  redisdata:
 YAML
 ```
 
@@ -87,6 +104,8 @@ Other settings, all optional, go in the same file:
 | `YUZIE_PORT` | `8787` | The port on this machine. |
 | `YUZIE_SIGNUP` | `open` | `open` lets anyone who can reach the server sign in and become a user. `invite` only lets in handles that already exist. |
 | `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent`. Logs are JSON on stdout. |
+| `COMPOSE_PROFILES` | (none) | `redis` adds a Redis container. Needed only with more than one server node; set `REDIS_URL` too. |
+| `REDIS_URL` | (none) | `redis://redis:6379` with the `redis` profile, or your own Redis. |
 | `YUZIE_IMAGE` | `ghcr.io/apurvchoudhary18/yuzie-server:latest` | Pin a version here, e.g. `…/yuzie-server:0.1.0`. |
 
 ## 3. Start it
@@ -142,8 +161,9 @@ authenticating proxy if it is reachable from the internet. Anyone who can reach 
   `docker compose exec postgres pg_dump -U yuzie yuzie > yuzie.sql`.
 - **Upgrades.** Run `docker compose pull && docker compose up -d --wait`. Migrations run on start
   and only move forward, so take a backup first.
-- **More than one server node.** Add Redis and set `REDIS_URL` on every node. Realtime events
-  then fan out across nodes. One node needs neither.
+- **More than one server node.** Turn Redis on: in `.env`, set
+  `COMPOSE_PROFILES=redis` and `REDIS_URL=redis://redis:6379`. Every node then shares realtime
+  events through it. One node needs neither.
 - **Rate limits.** Each token may make 600 reads and 120 writes a minute (SPEC §12.1).
 
 ## Stopping and removing
