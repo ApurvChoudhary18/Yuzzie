@@ -168,7 +168,7 @@ describe('config (§13.2)', () => {
     expect(config.ui.theme).toBe('light')
     expect(config.board).toBe('from-repo')
     expect(config.git).toMatchObject({ baseBranch: 'trunk', branchTemplate: 'task/{id}-{slug}' })
-    expect(config.server).toBe('https://api.yuzie.dev/v1')
+    expect(config.server).toBe('http://localhost:8787/v1')
 
     ;({ config } = await loadConfig({
       ...base,

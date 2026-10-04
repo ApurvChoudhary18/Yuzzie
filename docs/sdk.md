@@ -21,7 +21,7 @@ It ships as ESM and CommonJS, with types for both, and runs on Node 22+ and in b
 import { Yuzie } from '@yuzie/sdk/node'
 
 const board = await Yuzie.connect('payments-api', {
-  baseUrl: 'https://yuzie.example.com/v1', // default: https://api.yuzie.dev/v1
+  baseUrl: 'https://yuzie.example.com/v1', // default: http://localhost:8787/v1 (`yuzie serve`)
 })
 
 board.on('change', (state) => console.log(Object.keys(state.cards).length, 'cards'))

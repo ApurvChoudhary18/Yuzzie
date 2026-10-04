@@ -11,8 +11,8 @@ Run `yuzie serve`. It starts the server on this machine, on port 8787:
 - Otherwise, if Docker is running, it starts a Postgres container for itself
   (`yuzie-serve-postgres`).
 
-Then `export YUZIE_SERVER=http://localhost:8787/v1`. For a team, [self-host](self-hosting.md)
-it properly. `yuzie init` records the server in `.yuzie/config.json` for everyone who clones the
+The CLI looks there by default, so nothing else needs setting. For a team, [self-host](self-hosting.md)
+it properly, and point everyone at it with `YUZIE_SERVER`. `yuzie init` records the server in `.yuzie/config.json` for everyone who clones the
 repository.
 
 **How do I move cards in or out?**

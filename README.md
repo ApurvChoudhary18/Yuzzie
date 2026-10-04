@@ -39,12 +39,13 @@ job, or an AI agent can all drive the same board.
 
 ## Sixty seconds
 
-You need Node 22+ and git, and a server: [self-host one](docs/self-hosting.md) in two
-minutes with Docker, or run `yuzie serve` on your machine to try it. Then, in any repository:
+You need Node 22+ and git, and a server. There is no hosted Yuzie: run `yuzie serve` on your
+machine to try it (the CLI looks there by default), or [self-host one](docs/self-hosting.md) for
+your team in two minutes with Docker. Then, in any repository:
 
 ```console
 $ npm install -g yuzie                  # or put `npx yuzie@latest` wherever `yuzie` appears
-$ export YUZIE_SERVER=http://localhost:8787/v1   # your server; init records it for the team
+$ export YUZIE_SERVER=https://yuzie.example.com/v1   # your team's server; leave unset for `yuzie serve` here
 $ yuzie init
 ✓ Git repository detected: payments-api (github.com/acme/payments-api)
 ✓ Signed in as @rahul

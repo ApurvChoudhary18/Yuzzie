@@ -12,6 +12,7 @@ import {
   EXIT_RUNTIME,
   EXIT_USAGE,
   isBoardError,
+  OfflineError,
 } from '@yuzie/core'
 
 export { EXIT_INTERRUPTED, EXIT_OK, EXIT_RUNTIME, EXIT_USAGE }
@@ -48,6 +49,13 @@ export function exitCodeFor(error: unknown): number {
 
 /** The one line of advice printed under an error. */
 export function fixFor(error: unknown): string | undefined {
+  // Nothing at this machine's address: most likely no server has been set up
+  // yet, not a dropped connection.
+  if (
+    error instanceof OfflineError &&
+    /Cannot reach https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(error.message)
+  )
+    return 'Start a server with `yuzie serve`, or set YUZIE_SERVER to your team’s server.'
   if (error instanceof BoardError) return error.suggestedFix
   if (error instanceof UsageError) return error.fix
   if (error instanceof RuntimeError) return error.fix
