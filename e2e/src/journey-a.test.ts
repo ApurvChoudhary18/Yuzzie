@@ -370,6 +370,8 @@ describe('yuzie doctor (§15)', () => {
     )
     const result = await yuzie(['doctor'], { cwd: repo, env: computer.env })
     expect(result.code).toBe(7)
-    expect(result.stdout).toContain('✗ server unreachable: http://127.0.0.1:9/v1')
+    expect(result.stdout).toContain(
+      '✗ server unreachable: http://127.0.0.1:9/v1 → start one with `yuzie serve`, or set YUZIE_SERVER',
+    )
   })
 })

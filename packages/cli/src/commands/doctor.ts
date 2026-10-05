@@ -122,7 +122,10 @@ export async function runChecks(context: Context): Promise<Check[]> {
       checks.push({
         name: 'server',
         status: 'fail',
-        detail: `server unreachable: ${server} → check the network, or YUZIE_SERVER`,
+        // Nothing on this machine's address is a server not started, not a network fault.
+        detail: /^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(server)
+          ? `server unreachable: ${server} → start one with \`yuzie serve\`, or set YUZIE_SERVER`
+          : `server unreachable: ${server} → check the network, or YUZIE_SERVER`,
         exitCode: EXIT_OFFLINE,
       })
     }
