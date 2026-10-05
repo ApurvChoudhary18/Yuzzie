@@ -506,7 +506,7 @@ export class Board {
     // Nothing is asked of a server the probe says is unreachable (§18 Session 13).
     let reachable = this.options.probe === undefined ? true : await this.options.probe()
     if (!reachable && this.options.offline === 'fail') {
-      throw new OfflineError('offline_network_required', 'Cannot reach the server', { status: 0 })
+      throw new OfflineError('offline_network_required', 'Cannot reach the server.', { status: 0 })
     }
     // The board and `/me` at once, and the board kept for `refresh`: each
     // round trip is what a one-shot command waits on (§18 Session 16).

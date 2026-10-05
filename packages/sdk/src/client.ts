@@ -154,7 +154,7 @@ export function createClient(options: ClientOptions = {}): YuzieClient {
       try {
         response = await fetch(`${origin}/healthz`, { method: 'GET', headers: {} })
       } catch (cause) {
-        throw new OfflineError('offline_network_required', `Cannot reach ${origin}`, {
+        throw new OfflineError('offline_network_required', `Cannot reach ${origin}.`, {
           status: 0,
           cause,
         })

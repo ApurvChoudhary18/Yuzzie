@@ -156,7 +156,7 @@ export function createHttp(options: HttpOptions): Http {
             await sleep(backoff(attempt))
             continue
           }
-          throw new OfflineError('offline_network_required', `Cannot reach ${options.baseUrl}`, {
+          throw new OfflineError('offline_network_required', `Cannot reach ${options.baseUrl}.`, {
             status: 0,
             details: { url },
             cause,
