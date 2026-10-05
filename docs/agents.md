@@ -36,7 +36,15 @@ or, in any MCP host's configuration file:
 }
 ```
 
-For a self-hosted server, add `"YUZIE_SERVER": "https://yuzie.example.com/v1"` to `env`.
+**Which server.** `yuzie mcp` finds its server the way every yuzie command does:
+1. `YUZIE_SERVER`;
+2. else `server` in the repository's `.yuzie/config.json`;
+3. else `server` in your own `~/.yuzie/config.json`;
+4. else this machine, where `yuzie serve` runs.
+
+So an agent started in your repository uses your team's server with no extra setting. If its
+working directory is elsewhere, add `"YUZIE_SERVER": "https://yuzie.example.com/v1"` to `env`, or
+`-e YUZIE_SERVER=…` to `claude mcp add`.
 
 ## Tools
 
