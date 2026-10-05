@@ -206,8 +206,8 @@ Every user-visible change needs a changeset:
 pnpm changeset
 ```
 
-See [`SPEC.md`](./SPEC.md) Appendix E for the definition of done that applies to every
-session, and [RELEASE.md](RELEASE.md) for how a release is cut.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to make a change, [`SPEC.md`](./SPEC.md)
+Appendix E for the definition of done, and [RELEASE.md](RELEASE.md) for how a release is cut.
 
 ## License
 
