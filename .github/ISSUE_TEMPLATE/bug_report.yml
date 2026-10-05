@@ -1,0 +1,42 @@
+name: Bug report
+description: Something in yuzie does not work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what you got instead.
+      placeholder: |
+        $ yuzie claim 18
+        ✗ …
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: yuzie doctor
+      description: The output of `yuzie doctor`. It checks node, git, sign-in, the server and the hooks.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: bundle
+    attributes:
+      label: Diagnostic bundle (optional)
+      description: |
+        `yuzie doctor --bundle` writes a report with versions, config, the last 200 log lines and
+        git facts. Tokens, passwords and your home directory are redacted, but read it before you
+        attach it.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where it happens
+      options:
+        - A command (yuzie add, list, claim, …)
+        - The board (yuzie with no arguments)
+        - The MCP server (yuzie mcp)
+        - The server (self-hosted or yuzie serve)
+        - Install or upgrade
+    validations:
+      required: true
