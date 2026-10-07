@@ -13,6 +13,10 @@
     "task-tracker"
   ],
   "license": "MIT",
+  "author": {
+    "name": "Apurv Choudhary",
+    "url": "https://github.com/ApurvChoudhary18"
+  },
   "type": "module",
   "bin": {
     "yuzie": "./dist/index.js",

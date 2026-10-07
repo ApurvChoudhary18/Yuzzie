@@ -9,6 +9,10 @@
     "offline"
   ],
   "license": "MIT",
+  "author": {
+    "name": "Apurv Choudhary",
+    "url": "https://github.com/ApurvChoudhary18"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

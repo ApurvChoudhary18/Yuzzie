@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "description": "Real-time, git-aware kanban for your team, in your terminal. (The short name for @yuzie/cli.)",
   "license": "MIT",
+  "author": {
+    "name": "Apurv Choudhary",
+    "url": "https://github.com/ApurvChoudhary18"
+  },
   "type": "module",
   "bin": {
     "yuzie": "./bin.js",
