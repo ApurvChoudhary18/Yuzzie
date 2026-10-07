@@ -2,6 +2,12 @@
   "name": "@yuzie/store",
   "version": "0.1.0",
   "description": "Local SQLite cache and offline outbox for the Yuzie CLI.",
+  "keywords": [
+    "yuzie",
+    "sqlite",
+    "cache",
+    "offline"
+  ],
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -2,6 +2,16 @@
   "name": "@yuzie/cli",
   "version": "0.1.0",
   "description": "The yuzie command-line interface and interactive TUI.",
+  "keywords": [
+    "yuzie",
+    "kanban",
+    "cli",
+    "tui",
+    "terminal",
+    "git",
+    "project-management",
+    "task-tracker"
+  ],
   "license": "MIT",
   "type": "module",
   "bin": {

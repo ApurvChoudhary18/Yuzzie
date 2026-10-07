@@ -2,6 +2,12 @@
   "name": "@yuzie/git",
   "version": "0.1.0",
   "description": "Git repository introspection: branches, commits, hooks, and editor resolution.",
+  "keywords": [
+    "yuzie",
+    "git",
+    "hooks",
+    "branches"
+  ],
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",

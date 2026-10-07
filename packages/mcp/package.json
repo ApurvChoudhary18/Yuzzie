@@ -2,6 +2,13 @@
   "name": "@yuzie/mcp",
   "version": "0.1.0",
   "description": "Model Context Protocol server exposing a Yuzie board to AI agents.",
+  "keywords": [
+    "yuzie",
+    "mcp",
+    "model-context-protocol",
+    "ai-agent",
+    "kanban"
+  ],
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -1,7 +1,16 @@
 {
   "name": "@yuzie/sdk",
   "version": "0.1.0",
-  "description": "Typed programmatic client for the Yuzie API \u2014 HTTP, realtime, and offline queue.",
+  "description": "Typed programmatic client for the Yuzie API — HTTP, realtime, and offline queue.",
+  "keywords": [
+    "yuzie",
+    "kanban",
+    "sdk",
+    "client",
+    "realtime",
+    "websocket",
+    "project-management"
+  ],
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",

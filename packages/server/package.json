@@ -2,6 +2,15 @@
   "name": "@yuzie/server",
   "version": "0.1.0",
   "description": "Fastify REST API, WebSocket gateway, and persistence for Yuzie.",
+  "keywords": [
+    "yuzie",
+    "kanban",
+    "server",
+    "fastify",
+    "websocket",
+    "postgres",
+    "self-hosted"
+  ],
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
