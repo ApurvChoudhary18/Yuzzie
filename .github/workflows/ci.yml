@@ -10,6 +10,11 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# CI only reads the repository: its token gets nothing more, so a compromised
+# dependency in a test run cannot push, comment or publish.
+permissions:
+  contents: read
+
 jobs:
   verify:
     name: node ${{ matrix.node }} · ${{ matrix.os }}
