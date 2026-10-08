@@ -88,3 +88,16 @@ Yes, as a member marked `(agent)`, through `yuzie mcp`. See [agents](agents.md).
 
 **Where is my data?**
 See [privacy](privacy.md).
+
+**How do I remove yuzie?**
+- **From a repository:**
+  1. `yuzie hooks uninstall` takes out the git hooks.
+  2. `yuzie unlink` detaches the board. The board stays on the server.
+  3. Delete `.yuzie/` if you don't want its config or cache either.
+- **From your machine:**
+  1. `yuzie logout` revokes your token on the server and forgets it here.
+  2. `npm uninstall -g yuzie` (or `@yuzie/cli`) removes the program.
+  3. `rm -rf ~/.yuzie` removes your settings and logs.
+- **The `yuzie serve` database:**
+  `docker rm -f yuzie-serve-postgres && docker volume rm yuzie-serve-data`.
+- **Your account on a server:** `yuzie account delete`. See [privacy](privacy.md).
