@@ -16,6 +16,16 @@ export const ConfigSchema = z.object({
    * requires the user to exist already.
    */
   signupMode: z.enum(['open', 'invite']).default('open'),
+  /**
+   * GitHub sign-in (§6.1): with an OAuth App's client id and secret, the device
+   * page signs people in with GitHub and a handle is a GitHub login. Without
+   * them, a handle is approved as typed (see routes/auth.ts).
+   */
+  githubClientId: z.string().min(1).optional(),
+  githubClientSecret: z.string().min(1).optional(),
+  /** GitHub itself, or a GitHub Enterprise Server; and its API. */
+  githubUrl: z.url().default('https://github.com'),
+  githubApiUrl: z.url().default('https://api.github.com'),
   /** SPEC.md §12.1: 600 reads/min, 120 writes/min per token. */
   readRateLimit: z.number().int().positive().default(600),
   writeRateLimit: z.number().int().positive().default(120),
@@ -84,6 +94,11 @@ export const ConfigSchema = z.object({
 })
 
 export type ServerConfig = z.infer<typeof ConfigSchema>
+
+/** Whether people sign in with GitHub on this server. */
+export function githubSignIn(config: ServerConfig): boolean {
+  return config.githubClientId !== undefined && config.githubClientSecret !== undefined
+}
 export type ServerConfigInput = z.input<typeof ConfigSchema>
 
 function optionalInt(value: string | undefined): number | undefined {
@@ -105,6 +120,10 @@ export function loadConfig(
     signupMode: env.YUZIE_SIGNUP as ServerConfigInput['signupMode'],
     logLevel: env.LOG_LEVEL as ServerConfigInput['logLevel'],
     redisUrl: env.REDIS_URL,
+    githubClientId: env.YUZIE_GITHUB_CLIENT_ID,
+    githubClientSecret: env.YUZIE_GITHUB_CLIENT_SECRET,
+    githubUrl: env.YUZIE_GITHUB_URL,
+    githubApiUrl: env.YUZIE_GITHUB_API_URL,
   }
 
   const merged: Record<string, unknown> = {}
@@ -122,6 +141,14 @@ export function loadConfig(
   }
 
   const parsed = ConfigSchema.safeParse(merged)
+  if (
+    parsed.success &&
+    (parsed.data.githubClientId === undefined) !== (parsed.data.githubClientSecret === undefined)
+  ) {
+    throw new Error(
+      'Invalid server configuration:\n  GitHub sign-in needs both YUZIE_GITHUB_CLIENT_ID and YUZIE_GITHUB_CLIENT_SECRET.',
+    )
+  }
   if (!parsed.success) {
     const problems = parsed.error.issues
       .map((issue) => `  ${issue.path.join('.') || '(root)'}: ${issue.message}`)

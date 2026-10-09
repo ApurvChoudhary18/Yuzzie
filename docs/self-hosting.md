@@ -51,6 +51,8 @@ services:
       YUZIE_SIGNUP: ${YUZIE_SIGNUP:-open}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       REDIS_URL: ${REDIS_URL:-}
+      YUZIE_GITHUB_CLIENT_ID: ${YUZIE_GITHUB_CLIENT_ID:-}
+      YUZIE_GITHUB_CLIENT_SECRET: ${YUZIE_GITHUB_CLIENT_SECRET:-}
     ports:
       - "${YUZIE_PORT:-8787}:8787"
 
@@ -102,6 +104,7 @@ Other settings, all optional, go in the same file:
 | --- | --- | --- |
 | `YUZIE_PUBLIC_URL` | `http://localhost:8787` | The address people reach the server at. The sign-in page is advertised here. Set it to your real URL behind a proxy. |
 | `YUZIE_PORT` | `8787` | The port on this machine. |
+| `YUZIE_GITHUB_CLIENT_ID`, `YUZIE_GITHUB_CLIENT_SECRET` | (none) | Sign in with GitHub; see below. |
 | `YUZIE_SIGNUP` | `open` | `open` lets anyone who can reach the server sign in and become a user. `invite` only lets in handles that already exist. |
 | `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent`. Logs are JSON on stdout. |
 | `COMPOSE_PROFILES` | (none) | `redis` adds a Redis container. Needed only with more than one server node; set `REDIS_URL` too. |
@@ -151,6 +154,33 @@ $ curl -X POST http://localhost:8787/v1/auth/device/approve \
 
 With `YUZIE_SIGNUP=open` this creates `@rahul` on first use. Put the server behind your VPN or an
 authenticating proxy if it is reachable from the internet. Anyone who can reach it can sign up.
+
+### Sign in with GitHub (recommended)
+
+Without it, anyone who can reach the server can claim any handle that isn't signed in. With it,
+people sign in with GitHub, and their Yuzie handle is their GitHub username.
+
+1. On GitHub, go to **Settings → Developer settings → OAuth Apps → New OAuth App**. For a team,
+   use the organisation's settings instead.
+   - **Homepage URL:** your `YUZIE_PUBLIC_URL`.
+   - **Authorization callback URL:** your `YUZIE_PUBLIC_URL` followed by
+     `/v1/auth/github/callback`, e.g. `https://yuzie.example.com/v1/auth/github/callback`.
+2. Copy the **Client ID**, then **Generate a new client secret** and copy it too.
+3. Add both to `.env`, and restart with `docker compose up -d --wait`:
+   ```console
+   YUZIE_GITHUB_CLIENT_ID=Ov23li…
+   YUZIE_GITHUB_CLIENT_SECRET=…
+   ```
+
+The device page then shows **Sign in with GitHub**, and approving a code by typing a handle is
+refused. Accounts made before you turned it on are linked to the GitHub user of the same name the
+first time they sign in.
+
+The app only reads public profiles: it asks GitHub for no scopes, and the server keeps no GitHub
+tokens. With `YUZIE_SIGNUP=invite`, only GitHub users who already have a Yuzie account (by
+invitation) get in.
+
+For GitHub Enterprise Server, also set `YUZIE_GITHUB_URL` and `YUZIE_GITHUB_API_URL`.
 
 ## Running it for real
 

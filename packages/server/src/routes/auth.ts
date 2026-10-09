@@ -15,11 +15,12 @@
  *     anyone could start a login, approve it as `rahul`, and receive the
  *     account Rahul is using right now.
  *
- * Known gap: a handle whose every token has been revoked or has expired can be
- * claimed again by whoever approves. Refusing would lock out anyone who ran
- * `yuzie logout` on their only device, and a self-hosted server has no other way
- * to know who someone is. Closing it needs an identity provider (the GitHub
- * OAuth seam above, or email) — tracked as a decision, not an oversight.
+ * Known gap, without GitHub: a handle whose every token has been revoked or
+ * has expired can be claimed again by whoever approves. Refusing would lock out
+ * anyone who ran `yuzie logout` on their only device, and such a server has no
+ * other way to know who someone is. With GitHub sign-in configured
+ * (routes/github.ts) the gap is closed: this endpoint then only approves a
+ * device for the user already signed in, and everyone else goes through GitHub.
  *
  * `GET /device` is the page the CLI sends people to, so a self-hosted server
  * can be signed in to from a browser without any other service.
@@ -30,6 +31,7 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../auth/context.js'
 import { generateDeviceCode, generateToken, generateUserCode, hashToken } from '../auth/tokens.js'
+import { githubSignIn } from '../config.js'
 import { apiTokens, deviceCodes, users } from '../db/schema.js'
 import { toUser } from '../services/serialize.js'
 import { type AppContext, parseBody } from './helpers.js'
@@ -66,6 +68,18 @@ export function registerAuthRoutes(app: FastifyInstance, context: AppContext): v
 
   app.post('/auth/device/approve', async (request, reply) => {
     const body = parseBody(ApproveRequestSchema, request.body)
+
+    // With GitHub sign-in, who you are is GitHub's to say (routes/github.ts):
+    // a handle typed here is accepted only from that user's own session.
+    if (githubSignIn(config)) {
+      const approver = await authenticate(db, request.headers.authorization).catch(() => null)
+      if (approver?.user.handle !== body.handle) {
+        throw boardError(
+          'forbidden',
+          'This server signs people in with GitHub. Open the sign-in page and use “Sign in with GitHub”.',
+        )
+      }
+    }
 
     const [pending] = await db
       .select()
