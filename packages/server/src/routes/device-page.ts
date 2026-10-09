@@ -3,9 +3,14 @@
  * (SPEC.md §6.1). A self-hosted server has no other website, so it serves this
  * one page itself: no external scripts, styles or fonts, and a Content Security
  * Policy that allows exactly the inline script and style below, by hash.
+ *
+ * With GitHub sign-in configured the page is a single "Sign in with GitHub"
+ * form instead: the code goes to `/v1/auth/github/start`, which sends the
+ * browser on to GitHub (routes/github.ts).
  */
 import { createHash } from 'node:crypto'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply } from 'fastify'
+import { githubSignIn, type ServerConfig } from '../config.js'
 
 const STYLE = `
   body { font: 16px/1.5 system-ui, sans-serif; max-width: 28rem; margin: 4rem auto; padding: 0 1rem; color: #1b1b1f; background: #fafafa; }
@@ -83,13 +88,93 @@ const POLICY = [
   "base-uri 'none'",
 ].join('; ')
 
-export function registerDevicePage(app: FastifyInstance): void {
-  app.get('/device', async (_request, reply) =>
-    reply
-      .header('content-type', 'text/html; charset=utf-8')
-      .header('content-security-policy', POLICY)
-      .header('x-content-type-options', 'nosniff')
-      .header('referrer-policy', 'no-referrer')
-      .send(PAGE),
-  )
+const GITHUB_SCRIPT = `
+  const params = new URLSearchParams(location.search);
+  if (params.get('code')) document.getElementById('code').value = params.get('code');
+`
+
+function githubPage(): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in to Yuzie</title>
+<style>${STYLE}</style>
+</head>
+<body>
+<h1>Sign in to Yuzie</h1>
+<p>Enter the code shown in your terminal, then sign in with GitHub. Your GitHub username is your
+Yuzie handle.</p>
+<form method="get" action="/v1/auth/github/start">
+  <label for="code">Code</label>
+  <input id="code" name="code" autocomplete="off" placeholder="WXYZ-4821" required>
+  <button type="submit">Sign in with GitHub</button>
+</form>
+<script>${GITHUB_SCRIPT}</script>
+</body>
+</html>
+`
+}
+
+function githubPolicy(githubUrl: string): string {
+  return [
+    "default-src 'none'",
+    `script-src ${sha256(GITHUB_SCRIPT)}`,
+    `style-src ${sha256(STYLE)}`,
+    // The form goes to this server, which redirects to GitHub; browsers check
+    // form-action against the redirect too.
+    `form-action 'self' ${new URL(githubUrl).origin}`,
+    "frame-ancestors 'none'",
+    "base-uri 'none'",
+  ].join('; ')
+}
+
+function send(reply: FastifyReply, html: string, policy: string, status = 200): FastifyReply {
+  return reply
+    .status(status)
+    .header('content-type', 'text/html; charset=utf-8')
+    .header('content-security-policy', policy)
+    .header('x-content-type-options', 'nosniff')
+    .header('referrer-policy', 'no-referrer')
+    .send(html)
+}
+
+/** A page with a heading and a sentence, for the end of the GitHub round trip. */
+export function sendMessagePage(
+  reply: FastifyReply,
+  heading: string,
+  message: string,
+  status = 200,
+): FastifyReply {
+  const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(heading)}</title>
+<style>${STYLE}</style>
+</head>
+<body>
+<h1>${escapeHtml(heading)}</h1>
+<p>${escapeHtml(message)}</p>
+</body>
+</html>
+`
+  const policy = [
+    "default-src 'none'",
+    `style-src ${sha256(STYLE)}`,
+    "form-action 'none'",
+    "frame-ancestors 'none'",
+    "base-uri 'none'",
+  ].join('; ')
+  return send(reply, html, policy, status)
+}
+
+export function registerDevicePage(app: FastifyInstance, config: ServerConfig): void {
+  const github = githubSignIn(config)
+  const html = github ? githubPage() : PAGE
+  const policy = github ? githubPolicy(config.githubUrl) : POLICY
+  app.get('/device', async (_request, reply) => send(reply, html, policy))
 }

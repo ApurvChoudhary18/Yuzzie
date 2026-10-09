@@ -23,6 +23,7 @@ It applies its database migrations on start, and answers `GET /healthz` and `GET
 | `PORT`, `HOST` | `8787`, `127.0.0.1` | Where to listen. Use `0.0.0.0` in a container. |
 | `YUZIE_PUBLIC_URL` | `http://localhost:<port>` | The address people reach it at |
 | `YUZIE_SIGNUP` | `open` | `invite` admits only handles that already exist |
+| `YUZIE_GITHUB_CLIENT_ID`, `_SECRET` | (none) | Sign in with GitHub (a GitHub OAuth App) |
 | `REDIS_URL` | (none) | Only for more than one server node |
 | `LOG_LEVEL` | `info` | JSON logs on stdout |
 

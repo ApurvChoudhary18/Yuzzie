@@ -17,6 +17,7 @@ import { registerAuthRoutes } from './routes/auth.js'
 import { registerBoardRoutes } from './routes/boards.js'
 import { registerCardRoutes } from './routes/cards.js'
 import { registerDevicePage } from './routes/device-page.js'
+import { registerGitHubRoutes } from './routes/github.js'
 import type { AppContext } from './routes/helpers.js'
 import { createEventBus, type EventBus } from './services/event-bus.js'
 
@@ -171,7 +172,7 @@ export async function buildServer(options: BuildServerOptions): Promise<YuzieSer
     return reply.send({ status: 'ok', version: 'yuzie/v1' })
   })
 
-  registerDevicePage(app)
+  registerDevicePage(app, options.config)
 
   app.get('/metrics', async (_request, reply) => {
     return reply
@@ -183,6 +184,7 @@ export async function buildServer(options: BuildServerOptions): Promise<YuzieSer
   await app.register(
     async (instance) => {
       registerAuthRoutes(instance, context)
+      registerGitHubRoutes(instance, context)
       registerBoardRoutes(instance, context)
       registerCardRoutes(instance, context)
       gateway.register(instance)
