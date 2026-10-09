@@ -4,10 +4,8 @@
 
 Please don't report a security problem in a public issue.
 
-- **Report it privately:** on this repository, Security → **Report a vulnerability**. Only the
-  maintainer sees it.
-- **If that button isn't there,** open an issue titled "Security contact request", with no
-  details, and the maintainer will reach you privately.
+Report it privately instead: on this repository, go to Security → **Report a
+vulnerability**. Only the maintainer sees it.
 
 Include what an attacker can do, the version (`yuzie --version`), and how to reproduce it. You'll
 get an answer within a week. A fix is released before the details are made public.
