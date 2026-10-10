@@ -38,6 +38,13 @@ Your handle, the boards you belong to and everything on them (cards, comments, c
 activity), and hashes of your API tokens. Token plaintext is shown once, when the token is
 created, and never stored.
 
+If the server signs people in with GitHub, it also keeps:
+- your GitHub username, which is your handle;
+- the display name on your GitHub profile.
+
+It asks GitHub for no permissions beyond your public profile. The GitHub token it receives is
+used once, to ask who you are, and is never stored.
+
 ## What stays on your computer
 
 | Where | What |
