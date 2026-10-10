@@ -15,6 +15,18 @@ The CLI looks there by default, so nothing else needs setting. For a team, [self
 it properly, and point everyone at it with `YUZIE_SERVER`. `yuzie init` records the server in `.yuzie/config.json` for everyone who clones the
 repository.
 
+**How does signing in work?**
+`yuzie login` (or `init`) prints a code and a link to the server's sign-in page. Open the link
+anywhere, even on another computer, which is why it works over SSH. The terminal finishes on its
+own once you approve the code.
+- **With GitHub sign-in** on the server, you sign in with GitHub, and your handle is your GitHub
+  username.
+- **Without it,** you type the code and the handle you want. Run such a server only where you
+  trust everyone who can reach it.
+
+Your token is kept in the OS keychain, or in `~/.yuzie/credentials` (readable only by you).
+`yuzie logout` revokes it on the server too.
+
 **How do I move cards in or out?**
 `yuzie import <file>` creates cards from:
 - a markdown checklist: `## Column` headings, then `- [ ] title` items;
