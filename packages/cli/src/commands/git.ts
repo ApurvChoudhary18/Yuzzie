@@ -45,8 +45,13 @@ function meta(session: BoardSession, extra: Record<string, unknown> = {}) {
   }
 }
 
-function precondition(message: string): GitPreconditionError {
-  return new GitPreconditionError('git_precondition_failed', message)
+/** Exit 8. The default fix is about uncommitted changes; pass one when that is not the problem. */
+function precondition(message: string, fix?: string): GitPreconditionError {
+  return new GitPreconditionError(
+    'git_precondition_failed',
+    message,
+    fix === undefined ? {} : { fix },
+  )
 }
 
 /** The column `claim` moves to: `flow.startColumn`, else the first in-progress one. */
@@ -102,7 +107,8 @@ async function resolveDirty(
   if (force) return 'force'
   if (agent || !context.prompter.canAsk) {
     throw precondition(
-      `${summary}. Commit or stash them first, or pass --force to carry them along.`,
+      `${summary}.`,
+      'Commit or stash them first, or pass --force to carry them along.',
     )
   }
   context.output.warn(summary)
@@ -177,7 +183,8 @@ export async function claim(
         const where = await head(repo.root)
         if (where.kind === 'detached') {
           throw precondition(
-            'HEAD is detached. Check out a branch first (git switch main), then claim again.',
+            'HEAD is detached.',
+            'Check out a branch first (git switch main), then claim again.',
           )
         }
         const name = card.git?.branch ?? branchFor(card, config.git.branchTemplate, { user: me })
@@ -281,7 +288,11 @@ export async function branch(
       branchFor(card, config.git.branchTemplate, session.me === null ? {} : { user: session.me })
     let action: BranchAction | null = null
     if (options.create === true) {
-      if (repo === null) throw precondition('Not in a Git repository: nothing to create.')
+      if (repo === null)
+        throw precondition(
+          'Not in a Git repository: nothing to create.',
+          'Run it inside the repository.',
+        )
       try {
         action = await switchToBranch(repo.root, name, config.git.baseBranch, {
           current: await currentBranch(repo.root),
@@ -508,11 +519,15 @@ export async function finish(
         if (failing.length > 0) {
           if (!context.prompter.canAsk) {
             throw precondition(
-              `${plural(failing.length, 'check')} did not pass. Fix them, or pass --skip-checks.`,
+              `${plural(failing.length, 'check')} did not pass.`,
+              'Fix them, or pass --skip-checks.',
             )
           }
           if (!(await context.prompter.confirm('Continue anyway?', false))) {
-            throw precondition('Not finished: the checks above did not pass.')
+            throw precondition(
+              'Not finished: the checks above did not pass.',
+              'Fix them, or pass --skip-checks.',
+            )
           }
         }
       }
@@ -524,7 +539,11 @@ export async function finish(
         if (summary !== null) await board.cards.updateGit(card.number, summary)
       }
       const column = finishColumn(board.state.columns, config.flow.finishColumn)
-      if (column === undefined) throw precondition('This board has no review or done column.')
+      if (column === undefined)
+        throw precondition(
+          'This board has no review or done column.',
+          'Add one with `yuzie columns add Review`, or set flow.finishColumn.',
+        )
       const queuedBefore = board.queued
       if (card.column !== column.key) await board.cards.move(card.number, column.key)
       context.output.success(`#${card.number} → ${column.name}`)
