@@ -1371,7 +1371,7 @@ export class CardsResource {
       throw new ValidationError(
         'validation_failed',
         `Card #${number} has no checklist item ${String(item)}`,
-        { details: { number, item } },
+        { details: { number, item }, fix: `Read card #${number} to see its checklist.` },
       )
     }
     return board
