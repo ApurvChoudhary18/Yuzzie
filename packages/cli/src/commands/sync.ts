@@ -102,16 +102,16 @@ async function attributeBuffered(
     const linked = Object.values(board.state.cards).find(
       (card) => entry.branch !== null && card.git?.branch === entry.branch,
     )
+    const message = entry.message ?? entry.subject
     const cardNo =
-      linked?.number ??
-      cardForCommit({ message: entry.subject, branch: entry.branch, template, claimed })?.cardNo
+      linked?.number ?? cardForCommit({ message, branch: entry.branch, template, claimed })?.cardNo
     if (cardNo === undefined || board.state.cards[cardNo] === undefined) {
       left.push(entry)
       continue
     }
     const commit: Commit = {
       sha: entry.sha,
-      message: entry.subject,
+      message,
       author: me,
       committedAt: entry.committedAt,
     }

@@ -5,7 +5,8 @@
  * `commits`, `finish`, and Journey B (§6.2) with its printed receipt.
  */
 import { execFileSync, spawnSync } from 'node:child_process'
-import { chmodSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type OutputKind, parseOutput } from '@yuzie/core'
 import { type FixtureRepo, fixtureRepo, plainDirectory } from '@yuzie/git/testing'
@@ -68,6 +69,7 @@ async function json(args: string[], kind: OutputKind) {
 function commit(
   message: string,
   files: Record<string, string> = {},
+  env: NodeJS.ProcessEnv = {},
 ): { stdout: string; ms: number } {
   for (const [path, content] of Object.entries(files)) repo.write(path, content)
   repo.git('add', '--all')
@@ -76,6 +78,7 @@ function commit(
     cwd: repo.root,
     env: {
       ...computer.env,
+      ...env,
       GIT_AUTHOR_NAME: 'R',
       GIT_AUTHOR_EMAIL: 'r@x',
       GIT_COMMITTER_NAME: 'R',
@@ -306,6 +309,19 @@ describe('the post-commit hook (§9.5, §9.6)', () => {
     const { stdout } = commit('wip: who knows')
     expect(stdout).not.toContain('[yuzie]')
     expect(repo.git('show', '-s', '--format=%s')).toBe('wip: who knows')
+  })
+
+  it('signed out: no "linked" line, and `yuzie sync` links the commit later', async () => {
+    const nobody = mkdtempSync(join(tmpdir(), 'yuzie-signed-out-'))
+    cleanup.push(() => rmSync(nobody, { recursive: true, force: true }))
+    // The card is named only by a trailer in the body, so the buffer must keep the whole message.
+    const { stdout } = commit('chore: tidy\n\nBoard-Card: 3', {}, { HOME: nobody })
+    expect(stdout).not.toContain('[yuzie]')
+    expect((await card(3)).commits).toHaveLength(0)
+
+    const synced = await run(['sync'])
+    expect(synced.stdout).toContain('Linked 1 buffered commit to their cards')
+    expect((await card(3)).commits).toHaveLength(1)
   })
 
   it('never fails or holds up a commit when the server is gone', async () => {

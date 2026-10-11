@@ -30,6 +30,8 @@ export const HOOK_BUDGET_MS = { 'post-commit': 300, 'pre-push': 2_000 } as const
 export interface BufferedCommit {
   readonly sha: string
   readonly subject: string
+  /** The whole message, so a `Board-Card:` trailer or `#18` in the body still resolves. */
+  readonly message?: string
   readonly branch: string | null
   readonly committedAt: string
 }
@@ -154,19 +156,24 @@ async function postCommit(context: Context, env: HookWorld): Promise<void> {
     template: env.template,
     claimed: inProgress(env),
   })
+  const buffered: BufferedCommit = {
+    sha: commit.sha,
+    subject: commit.subject,
+    message: commit.message,
+    branch,
+    committedAt: commit.committedAt,
+  }
   if (resolution === null) {
-    await bufferCommit(env.repo.root, {
-      sha: commit.sha,
-      subject: commit.subject,
-      branch,
-      committedAt: commit.committedAt,
-    })
+    await bufferCommit(env.repo.root, buffered)
     return
   }
-  context.output.line(`[yuzie] linked commit ${commit.sha.slice(0, 7)} → #${resolution.cardNo}`)
 
+  // Signed out, or no cache: nothing can send it now, so `yuzie sync` links it later.
   const board = await writer(context, env, HOOK_BUDGET_MS['post-commit'])
-  if (board === null) return
+  if (board === null) {
+    await bufferCommit(env.repo.root, buffered)
+    return
+  }
   const attached: Commit = {
     sha: commit.sha,
     message: commit.message,
@@ -174,7 +181,11 @@ async function postCommit(context: Context, env: HookWorld): Promise<void> {
     committedAt: commit.committedAt,
   }
   try {
+    // Sent, or queued in the outbox when the server is slow: linked either way.
     await board.cards.attachCommits(resolution.cardNo, [attached])
+    context.output.line(`[yuzie] linked commit ${commit.sha.slice(0, 7)} → #${resolution.cardNo}`)
+  } catch {
+    await bufferCommit(env.repo.root, buffered)
   } finally {
     await board.close()
   }
