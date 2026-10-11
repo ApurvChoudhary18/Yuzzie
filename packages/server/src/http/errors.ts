@@ -39,6 +39,17 @@ export function toBoardError(error: unknown): BoardError {
     if (candidate.statusCode === 404) {
       return boardError('board_not_found', candidate.message ?? 'No such route')
     }
+    // Fastify's other client errors (413 body too large, 415 media type, …) are
+    // the request's fault, not a server fault: keep their status.
+    if (
+      typeof candidate.statusCode === 'number' &&
+      candidate.statusCode > 400 &&
+      candidate.statusCode < 500
+    ) {
+      return boardError('validation_failed', candidate.message ?? 'Request is not valid', {
+        status: candidate.statusCode,
+      })
+    }
   }
 
   return boardError('internal', 'The server failed to handle this request', { cause: error })
