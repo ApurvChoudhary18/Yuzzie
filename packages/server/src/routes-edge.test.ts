@@ -191,10 +191,20 @@ describe('route behaviour at the edges', () => {
       expect(withHash.status).toBe(200)
     })
 
-    it('rejects something that is not a card number', async () => {
+    it.each([
+      'oauth',
+      '1e3',
+      '1.5',
+      '0x10',
+      '-1',
+      '0',
+      '99999999999999999999',
+    ])('rejects "%s", which is not a card number', async (raw) => {
+      // A card #1 exists, so reading "1e3" or "1.5" as 1 would answer 200.
+      await createCard(server, board, board.owner.token)
       const response = await call<{ error: { code: string } }>(server, {
         method: 'GET',
-        url: `/v1/boards/${board.slug}/cards/oauth`,
+        url: `/v1/boards/${board.slug}/cards/${raw}`,
         token: board.owner.token,
       })
       expect(response.status).toBe(400)
