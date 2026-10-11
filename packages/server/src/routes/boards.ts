@@ -127,6 +127,18 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
       const slug = body.slug ?? slugify(body.name, 64, 'board')
       const workspaceSlug = body.workspace ?? slug
 
+      // Two names with one key ("Todo" and "todo") would break the unique index mid-transaction.
+      const names = body.columns ?? DEFAULT_COLUMNS.map((column) => column.name)
+      const keys = names.map((name) => slugify(name, 64, 'column'))
+      const repeat = keys.findIndex((key, index) => keys.indexOf(key) !== index)
+      if (repeat !== -1) {
+        const first = names[keys.indexOf(keys[repeat] as string)]
+        throw boardError(
+          'validation_failed',
+          `Columns "${first}" and "${names[repeat]}" would both be "${keys[repeat]}"; name them differently`,
+        )
+      }
+
       const [clash] = await db.select().from(boards).where(eq(boards.slug, slug))
       if (clash !== undefined) {
         throw boardError('validation_failed', `A board named "${slug}" already exists`, {
@@ -164,12 +176,11 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
           .returning()
         if (row === undefined) throw boardError('internal', 'Could not create the board')
 
-        const names = body.columns ?? DEFAULT_COLUMNS.map((column) => column.name)
         const ranks = rebalance(names.length)
         await tx.insert(columns).values(
           names.map((name, index) => ({
             boardId: row.id,
-            key: slugify(name, 64, 'column'),
+            key: keys[index] as string,
             name,
             rank: ranks[index] ?? rankBetween(),
             // A custom list that uses the standard names still means the standard
