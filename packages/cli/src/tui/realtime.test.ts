@@ -3,7 +3,7 @@
  * connection status, presence emission and the per-card affordances — each
  * driven by a hand-held board, rendered through the real app where it shows.
  */
-import type { EventEnvelope } from '@yuzie/core'
+import { type EventEnvelope, initialState } from '@yuzie/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FakeBoard, moved } from './__tests__/fake-board.js'
 import { card, column, mountSource, person, settled, tick } from './__tests__/fixtures.js'
@@ -184,6 +184,20 @@ describe('connection status in the header', () => {
     expect(source.view().connection).toBe('offline')
     // A stream that comes back is the only thing that clears it.
     board.setStatus('live')
+    expect(source.view().connection).toBe('live')
+  })
+
+  it('says connecting, not synced, until the board itself has arrived', () => {
+    // The stream is live (the server's welcome) but the snapshot is still on its way.
+    const board = new FakeBoard([], [])
+    board.state = initialState()
+    const source = new SdkSource(board.asBoard(), 'b')
+    cleanup.push(() => source.dispose())
+    board.setStatus('live')
+    expect(source.view().connection).toBe('connecting')
+
+    board.state = initialState({ columns: COLUMNS, seq: 4 })
+    board.emit('change', board.state)
     expect(source.view().connection).toBe('live')
   })
 
