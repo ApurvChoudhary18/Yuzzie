@@ -51,11 +51,12 @@ export async function normaliseAnchor(
     const text = await readFile(absolute, 'utf8')
     const lines = text.length === 0 ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0)
     const name = inRepo.split(sep).join('/')
-    if (line > lines) throw new AnchorError(`${name} has ${lines} lines; there is no line ${line}.`)
+    const has = `${name} has ${lines} line${lines === 1 ? '' : 's'}`
+    if (line > lines) throw new AnchorError(`${has}; there is no line ${line}.`)
     if (endLine !== null && endLine < line)
       throw new AnchorError(`The range ${line}-${endLine} ends before it starts.`)
     if (endLine !== null && endLine > lines)
-      throw new AnchorError(`${name} has ${lines} lines; the range ends at ${endLine}.`)
+      throw new AnchorError(`${has}; the range ends at ${endLine}.`)
   } else if (endLine !== null) {
     throw new AnchorError('A range needs a start line: file:start-end.')
   }

@@ -138,6 +138,10 @@ describe('normaliseAnchor', () => {
     await expect(bad({ path: 'src' })).rejects.toThrow('is not a file')
     await expect(bad({ path: '../outside.ts' })).rejects.toThrow('outside the repository')
     await expect(bad({ path: 'src/auth/oauth.ts', line: 51 })).rejects.toThrow('has 50 lines')
+    r.commit('one line', { 'ONE.md': 'just this\n' })
+    await expect(bad({ path: 'ONE.md', line: 2 })).rejects.toThrow(
+      'ONE.md has 1 line; there is no line 2.',
+    )
     await expect(bad({ path: 'src/auth/oauth.ts', line: 10, endLine: 9 })).rejects.toThrow(
       'ends before it starts',
     )
