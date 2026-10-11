@@ -5,7 +5,15 @@
  * Each one renders for people or as a `--json` envelope (§7.3), and fails
  * through the exit codes of §7.4.
  */
-import { type AnchorInput, type Card, type Column, NotFoundError, OfflineError } from '@yuzie/core'
+import {
+  type AnchorInput,
+  type Card,
+  type Column,
+  compareRanks,
+  NotFoundError,
+  OfflineError,
+  orderedColumns,
+} from '@yuzie/core'
 import { matchColumn } from '@yuzie/sdk'
 import type { Context } from '../context.js'
 import { parseDue, parseDuration, parsePriority } from '../dates.js'
@@ -216,9 +224,12 @@ export async function list(context: Context, options: ListOptions): Promise<void
       })
     }
 
+    // A rank only orders cards within their column, so board order is column first.
+    const position = new Map(orderedColumns(state).map((c, index) => [c.key, index]))
+    const columnOf = (card: Card) => position.get(card.column) ?? position.size
     const compare: Record<(typeof SORTS)[number], (a: Card, b: Card) => number> = {
       updated: (a, b) => lastActivity(b) - lastActivity(a),
-      rank: (a, b) => (a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0),
+      rank: (a, b) => columnOf(a) - columnOf(b) || compareRanks(a.rank, b.rank),
       created: (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
       due: (a, b) => (a.dueAt ?? '9999').localeCompare(b.dueAt ?? '9999'),
       priority: (a, b) => (a.priority ?? 9) - (b.priority ?? 9),
