@@ -235,5 +235,8 @@ describe('every error code, through the binary (§7.4)', () => {
     await board.cards.create({ title: 'Fills it', column: 'capped' })
     await board.close()
     await fails(['add', 'One too many', '--column', 'capped'], 1, /WIP|limit/i)
+    // The server's sentence already says what to do; it is not said twice.
+    const human = await cli(['add', 'One too many', '--column', 'capped'])
+    expect(human.stderr).toBe('✗ Column "Capped" is limited to 1 card. Move something out first.\n')
   })
 })

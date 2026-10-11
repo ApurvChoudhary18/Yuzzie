@@ -83,7 +83,7 @@ const CODE_TABLE: Readonly<Record<ErrorCode, CodeFacts>> = {
   wip_limit_exceeded: {
     status: 422,
     exitCode: EXIT_RUNTIME,
-    fix: 'Move a card out of that column first.',
+    fix: 'Move something out first.',
   },
   offline_network_required: {
     status: 0,
