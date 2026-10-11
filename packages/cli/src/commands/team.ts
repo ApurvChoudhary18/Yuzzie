@@ -8,13 +8,13 @@ import type { Context } from '../context.js'
 import { parseDuration } from '../dates.js'
 import { UsageError } from '../exit.js'
 import { actor, describeEvent } from '../render/events.js'
-import { ago, clock, pad } from '../render/text.js'
+import { ago, clock, pad, width } from '../render/text.js'
 import { type BoardSession, currentSlug, withBoard } from '../session.js'
 
 /** Left-aligned columns, two spaces apart, header dimmed. */
 function table(context: Context, header: string[], rows: string[][]): string {
   const widths = header.map((cell, index) =>
-    Math.max(cell.length, ...rows.map((row) => [...(row[index] ?? '')].length)),
+    Math.max(width(cell), ...rows.map((row) => width(row[index] ?? ''))),
   )
   const render = (row: string[]) =>
     row

@@ -4,6 +4,7 @@
  * every line is exactly as wide as the terminal no matter which theme paints it.
  */
 import { printable } from '@yuzie/core'
+import { cells, glyphs, head, sliceCells } from '../cells.js'
 import type { Style, Theme } from './theme.js'
 
 export interface Segment {
@@ -25,29 +26,29 @@ export function seg(text: string, style?: Style): Segment {
   return style === undefined ? { text: safe } : { text: safe, style }
 }
 
-export function chars(text: string): string[] {
-  return [...text]
-}
-
+/** Width in terminal cells: a wide character (emoji, CJK) takes two. */
 export function textWidth(text: string): number {
-  return chars(text).length
+  return cells(text)
 }
 
 export function lineWidth(line: Line): number {
   return line.reduce((sum, part) => sum + textWidth(part.text), 0)
 }
 
-/** Cut to `max` characters, ending in the theme's ellipsis when anything was cut. */
+/**
+ * Cut to at most `max` cells, ending in the theme's ellipsis when anything was
+ * cut. A wide character that would straddle the edge is left out, so the result
+ * can be a cell short; {@link fitLine} pads it.
+ */
 export function clip(text: string, max: number, ellipsis: string): string {
-  const all = chars(text)
-  if (all.length <= max) return text
+  if (textWidth(text) <= max) return text
   if (max <= 0) return ''
-  const mark = chars(ellipsis)
-  if (mark.length >= max) return all.slice(0, max).join('')
-  return all.slice(0, max - mark.length).join('') + ellipsis
+  const mark = textWidth(ellipsis)
+  if (mark >= max) return head(text, max)
+  return head(text, max - mark) + ellipsis
 }
 
-/** Pad or clip a whole line to exactly `width` characters. */
+/** Pad or clip a whole line to exactly `width` cells. */
 export function fitLine(line: Line, width: number, ellipsis: string): Line {
   const out: Line = []
   let used = 0
@@ -59,8 +60,10 @@ export function fitLine(line: Line, width: number, ellipsis: string): Line {
       out.push(part)
       used += size
     } else {
-      out.push({ ...part, text: clip(part.text, room, ellipsis) })
-      used = width
+      const text = clip(part.text, room, ellipsis)
+      out.push({ ...part, text })
+      used += textWidth(text)
+      break
     }
   }
   if (used < width) out.push(seg(' '.repeat(width - used)))
@@ -85,16 +88,17 @@ export function plainLine(line: Line): string {
   return line.map((part) => part.text).join('')
 }
 
-/** Characters `start` up to `end` of a line, keeping each segment's style. */
+/** Cells `start` up to `end` of a line, keeping each segment's style. */
 export function sliceLine(line: Line, start: number, end: number): Line {
   const out: Line = []
   let position = 0
   for (const part of line) {
-    const all = chars(part.text)
+    const size = textWidth(part.text)
     const from = Math.max(start, position)
-    const to = Math.min(end, position + all.length)
-    if (from < to) out.push({ ...part, text: all.slice(from - position, to - position).join('') })
-    position += all.length
+    const to = Math.min(end, position + size)
+    if (from < to)
+      out.push({ ...part, text: sliceCells(part.text, from - position, to - position) })
+    position += size
     if (position >= end) break
   }
   return out
@@ -119,8 +123,10 @@ export function wrap(text: string, width: number): string[] {
           out.push(current)
           current = ''
         }
-        out.push(chars(rest).slice(0, width).join(''))
-        rest = chars(rest).slice(width).join('')
+        // At least one character a line, even one wider than the line.
+        const piece = head(rest, width) || (glyphs(rest)[0]?.text ?? rest)
+        out.push(piece)
+        rest = rest.slice(piece.length)
       }
       if (rest.length === 0) continue
       if (current.length === 0) current = rest

@@ -118,6 +118,9 @@ importers:
       react:
         specifier: ^19.3.0
         version: 19.3.0
+      string-width:
+        specifier: ^8.3.0
+        version: 8.3.0
       tsup:
         specifier: ^8.3.0
         version: 8.5.1(postcss@8.5.28)(tsx@4.23.15)(typescript@5.9.3)(yaml@2.9.1)

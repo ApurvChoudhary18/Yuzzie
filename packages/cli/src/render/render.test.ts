@@ -1,6 +1,7 @@
 import type { Card, Column, EventEnvelope, Presence } from '@yuzie/core'
 import { initialState } from '@yuzie/core'
 import { describe, expect, it } from 'vitest'
+import { cells } from '../cells.js'
 import { renderCardDetail, renderCardList } from './cards.js'
 import { actor, describeEvent } from './events.js'
 import { ago, shortAge, truncate, width } from './text.js'
@@ -251,10 +252,31 @@ describe('text helpers', () => {
     expect(ago(3_000)).toBe('just now')
   })
 
-  it('truncates by character, with an ellipsis', () => {
+  it('truncates by terminal cell, with an ellipsis', () => {
     expect(truncate('task/18-fix-github-oauth', 19)).toBe('task/18-fix-github…')
     expect(truncate('short', 19)).toBe('short')
     expect(width('●✓…')).toBe(3)
+    expect(width('🚀 日本語')).toBe(9)
+    expect(truncate('日本語のタイトル', 7)).toBe('日本語…')
+  })
+
+  it('keeps the list’s columns aligned when a title holds emoji or CJK', () => {
+    const cards = [
+      card(3, { title: 'Émoji 🚀 test with 日本語 title', assignees: ['bob'] }),
+      card(4, { title: 'Plain title', assignees: ['bob'] }),
+    ]
+    const lines = renderCardList(cards, {
+      columns: COLUMNS,
+      presence: [],
+      now: NOW,
+      width: 80,
+      status: 'synced',
+    })
+      .split('\n')
+      .filter((line) => /^[34] /.test(line))
+    const assignee = (line: string) => cells(line.slice(0, line.indexOf('@bob')))
+    expect(assignee(lines[0] ?? '')).toBe(assignee(lines[1] ?? ''))
+    expect(cells(lines[0] ?? '')).toBe(cells(lines[1] ?? ''))
   })
 })
 

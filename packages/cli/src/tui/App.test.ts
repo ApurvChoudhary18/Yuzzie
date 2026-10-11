@@ -5,7 +5,18 @@
 import { render } from 'ink-testing-library'
 import { createElement } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { FIXTURES, mount, SIZES, settled, staticSource, tick } from './__tests__/fixtures.js'
+import { cells } from '../cells.js'
+import {
+  card,
+  column,
+  FIXTURES,
+  mount,
+  SIZES,
+  settled,
+  staticSource,
+  tick,
+  view,
+} from './__tests__/fixtures.js'
 import { App } from './App.js'
 import { renderPlain } from './frame.js'
 import type { BoardView } from './layout.js'
@@ -55,6 +66,38 @@ describe('snapshots', () => {
         expect(lines(early).map((line) => line.trimEnd())).toEqual(output)
       })
     }
+  }
+})
+
+describe('wide characters', () => {
+  // Emoji and CJK take two terminal cells each; a line measured in code points overflows.
+  const board = view(
+    [
+      column('todo', 'Todo', 0, 'backlog'),
+      column('doing', 'Doing', 1, 'in_progress'),
+      column('done', 'Done', 2, 'terminal'),
+    ],
+    [
+      card(3, { title: 'Émoji 🚀 test with 日本語 title', assignees: ['bob'] }),
+      card(4, { column: 'doing', title: '日本語のタイトルがとても長いカード 🚀🚀🚀🚀' }),
+      card(5, { column: 'done', title: 'Plain title' }),
+    ],
+  )
+  const theme = makeTheme('plain', 'unicode')
+
+  for (const [columns, rows] of [...SIZES, [60, 20], [40, 12]] as const) {
+    it(`keep every line exactly ${columns} cells wide, overlays included`, () => {
+      let nav = reduce(
+        initialNav(columns, rows, board.columns.length),
+        { type: 'data' },
+        board,
+      ).state
+      for (const key of [null, '?', 'escape', 'm', 'escape', 'enter']) {
+        if (key !== null) nav = reduce(nav, { type: 'key', key }, board).state
+        for (const line of renderPlain(board, nav, theme).split('\n'))
+          expect(cells(line), `${key}: ${line}`).toBe(columns)
+      }
+    })
   }
 })
 
