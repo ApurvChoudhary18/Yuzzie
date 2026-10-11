@@ -20,6 +20,8 @@ export { EXIT_INTERRUPTED, EXIT_OK, EXIT_RUNTIME, EXIT_USAGE }
 /** Bad flags or arguments: exit 2, with a hint that fixes it. */
 export class UsageError extends Error {
   readonly exitCode = EXIT_USAGE
+  /** What `--json` reports: Appendix C names bad input `validation_failed`. */
+  readonly code = 'validation_failed'
   constructor(
     message: string,
     readonly fix = 'Run `yuzie --help`.',
