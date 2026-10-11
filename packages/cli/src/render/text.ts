@@ -1,19 +1,19 @@
 /**
  * Small text helpers the human formatters share (SPEC.md §7.3): relative
- * times, truncation, and padding that counts characters, not UTF-16 units.
+ * times, truncation, and padding that count terminal cells, not UTF-16 units.
  */
+import { cells, head } from '../cells.js'
 
-/** Visible length. Code points, so `…` and `●` count as one. */
+/** Visible width in terminal cells: `…` and `●` take one, `🚀` and `日` two. */
 export function width(text: string): number {
-  return [...text].length
+  return cells(text)
 }
 
-/** Cut to at most `max` characters, ending in `…` when anything was cut. */
+/** Cut to at most `max` cells, ending in `…` when anything was cut. */
 export function truncate(text: string, max: number): string {
-  const chars = [...text]
-  if (chars.length <= max) return text
+  if (cells(text) <= max) return text
   if (max <= 1) return '…'.slice(0, max)
-  return `${chars.slice(0, max - 1).join('')}…`
+  return `${head(text, max - 1)}…`
 }
 
 export function pad(text: string, size: number): string {
