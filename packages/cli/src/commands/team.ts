@@ -74,7 +74,10 @@ export async function boardsCreate(
     throw new UsageError('A board needs a name: `yuzie boards create "Payments API"`.')
   context.requireNetwork('Creating a board')
   const client = await context.client()
-  const board = await client.boards.create({ name, slug: options.slug ?? slugify(name, 64) })
+  const board = await client.boards.create({
+    name,
+    slug: options.slug ?? slugify(name, 64, 'board'),
+  })
   context.output.success(`Created board "${board.name}" (${board.slug})`)
   context.output.result('Board', board, { boardSlug: board.slug })
 }

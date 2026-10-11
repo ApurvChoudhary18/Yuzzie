@@ -21,8 +21,14 @@ const FORBIDDEN_BRANCH_CHARS = '~^:?*[\\'
  * Lowercase, non-alphanumerics collapsed to `-`, truncated, trailing `-` stripped.
  *
  * Accents are folded first (`Café` -> `cafe`) so a Latin title keeps its meaning.
+ * A title with nothing left becomes `fallback`: `card` for a branch, but a board
+ * or column passes its own word, so an emoji-named column is not keyed `card`.
  */
-export function slugify(title: string, maxLength: number = DEFAULT_SLUG_MAX_LENGTH): string {
+export function slugify(
+  title: string,
+  maxLength: number = DEFAULT_SLUG_MAX_LENGTH,
+  fallback: string = FALLBACK_SLUG,
+): string {
   if (!Number.isInteger(maxLength) || maxLength < 1) {
     throw new ValidationError(
       'validation_failed',
@@ -34,7 +40,7 @@ export function slugify(title: string, maxLength: number = DEFAULT_SLUG_MAX_LENG
   const dashed = folded.replace(NON_SLUG_CHARS, '-').replace(EDGE_DASHES, '')
   const truncated = dashed.slice(0, maxLength).replace(EDGE_DASHES, '')
 
-  return truncated.length > 0 ? truncated : FALLBACK_SLUG
+  return truncated.length > 0 ? truncated : fallback
 }
 
 /** The minimum a card must expose to name its branch. */

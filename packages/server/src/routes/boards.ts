@@ -124,7 +124,7 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
 
     return mutation(context, request, reply, auth, async () => {
       const body = parseBody(BoardCreateRequestSchema, request.body)
-      const slug = body.slug ?? slugify(body.name, 64)
+      const slug = body.slug ?? slugify(body.name, 64, 'board')
       const workspaceSlug = body.workspace ?? slug
 
       const [clash] = await db.select().from(boards).where(eq(boards.slug, slug))
@@ -169,7 +169,7 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
         await tx.insert(columns).values(
           names.map((name, index) => ({
             boardId: row.id,
-            key: slugify(name, 64),
+            key: slugify(name, 64, 'column'),
             name,
             rank: ranks[index] ?? rankBetween(),
             // A custom list that uses the standard names still means the standard
@@ -283,7 +283,7 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
 
     return mutation(context, request, reply, auth, async () => {
       const body = parseBody(ColumnCreateRequestSchema, request.body)
-      const key = body.key ?? slugify(body.name, 64)
+      const key = body.key ?? slugify(body.name, 64, 'column')
 
       const existing = await db
         .select()

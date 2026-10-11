@@ -123,7 +123,7 @@ export async function init(context: Context, options: InitOptions): Promise<void
 
   if (board === undefined) {
     const name = await prompter.ask('Board name:', repo.name)
-    const existing = mine.find((b) => b.slug === slugify(name, 64))
+    const existing = mine.find((b) => b.slug === slugify(name, 64, 'board'))
     if (existing !== undefined) {
       board = existing
     } else {

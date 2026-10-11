@@ -420,6 +420,18 @@ describe('route behaviour at the edges', () => {
       ])
     })
 
+    it('keys a column whose name has no letters "column", not "card"', async () => {
+      const target = await createBoard(server)
+      const response = await call<{ key: string; name: string }>(server, {
+        method: 'POST',
+        url: `/v1/boards/${target.slug}/columns`,
+        token: target.owner.token,
+        body: { name: '🔥' },
+      })
+      expect(response.status).toBe(201)
+      expect(response.body).toMatchObject({ key: 'column', name: '🔥' })
+    })
+
     it('refuses a duplicate key and an unknown anchor', async () => {
       const target = await createBoard(server)
       const duplicate = await call<{ error: { message: string } }>(server, {
