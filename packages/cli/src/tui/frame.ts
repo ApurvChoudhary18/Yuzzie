@@ -521,9 +521,11 @@ function listLines(view: BoardView, nav: NavState, theme: Theme): Line[] {
     const entry = visible[row]
     const g = theme.glyphs
     let content: Line = entry === undefined ? [] : listLine(entry, view, nav, inner, theme)
-    if (row === 0 && nav.listScroll > 0) content = [seg(`${g.up} ${nav.listScroll} more`, 'dim')]
+    // Each marker takes the place of a line, so it counts that line as hidden too.
+    if (row === 0 && nav.listScroll > 0)
+      content = [seg(`${g.up} ${nav.listScroll + 1} more`, 'dim')]
     const below = entries.length - nav.listScroll - rows
-    if (row === rows - 1 && below > 0) content = [seg(`${g.down} ${below} more`, 'dim')]
+    if (row === rows - 1 && below > 0) content = [seg(`${g.down} ${below + 1} more`, 'dim')]
     out.push(framed(content, width, theme))
   }
   return out

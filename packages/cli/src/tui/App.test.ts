@@ -58,6 +58,42 @@ describe('snapshots', () => {
   }
 })
 
+describe('the narrow list view', () => {
+  // Twelve columns of two cards at the smallest size: the ↑ and ↓ rows are always in play.
+  const board = FIXTURES['twelve columns'] as BoardView
+  const theme = makeTheme('plain', 'unicode')
+  const walk = board.columns.flatMap(() => ['j', 'j', 'l'])
+  const first = () =>
+    reduce(initialNav(40, 12, board.columns.length), { type: 'data' }, board).state
+
+  it('keeps the selected card on screen, never under the ↑ or ↓ row', () => {
+    let nav = first()
+    for (const [step, key] of walk.entries()) {
+      nav = reduce(nav, { type: 'key', key }, board).state
+      const selected = board.columns[nav.column]?.cards[nav.selected[nav.column] ?? 0]
+      expect(renderPlain(board, nav, theme), `step ${step}: ${key}`).toContain(
+        `▸#${selected?.number} `,
+      )
+    }
+  })
+
+  it('counts every line the ↑ and ↓ rows hide', () => {
+    // 12 column headers and 24 cards.
+    const total = board.columns.reduce((sum, column) => sum + 1 + column.cards.length, 0)
+    let nav = first()
+    for (const key of walk) {
+      nav = reduce(nav, { type: 'key', key }, board).state
+      const frame = renderPlain(board, nav, theme)
+      const shown = frame
+        .split('\n')
+        .filter((line) => /^│ (?:[▸ ]#\d+ |STAGE \d+ \(\d+\))/.test(line)).length
+      const up = Number(/↑ (\d+) more/.exec(frame)?.[1] ?? 0)
+      const down = Number(/↓ (\d+) more/.exec(frame)?.[1] ?? 0)
+      expect(up + shown + down, frame).toBe(total)
+    }
+  })
+})
+
 describe('keys through Ink', () => {
   it('moves the selection and reports card actions (ink-testing-library)', async () => {
     const effects: unknown[] = []
