@@ -70,6 +70,26 @@ describe('control characters are refused, never a 500', () => {
   })
 })
 
+describe('a malformed request is the client’s fault, never a 500', () => {
+  it('a body over the limit is 413', async () => {
+    const response = await send('POST', '/cards', { title: 'a'.repeat(2 * 1024 * 1024) })
+    expect(response.status).toBe(413)
+    expect(response.body.error?.code).toBe('validation_failed')
+  })
+
+  it('a body in a media type the API does not speak is 415', async () => {
+    const response = await call<{ error?: { code: string } }>(server, {
+      method: 'POST',
+      url: `/v1/boards/${board.slug}/cards`,
+      token: board.owner.token,
+      body: '<card/>',
+      headers: { 'content-type': 'application/xml' },
+    })
+    expect(response.status).toBe(415)
+    expect(response.body.error?.code).toBe('validation_failed')
+  })
+})
+
 describe('unusual but harmless text is kept', () => {
   it.each([
     ['emoji and scripts', 'emoji 🧪👩‍💻🇮🇳 漢字 עברית'],

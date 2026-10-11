@@ -41,6 +41,13 @@ describe('toBoardError', () => {
     expect(toBoardError({ statusCode: 400, message: 'bad' }).code).toBe('validation_failed')
   })
 
+  it('keeps the status of other client errors rather than calling them a server fault', () => {
+    const tooLarge = toBoardError({ statusCode: 413, message: 'Request body is too large' })
+    expect(tooLarge.code).toBe('validation_failed')
+    expect(tooLarge.status).toBe(413)
+    expect(toBoardError({ statusCode: 415, message: 'Unsupported Media Type' }).status).toBe(415)
+  })
+
   it('treats anything else as internal and keeps the cause', () => {
     const cause = new Error('socket hang up')
     const error = toBoardError(cause)
