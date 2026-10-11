@@ -110,6 +110,15 @@ describe('Output', () => {
     })
   })
 
+  it('reports bad input as validation_failed under --json, not internal', () => {
+    const json = output({ json: true })
+    json.out.error(new UsageError('--limit must be a positive whole number.'))
+    expect(JSON.parse(json.stdout.text)).toMatchObject({
+      kind: 'Error',
+      error: { code: 'validation_failed', exitCode: 2 },
+    })
+  })
+
   it('colours only when asked', () => {
     const coloured = output({ color: true })
     coloured.out.success('x')
