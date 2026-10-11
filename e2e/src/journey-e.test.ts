@@ -204,3 +204,16 @@ describe('Journey E — an agent claims a card (§6.5)', () => {
     await expect(board.me()).rejects.toThrow(/revoked/)
   })
 })
+
+describe('token list', () => {
+  it('shows a token past its expiry as expired, not as expiring', async () => {
+    await createClient({ baseUrl: world.baseUrl, token: rahul.token }).tokens.create({
+      name: 'short-lived',
+      role: 'member',
+      expiresAt: new Date(Date.now() + 1_000).toISOString(),
+    })
+    await new Promise((resolve) => setTimeout(resolve, 1_500))
+    const listed = await asRahul(['token', 'list'])
+    expect(listed.stdout).toMatch(/^short-lived .* · expired /m)
+  })
+})

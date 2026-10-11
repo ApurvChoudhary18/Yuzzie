@@ -91,7 +91,9 @@ function describeToken(token: ApiToken, now: number): string {
   const used =
     token.lastUsedAt === null ? 'never used' : `used ${shortDate(token.lastUsedAt, new Date(now))}`
   const expires =
-    token.expiresAt === null ? '' : ` · expires ${shortDate(token.expiresAt, new Date(now))}`
+    token.expiresAt === null
+      ? ''
+      : ` · ${Date.parse(token.expiresAt) <= now ? 'expired' : 'expires'} ${shortDate(token.expiresAt, new Date(now))}`
   const destructive = token.allowDestructive ? ' · may delete' : ''
   return `${pad(token.name, 18)} ${pad(holder, 20)} ${pad(token.boardSlug ?? 'all boards', 18)} ${pad(token.role, 7)} ${used}${expires}${destructive}  ${token.id.slice(0, 8)}`
 }
