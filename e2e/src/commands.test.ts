@@ -251,6 +251,11 @@ describe('cards', () => {
     expect((await json(['label', '1', 'p0', '--rm'], 'Card')).data).toMatchObject({
       labels: ['auth', 'bug'],
     })
+    // Said plainly, before any request, instead of the server's "labels.3: Too small…".
+    expect((await fails(['label', '1', ' '], 2)).stderr).toBe(
+      '✗ A label cannot be empty: `yuzie label 18 bug`. Run `yuzie --help`.\n',
+    )
+    await fails(['add', 'No empty labels', '--label', ''], 2)
     await fails(['label', '1'], 2)
   })
 
