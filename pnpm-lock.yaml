@@ -103,6 +103,9 @@ importers:
       '@yuzie/sdk':
         specifier: workspace:^
         version: link:../sdk
+      '@yuzie/server':
+        specifier: workspace:^
+        version: link:../server
       '@yuzie/store':
         specifier: workspace:^
         version: link:../store
