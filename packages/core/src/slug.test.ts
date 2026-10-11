@@ -48,6 +48,12 @@ describe('slugify', () => {
     expect(slugify('   ')).toBe(FALLBACK_SLUG)
   })
 
+  it('falls back to the word it is given, so a board or column is not called "card"', () => {
+    expect(slugify('🚀🚀', 64, 'board')).toBe('board')
+    expect(slugify('完了', 64, 'column')).toBe('column')
+    expect(slugify('Done', 64, 'column')).toBe('done')
+  })
+
   it('keeps the representable part of a mixed-script title', () => {
     expect(slugify('修复 OAuth 登录')).toBe('oauth')
     expect(slugify('Fix 🚀 OAuth')).toBe('fix-oauth')
