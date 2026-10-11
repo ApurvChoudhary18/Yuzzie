@@ -548,6 +548,21 @@ describe('route behaviour at the edges', () => {
       expect(response.body.error.code).toBe('board_not_found')
     })
 
+    it('refuses to issue a token that has already expired', async () => {
+      const response = await call<{ error: { code: string; message: string } }>(server, {
+        method: 'POST',
+        url: '/v1/tokens',
+        token: board.owner.token,
+        body: {
+          name: 'dead',
+          role: 'member',
+          expiresAt: new Date(Date.now() - 1000).toISOString(),
+        },
+      })
+      expect(response.status).toBe(400)
+      expect(response.body.error.message).toBe('expiresAt must be in the future')
+    })
+
     it('rejects an expired token', async () => {
       const user = await createUser(server)
       const token = await issueToken(server, user.id, 'owner')

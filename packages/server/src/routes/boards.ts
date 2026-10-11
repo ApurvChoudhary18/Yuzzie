@@ -494,6 +494,10 @@ export function registerBoardRoutes(app: FastifyInstance, context: AppContext): 
     const auth = await requireAuth(context, request)
     return mutation(context, request, reply, auth, async () => {
       const body = parseBody(TokenCreateRequestSchema, request.body)
+      // Before anything is written: an agent would otherwise join the board for a dead token.
+      if (body.expiresAt !== undefined && Date.parse(body.expiresAt) <= Date.now()) {
+        throw boardError('validation_failed', 'expiresAt must be in the future')
+      }
 
       let boardId: string | null = null
       let boardSlug: string | null = null
