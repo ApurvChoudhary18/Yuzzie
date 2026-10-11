@@ -207,7 +207,9 @@ describe('claim (§9.3)', () => {
     repo.git('checkout', '-q', '--detach')
     const result = await run(['claim', '1'])
     expect(result.code).toBe(8)
-    expect(result.stderr).toContain('HEAD is detached')
+    expect(result.stderr).toBe(
+      '✗ HEAD is detached. Check out a branch first (git switch main), then claim again.\n',
+    )
     expect((await card(1)).assignees).toEqual([])
   })
 
@@ -389,10 +391,13 @@ describe('branch, commits, finish', () => {
     await run(['claim', '1'])
     const refused = await run(['finish', '1', '--yes'])
     expect(refused.code).toBe(8)
-    expect(refused.stderr).toContain('did not pass')
+    expect(refused.stderr).toContain('did not pass. Fix them, or pass --skip-checks.')
     const declined = await run(['finish', '1'], { input: 'n\n' })
     expect(declined.code).toBe(8)
     expect(declined.stdout).toContain('? Continue anyway? (y/N)')
+    // finish has --skip-checks; --force is claim's flag.
+    expect(declined.stderr).toContain('pass --skip-checks')
+    expect(`${refused.stderr}${declined.stderr}`).not.toContain('--force')
     const skipped = (await json(['finish', '1', '--skip-checks'], 'Finish')) as {
       column: string
       skipped: boolean
