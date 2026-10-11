@@ -246,6 +246,31 @@ describe('run', () => {
     expect(await run(['card', '1', '2'], io().io)).toBe(2)
   })
 
+  it('under --json, reports a missing argument or unknown option as one Error document', async () => {
+    for (const [argv, message, fix] of [
+      [['add', '--json'], "Missing required argument 'title'.", 'Run `yuzie add --help`.'],
+      [
+        ['--json', 'whoami', '--frobnicate'],
+        "Unknown option '--frobnicate'.",
+        'Run `yuzie whoami --help`.',
+      ],
+      [
+        ['token', 'create', '--json'],
+        "Missing required argument 'name'.",
+        'Run `yuzie token create --help`.',
+      ],
+    ] as const) {
+      const out = io()
+      expect(await run([...argv], out.io)).toBe(2)
+      expect(out.stderr.text).toBe('')
+      expect(JSON.parse(out.stdout.text)).toEqual({
+        apiVersion: 'yuzie/v1',
+        kind: 'Error',
+        error: { code: 'validation_failed', message, exitCode: 2, fix },
+      })
+    }
+  })
+
   it('names an unknown command and suggests the one that was meant', async () => {
     const typo = io()
     expect(await run(['lsit'], typo.io)).toBe(2)
