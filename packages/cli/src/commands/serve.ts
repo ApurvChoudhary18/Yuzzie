@@ -30,6 +30,17 @@ export interface ServeOptions {
   readonly databaseUrl?: string
 }
 
+/** The directory holding the package.json of the package `file` belongs to. */
+function packageRoot(file: string): string {
+  let directory = dirname(file)
+  while (!existsSync(join(directory, 'package.json'))) {
+    const parent = dirname(directory)
+    if (parent === directory) break
+    directory = parent
+  }
+  return directory
+}
+
 /** How to start the server: a local install if there is one, else npx. */
 export function serverCommand(
   env: Readonly<Record<string, string | undefined>>,
@@ -38,8 +49,10 @@ export function serverCommand(
   if (env.YUZIE_SERVER_BIN !== undefined) return [process.execPath, env.YUZIE_SERVER_BIN]
   for (const from of [join(cwd, 'noop.js'), import.meta.url]) {
     try {
-      const manifest = createRequire(from).resolve('@yuzie/server/package.json')
-      const bin = join(dirname(manifest), 'bin', 'yuzie-server.js')
+      // The package exports only its entry point (not package.json), so find
+      // its root from there.
+      const entry = createRequire(from).resolve('@yuzie/server')
+      const bin = join(packageRoot(entry), 'bin', 'yuzie-server.js')
       if (existsSync(bin)) return [process.execPath, bin]
     } catch {
       // Not installed there.
