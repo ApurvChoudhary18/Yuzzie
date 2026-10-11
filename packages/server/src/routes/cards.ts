@@ -63,9 +63,14 @@ type Transaction = MutationContext['tx']
  */
 const asQueryable = (tx: Transaction): Database => tx as unknown as Database
 
+/** The largest `cards.number` Postgres can hold (an `integer`). */
+const MAX_CARD_NUMBER = 2_147_483_647
+
 function parseCardNumber(raw: string): number {
-  const number = Number.parseInt(raw.replace(/^#/, ''), 10)
-  if (!Number.isInteger(number) || number < 1) {
+  // Digits only: parseInt would read "1e3" and "1.5" as card 1.
+  const digits = raw.replace(/^#/, '')
+  const number = /^\d+$/.test(digits) ? Number(digits) : Number.NaN
+  if (!Number.isInteger(number) || number < 1 || number > MAX_CARD_NUMBER) {
     throw boardError('validation_failed', `"${raw}" is not a card number`)
   }
   return number
