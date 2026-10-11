@@ -101,10 +101,19 @@ export interface AddOptions {
   priority?: string
 }
 
+/** Label names as typed, trimmed; an empty one is a usage error, not a schema message. */
+function labelNames(names: readonly string[]): string[] {
+  const trimmed = names.map((name) => name.trim())
+  if (trimmed.some((name) => name.length === 0))
+    throw new UsageError('A label cannot be empty: `yuzie label 18 bug`.')
+  return trimmed
+}
+
 export async function add(context: Context, words: string[], options: AddOptions): Promise<void> {
   const title = words.join(' ').trim()
   if (title.length === 0)
     throw new UsageError('A card needs a title: `yuzie add "Fix GitHub OAuth"`.')
+  const labels = options.label === undefined ? undefined : labelNames(options.label)
   await withBoard(context, async (session) => {
     const column = options.column === undefined ? undefined : requireColumn(session, options.column)
     const card = await session.board.cards.create({
@@ -112,7 +121,7 @@ export async function add(context: Context, words: string[], options: AddOptions
       ...(options.desc === undefined ? {} : { description: options.desc }),
       ...(column === undefined ? {} : { column: column.key }),
       ...(options.assign === undefined ? {} : { assignees: options.assign.map(stripHandle) }),
-      ...(options.label === undefined ? {} : { labels: options.label }),
+      ...(labels === undefined ? {} : { labels }),
       ...(options.due === undefined
         ? {}
         : { dueAt: parseDue(options.due, context.now()) ?? undefined }),
@@ -475,12 +484,13 @@ export async function labels(
   options: { rm?: boolean },
 ): Promise<void> {
   if (names.length === 0) throw new UsageError('Name at least one label: `yuzie label 18 bug`.')
+  const named = labelNames(names)
   await withBoard(context, async (session) => {
     const card = await session.card(reference)
     const next =
       options.rm === true
-        ? card.labels.filter((existing) => !names.includes(existing))
-        : [...new Set([...card.labels, ...names])]
+        ? card.labels.filter((existing) => !named.includes(existing))
+        : [...new Set([...card.labels, ...named])]
     const updated = await session.board.cards.update(card.number, { labels: next })
     context.output.success(
       `#${card.number} labels: ${next.length === 0 ? 'none' : next.join(', ')}`,
