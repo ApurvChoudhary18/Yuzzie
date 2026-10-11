@@ -314,7 +314,9 @@ export class SdkSource implements BoardSource {
     // First: a board with no stream (`--offline`) reads as `live`, and a
     // stream that comes back clears this flag itself.
     if (this.offline) return 'offline'
-    if (status === 'live') return this.synced ? 'live' : 'connecting'
+    // `live` comes with the server's welcome, a moment before the board itself:
+    // until a board has arrived (seq 0), it is connecting, not synced and empty.
+    if (status === 'live') return this.synced && this.board.state.seq > 0 ? 'live' : 'connecting'
     if (status === 'reconnecting') {
       const since = this.reconnectingSince ?? now
       return this.board.queued > 0 || now - since >= OFFLINE_AFTER_MS ? 'offline' : 'reconnecting'

@@ -36,7 +36,8 @@ export class FakeBoard {
   constructor(columns: Column[], cards: Card[]) {
     const byNumber: Record<number, Card> = {}
     for (const card of cards) byNumber[card.number] = card
-    this.state = initialState({ columns, cards: byNumber })
+    // Loaded from the server, as a board is by the time anyone looks at it.
+    this.state = initialState({ columns, cards: byNumber, seq: 1 })
   }
 
   on(type: string, handler: Handler): () => void {
