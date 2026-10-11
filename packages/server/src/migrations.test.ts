@@ -45,6 +45,20 @@ describe('migrations', () => {
     expect(rows.map((row) => row.version)).toEqual(loadMigrations('postgres').map((f) => f.version))
   })
 
+  it('orders ranks byte-wise, whatever the database collation', async () => {
+    // The test container's collation is already byte order, so check the column itself.
+    const { rows } = await server.handle.pool.query<{ table_name: string; collation: string }>(
+      `SELECT table_name, collation_name AS collation
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND column_name = 'rank'
+       ORDER BY table_name`,
+    )
+    expect(rows).toEqual([
+      { table_name: 'cards', collation: 'C' },
+      { table_name: 'columns', collation: 'C' },
+    ])
+  })
+
   it('applies the SQLite variant cleanly', () => {
     const db = openSqlite()
     try {
