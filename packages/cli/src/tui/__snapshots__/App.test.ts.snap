@@ -21,7 +21,7 @@ exports[`snapshots > 200-card column at 80×24 1`] = `
 │  #14 Backlog item 14                                                       — │
 │  #15 Backlog item 15                                                       — │
 │  #16 Backlog item 16                                                       — │
-│ ↓ 187 more                                                                   │
+│ ↓ 188 more                                                                   │
 │                                                                              │
 │                                                                              │
 │ ? help  / search  n new  c claim  m move  a assign  ↵ open  q quit           │
@@ -369,7 +369,7 @@ exports[`snapshots > twelve columns at 80×24 1`] = `
 │  #17 Task 17 in stage 5                                                    — │
 │ STAGE 6 (2)                                                                  │
 │  #6 Task 6 in stage 6                                                      — │
-│ ↓ 18 more                                                                    │
+│ ↓ 19 more                                                                    │
 │                                                                              │
 │                                                                              │
 │ ? help  / search  n new  c claim  m move  a assign  ↵ open  q quit           │

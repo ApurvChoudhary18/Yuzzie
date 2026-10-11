@@ -235,12 +235,22 @@ export function settle(state: NavState, view: BoardView): NavState {
         (entry.kind === 'empty' && entry.column === column),
     )
     const rows = listRows(state.height)
-    let listScroll = clamp(state.listScroll, 0, Math.max(0, entries.length - rows))
+    const last = Math.max(0, entries.length - rows)
+    let listScroll = clamp(state.listScroll, 0, last)
+    // The top and bottom rows give way to ↑/↓ when there is more that way, so the
+    // lines actually shown run from `shownFrom` to `shownTo`.
+    const shownFrom = (scroll: number) => (scroll > 0 ? scroll + 1 : 0)
+    const shownTo = (scroll: number) => scroll + rows - (scroll + rows < entries.length ? 2 : 1)
     // Keep the selection on screen, and its column's header with it when possible.
     const header = entries.findIndex((entry) => entry.kind === 'column' && entry.column === column)
-    if (target !== -1 && target < listScroll) listScroll = Math.max(0, Math.min(target, header))
-    if (target !== -1 && target >= listScroll + rows) listScroll = target - rows + 1
-    return { ...base, listScroll, scroll: selected.map(() => 0) }
+    if (target !== -1 && target < shownFrom(listScroll)) {
+      const top = Math.min(target, header)
+      listScroll = top > 0 ? top - 1 : 0
+    }
+    if (target !== -1 && target > shownTo(listScroll)) {
+      listScroll = target === entries.length - 1 ? target - rows + 1 : target - rows + 2
+    }
+    return { ...base, listScroll: clamp(listScroll, 0, last), scroll: selected.map(() => 0) }
   }
 
   const geometry = boardGeometry(state.width, state.height, visible.columns.length)
