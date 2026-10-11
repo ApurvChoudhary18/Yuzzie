@@ -169,7 +169,9 @@ export class Output {
       return
     }
     const hint = fix === undefined || message.includes(fix) ? '' : ` ${this.paint('dim', fix)}`
-    this.options.stderr.write(terminalSafe(`${this.paint('red', '✗')} ${message}${hint}\n`))
+    // The fix is a sentence of its own, so end the message's sentence first.
+    const sentence = hint === '' || /[.!?]$/.test(message) ? message : `${message}.`
+    this.options.stderr.write(terminalSafe(`${this.paint('red', '✗')} ${sentence}${hint}\n`))
   }
 
   /** A spinner on stderr in an interactive terminal; a no-op everywhere else (§18 Session 6). */
