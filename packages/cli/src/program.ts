@@ -173,7 +173,27 @@ function commandPath(command: Command): string {
 /** A command body: gets the context, then commander's positional args and options. */
 type Handler = (context: Context, ...args: never[]) => Promise<unknown>
 
-function build(io: Io, finish: (code: number) => void): Command {
+/** Whether the command line asks for `--json` (before any `--`). */
+function wantsJson(argv: readonly string[]): boolean {
+  const end = argv.indexOf('--')
+  return (end === -1 ? argv : argv.slice(0, end)).includes('--json')
+}
+
+/** The (sub)command a command line names, e.g. `token create`, for a `--help` hint. */
+function commandWords(program: Command, argv: readonly string[]): string {
+  const words: string[] = []
+  let command = program
+  for (const word of argv) {
+    if (word === '--') break
+    const next = command.commands.find((sub) => sub.name() === word || sub.aliases().includes(word))
+    if (next === undefined) continue
+    words.push(next.name())
+    command = next
+  }
+  return words.join(' ')
+}
+
+function build(io: Io, finish: (code: number) => void, json = false): Command {
   const program = new Command('yuzie')
     .description('Real-time, git-aware kanban for your team, in your terminal.')
     .version(VERSION, '--version', 'print the version')
@@ -196,6 +216,10 @@ function build(io: Io, finish: (code: number) => void): Command {
       // command reference (docs/commands.md) is the same on every machine.
       getOutHelpWidth: () => (io.stdout as { columns?: number }).columns ?? 80,
       getErrHelpWidth: () => (io.stderr as { columns?: number }).columns ?? 80,
+      // Under --json, run() reports a parse error as the one Error document instead.
+      outputError: (text, write) => {
+        if (!json) write(text)
+      },
     })
     .exitOverride()
 
@@ -794,7 +818,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   const finish = (code: number) => {
     exitCode ??= code
   }
-  const program = build(io, finish)
+  const json = wantsJson(argv)
+  const program = build(io, finish, json)
 
   // The once-a-day background version check (§18 Session 17): no output, ever.
   if (argv[0] === '__update-check') {
@@ -822,7 +847,28 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   } catch (error) {
     if (error instanceof CommanderError) {
       // --help and --version "error" with exit code 0.
-      return error.exitCode === 0 ? EXIT_OK : EXIT_USAGE
+      if (error.exitCode === 0) return EXIT_OK
+      // A missing argument or an unknown option still owes --json its one document.
+      if (json) {
+        const { Output } = await import('./output.js')
+        const message = error.message.replace(/^error: /, '')
+        const words = commandWords(program, argv)
+        new Output({
+          json: true,
+          color: false,
+          quiet: false,
+          verbose: false,
+          interactive: false,
+          stdout: io.stdout,
+          stderr: io.stderr,
+        }).error(
+          new UsageError(
+            `${message.charAt(0).toUpperCase()}${message.slice(1)}.`,
+            `Run \`yuzie ${words === '' ? '' : `${words} `}--help\`.`,
+          ),
+        )
+      }
+      return EXIT_USAGE
     }
     throw error
   }
