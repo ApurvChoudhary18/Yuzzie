@@ -100,7 +100,12 @@ describe('Output', () => {
   it('reports errors as one line with the fix, or as an Error document', () => {
     const human = output()
     human.out.error(new NotFoundError('card_not_found', 'Card #9 does not exist'))
-    expect(human.stderr.text).toBe('✗ Card #9 does not exist Run `yuzie list` to see card ids.\n')
+    expect(human.stderr.text).toBe('✗ Card #9 does not exist. Run `yuzie list` to see card ids.\n')
+
+    // A message that already ends its sentence is left alone.
+    const ended = output()
+    ended.out.error(new NotFoundError('card_not_found', 'Card #9 does not exist.'))
+    expect(ended.stderr.text).toBe('✗ Card #9 does not exist. Run `yuzie list` to see card ids.\n')
 
     const json = output({ json: true })
     json.out.error(new NotFoundError('card_not_found', 'Card #9 does not exist'))
