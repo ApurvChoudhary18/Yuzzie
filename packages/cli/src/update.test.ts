@@ -144,4 +144,24 @@ describe('yuzie upgrade', () => {
     const result = JSON.parse(text).data
     expect(result).toMatchObject({ current: VERSION, latest, upToDate: false, upgraded: false })
   })
+
+  it('says to check the registry when it cannot find the latest version, not to sync', async () => {
+    const home = freshHome()
+    const stderr = new PassThrough()
+    let text = ''
+    stderr.on('data', (chunk: Buffer) => {
+      text += chunk.toString()
+    })
+    const code = await run(['upgrade', '--dry-run'], {
+      stdout: new PassThrough(),
+      stderr,
+      stdin: new PassThrough(),
+      env: { HOME: home, YUZIE_REGISTRY_URL: `${url}/nowhere`, NO_COLOR: '1' },
+      cwd: home,
+    })
+    expect(code).toBe(7)
+    expect(text).toBe(
+      '✗ Could not find the latest @yuzie/cli on the npm registry. Check the connection to the registry (YUZIE_REGISTRY_URL), then try again.\n',
+    )
+  })
 })

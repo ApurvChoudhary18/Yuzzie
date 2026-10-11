@@ -16,6 +16,8 @@ export async function upgrade(context: Context, options: { dryRun?: boolean }): 
     throw new OfflineError(
       'offline_network_required',
       `Could not find the latest ${PACKAGE} on the npm registry.`,
+      // Not the board's "run `yuzie sync` later": there is nothing to sync.
+      { fix: 'Check the connection to the registry (YUZIE_REGISTRY_URL), then try again.' },
     )
   }
   const how = installer(process.argv[1])
