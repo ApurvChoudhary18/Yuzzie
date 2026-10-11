@@ -443,6 +443,7 @@ export async function check(
     if (!Number.isInteger(position) || current === undefined) {
       throw new NotFoundError('card_not_found', `#${card.number} has no checklist item ${item}`, {
         details: { number: card.number, item },
+        fix: `Run \`yuzie card ${card.number}\` to see its checklist.`,
       })
     }
     const doneNow =

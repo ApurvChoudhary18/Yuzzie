@@ -132,6 +132,8 @@ export interface BoardErrorOptions {
   readonly status?: number
   readonly details?: Readonly<Record<string, unknown>>
   readonly cause?: unknown
+  /** A fix more specific than the code's Appendix C one, when that one would mislead. */
+  readonly fix?: string
 }
 
 /** Base class for every error that crosses a Yuzie boundary. */
@@ -140,6 +142,7 @@ export class BoardError extends Error {
   readonly status: number
   readonly exitCode: number
   readonly details: Readonly<Record<string, unknown>>
+  private readonly fix: string | undefined
 
   constructor(code: ErrorCode, message: string, options: BoardErrorOptions = {}) {
     super(message, options.cause === undefined ? undefined : { cause: options.cause })
@@ -148,11 +151,12 @@ export class BoardError extends Error {
     this.status = options.status ?? statusForCode(code)
     this.exitCode = exitCodeForCode(code)
     this.details = options.details ?? {}
+    this.fix = options.fix
   }
 
-  /** What to tell the user to do next (Appendix C). */
+  /** What to tell the user to do next (Appendix C, unless the thrower knew better). */
   get suggestedFix(): string {
-    return suggestedFixForCode(this.code)
+    return this.fix ?? suggestedFixForCode(this.code)
   }
 
   toEnvelope(): ErrorEnvelope {

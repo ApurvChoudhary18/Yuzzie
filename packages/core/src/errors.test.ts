@@ -119,6 +119,15 @@ describe('boardError', () => {
     expect(error.suggestedFix).toMatch(/--force/)
   })
 
+  it('takes a more specific fix from the thrower, keeping its code and exit code', () => {
+    const error = boardError('card_not_found', '#18 has no checklist item 9', {
+      fix: 'Run `yuzie card 18` to see its checklist.',
+    })
+    expect(error.suggestedFix).toBe('Run `yuzie card 18` to see its checklist.')
+    expect(error.exitCode).toBe(4)
+    expect(error.toEnvelope().error.code).toBe('card_not_found')
+  })
+
   it('keeps a cause when one is supplied', () => {
     const cause = new Error('socket hang up')
     const error = boardError('internal', 'Request failed', { cause })

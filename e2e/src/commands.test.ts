@@ -236,7 +236,10 @@ describe('cards', () => {
     expect((await run(['check', '1', '1'])).stdout).toBe('✓ Checked #1 item 1: Reproduce it\n')
     const undone = await json(['check', '1', '1', '--undone'], 'ChecklistItem')
     expect(undone.data).toMatchObject({ position: 1, doneAt: null })
-    await fails(['check', '1', '9'], 4)
+    // The card is there; the item is not, so the fix points at the card, not `yuzie list`.
+    expect((await fails(['check', '1', '9'], 4)).stderr).toBe(
+      '✗ #1 has no checklist item 9. Run `yuzie card 1` to see its checklist.\n',
+    )
     await fails(['check', '1', '1', '--done', '--undone'], 2)
   })
 
