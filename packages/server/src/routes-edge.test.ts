@@ -97,7 +97,9 @@ describe('route behaviour at the edges', () => {
       })
       expect(second.status).toBe(422)
       expect(second.body.error.code).toBe('wip_limit_exceeded')
-      expect(second.body.error.message).toContain('Move something out')
+      expect(second.body.error.message).toBe(
+        'Column "Capped" is limited to 1 card. Move something out first.',
+      )
     })
 
     it('refuses a move into a full column but allows reordering within it', async () => {

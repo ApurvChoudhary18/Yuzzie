@@ -169,7 +169,7 @@ async function enforceWipLimit(
   if (occupants.length + incoming > column.wipLimit) {
     throw boardError(
       'wip_limit_exceeded',
-      `Column "${column.name}" is limited to ${column.wipLimit} cards. Move something out first.`,
+      `Column "${column.name}" is limited to ${column.wipLimit} card${column.wipLimit === 1 ? '' : 's'}. Move something out first.`,
       { details: { column: column.key, wipLimit: column.wipLimit } },
     )
   }
