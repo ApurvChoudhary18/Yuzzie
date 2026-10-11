@@ -276,6 +276,14 @@ describe('run', () => {
     }
   })
 
+  it('refuses a token that would expire as it is made', async () => {
+    const out = io()
+    expect(await run(['token', 'create', 'ci', '--expires', '0d'], out.io)).toBe(2)
+    expect(out.stderr.text).toBe(
+      '✗ --expires must be longer than that, or the token is dead on arrival. Try `30d` or `12h`.\n',
+    )
+  })
+
   it('names an unknown command and suggests the one that was meant', async () => {
     const typo = io()
     expect(await run(['lsit'], typo.io)).toBe(2)

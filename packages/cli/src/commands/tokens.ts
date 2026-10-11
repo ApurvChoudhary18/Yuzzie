@@ -41,10 +41,14 @@ export async function tokenCreate(
     throw new UsageError('An agent can be a member or a viewer, never an owner (§14.2).')
   if (options.allowDestructive === true && agent === undefined)
     throw new UsageError('--allow-destructive is for agent tokens (with --agent).')
+  const lifetime = options.expires === undefined ? undefined : parseDuration(options.expires)
+  if (lifetime !== undefined && lifetime <= 0)
+    throw new UsageError(
+      '--expires must be longer than that, or the token is dead on arrival.',
+      'Try `30d` or `12h`.',
+    )
   const expiresAt =
-    options.expires === undefined
-      ? undefined
-      : new Date(context.now().getTime() + parseDuration(options.expires)).toISOString()
+    lifetime === undefined ? undefined : new Date(context.now().getTime() + lifetime).toISOString()
   context.requireNetwork('Creating a token')
 
   // Scoped to this board (the repository's, or --board) unless told otherwise:
