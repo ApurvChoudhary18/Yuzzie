@@ -138,6 +138,9 @@ describe('cards', () => {
     expect((doing.data as Array<{ number: number }>).map((c) => c.number)).toEqual([2])
     const mine = await json(['list', '--mine'], 'CardList')
     expect((mine.data as Array<{ number: number }>).map((c) => c.number)).toEqual([2])
+    // Board order: Todo's cards, then Doing's — not ranks compared across columns.
+    const byRank = await json(['list', '--sort', 'rank'], 'CardList')
+    expect((byRank.data as Array<{ number: number }>).map((c) => c.number)).toEqual([1, 3, 4, 2])
     const search = await json(['list', '--search', 'oauth', '--sort', 'rank'], 'CardList')
     expect((search.data as unknown[]).length).toBe(2)
     expect(((await json(['list', '--limit', '1'], 'CardList')).data as unknown[]).length).toBe(1)
