@@ -191,25 +191,20 @@ describe('route behaviour at the edges', () => {
       expect(withHash.status).toBe(200)
     })
 
-    it.each([
-      'oauth',
-      '1e3',
-      '1.5',
-      '0x10',
-      '-1',
-      '0',
-      '99999999999999999999',
-    ])('rejects "%s", which is not a card number', async (raw) => {
-      // A card #1 exists, so reading "1e3" or "1.5" as 1 would answer 200.
-      await createCard(server, board, board.owner.token)
-      const response = await call<{ error: { code: string } }>(server, {
-        method: 'GET',
-        url: `/v1/boards/${board.slug}/cards/${raw}`,
-        token: board.owner.token,
-      })
-      expect(response.status).toBe(400)
-      expect(response.body.error.code).toBe('validation_failed')
-    })
+    it.each(['oauth', '1e3', '1.5', '0x10', '-1', '0', '99999999999999999999'])(
+      'rejects "%s", which is not a card number',
+      async (raw) => {
+        // A card #1 exists, so reading "1e3" or "1.5" as 1 would answer 200.
+        await createCard(server, board, board.owner.token)
+        const response = await call<{ error: { code: string } }>(server, {
+          method: 'GET',
+          url: `/v1/boards/${board.slug}/cards/${raw}`,
+          token: board.owner.token,
+        })
+        expect(response.status).toBe(400)
+        expect(response.body.error.code).toBe('validation_failed')
+      },
+    )
 
     it('reports a card that does not exist', async () => {
       const response = await call<{ error: { code: string } }>(server, {
@@ -503,6 +498,21 @@ describe('route behaviour at the edges', () => {
       })
       expect(detail.body.columns.map((column) => column.key)).toEqual(['icebox', 'shipping'])
       expect(detail.body.columns[0]?.semantics).toBeNull()
+    })
+
+    it.each([
+      [['Todo', 'todo'], 'Columns "Todo" and "todo" would both be "todo"'],
+      [['🚀', '✅'], 'Columns "🚀" and "✅" would both be "column"'],
+    ])('refuses custom columns %j that share a key, rather than a 500', async (names, message) => {
+      const response = await call<{ error: { code: string; message: string } }>(server, {
+        method: 'POST',
+        url: '/v1/boards',
+        token: board.owner.token,
+        body: { name: unique('same-key'), columns: names },
+      })
+      expect(response.status).toBe(400)
+      expect(response.body.error.code).toBe('validation_failed')
+      expect(response.body.error.message).toContain(message)
     })
   })
 
