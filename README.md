@@ -211,4 +211,4 @@ Appendix E for the definition of done, and [RELEASE.md](RELEASE.md) for how a re
 
 ## License
 
-[MIT](LICENSE) © 2026 Apurv Choudhary
+[MIT](LICENSE) © 2026 Adarsh & Apurv Choudhary
